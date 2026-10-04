@@ -11,16 +11,17 @@ import type { Estufas, Reserva, EstufaStatus } from '../types';
 import { getCasasVegetacao, getReservas } from '../services/api';
 import { MOCK_ESTUFAS, MOCK_RESERVAS } from './mock';
 import { hojeISO } from '../lib/format';
+import { MODO_DEMO } from '../lib/ambiente';
 
 export const ESTUFAS: Estufas = {};
 export const reservas: Reserva[] = [];
 
 /**
- * Modo demonstração: dados locais em vez da API. Liga com VITE_USE_MOCK=true
- * ou automaticamente quando VITE_API_URL não está definida.
+ * Código da interface (E01, R001) para o id real do banco. A API precisa do id
+ * numérico ao criar ou alterar uma reserva; a interface só conhece o código.
  */
-const USE_MOCK =
-  String(import.meta.env.VITE_USE_MOCK) === 'true' || !import.meta.env.VITE_API_URL;
+export const ID_REAL_ESPACO: Record<string, number> = {};
+export const ID_REAL_RESERVA: Record<string, number> = {};
 
 const CHAVES = {
   reservas: 'cvgweb:reservas',
@@ -67,7 +68,7 @@ function restaurarLocal(): void {
 }
 
 export function salvarEstado(): void {
-  if (!USE_MOCK) return;
+  if (!MODO_DEMO) return;
   try {
     const status: Record<string, EstufaStatus> = {};
     for (const [id, estufa] of Object.entries(ESTUFAS)) status[id] = estufa.status;
@@ -96,10 +97,21 @@ interface ReservaApi {
   id: number;
   casa_vegetacao_id: number;
   data_inicio?: string;
-  quantidade?: number;
+  data_fim?: string;
   projeto?: { codigo?: string };
   projeto_id?: number | string;
-  status?: Reserva['status'];
+  funcionario?: { nome?: string };
+  finalidade?: string;
+  obs?: string;
+  status?: string;
+}
+
+/** A API devolve o status em maiúsculas; aqui ele vira a chave da interface. */
+function statusDaReserva(bruto: string | undefined): Reserva['status'] {
+  const valor = String(bruto ?? 'ativa').toLowerCase();
+  if (valor === 'cancelada') return 'cancelada';
+  if (valor === 'pendente') return 'pendente';
+  return 'ativa';
 }
 
 function statusDaCasa(chave: string, ativa: boolean): EstufaStatus {
@@ -112,7 +124,7 @@ function statusDaCasa(chave: string, ativa: boolean): EstufaStatus {
 }
 
 export async function carregarEstado(): Promise<void> {
-  if (USE_MOCK) {
+  if (MODO_DEMO) {
     console.info('[CVGWeb] modo demonstração: dados locais, sem API.');
     carregarMock();
     return;
@@ -125,6 +137,8 @@ export async function carregarEstado(): Promise<void> {
     ]);
 
     for (const chave of Object.keys(ESTUFAS)) delete ESTUFAS[chave];
+    for (const chave of Object.keys(ID_REAL_ESPACO)) delete ID_REAL_ESPACO[chave];
+    for (const chave of Object.keys(ID_REAL_RESERVA)) delete ID_REAL_RESERVA[chave];
     reservas.length = 0;
 
     // Ordena pelo id real para que E01, E02... sigam sempre a mesma ordem,
@@ -137,6 +151,7 @@ export async function carregarEstado(): Promise<void> {
     casas.forEach((casa, indice) => {
       const chave = `E${String(indice + 1).padStart(2, '0')}`;
       chavePorId[casa.id] = chave;
+      ID_REAL_ESPACO[chave] = casa.id;
 
       ESTUFAS[chave] = {
         nome: casa.descricao ?? chave,
@@ -152,15 +167,21 @@ export async function carregarEstado(): Promise<void> {
 
     const lista: ReservaApi[] = reservasResposta.data ?? reservasResposta;
     for (const item of lista) {
+      const codigo = `R${String(item.id).padStart(3, '0')}`;
+      ID_REAL_RESERVA[codigo] = item.id;
+
       reservas.push({
-        id: `R${String(item.id).padStart(3, '0')}`,
+        id: codigo,
         estufaId:
           chavePorId[item.casa_vegetacao_id]
           ?? `E${String(item.casa_vegetacao_id).padStart(2, '0')}`,
         data: item.data_inicio?.slice(0, 10) ?? '',
-        qtd: item.quantidade ?? 0,
+        dataFim: item.data_fim?.slice(0, 10) ?? '',
         projeto: item.projeto?.codigo ?? String(item.projeto_id ?? ''),
-        status: item.status ?? 'ativa',
+        finalidade: item.finalidade ?? '',
+        obs: item.obs ?? '',
+        pesquisador: item.funcionario?.nome ?? '',
+        status: statusDaReserva(item.status),
       });
     }
   } catch (erro) {

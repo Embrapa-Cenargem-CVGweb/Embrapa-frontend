@@ -1,5 +1,8 @@
 /**
  * Reservar um espaço e consultar uma reserva.
+ *
+ * A reserva é um período (início e fim) vinculado a um projeto, no mesmo
+ * formato que a API Laravel espera.
  */
 import {
   ESTUFAS,
@@ -14,11 +17,16 @@ import { dataBR, hojeISO, plural, statusPill } from '../lib/format';
 import { abrirModal, fecharModal, fecharTodosModais } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import { fecharPainel } from './mapa';
+import { usuarioAtual } from './login';
 
 /** Espaço que o modal de reserva está preenchendo. */
 let espacoDaReserva: string | null = null;
 /** Reserva aberta no modal de consulta. */
 let reservaAberta: string | null = null;
+
+function valor(id: string): string {
+  return (el<HTMLInputElement>(id)?.value ?? '').trim();
+}
 
 /* ===========================================================================
    Reservar
@@ -46,21 +54,33 @@ export function abrirModalReservar(estufaId: string): void {
   const marca = el('reservar-marca');
   if (marca) marca.innerHTML = html`${icone(estufa.icon)}`;
 
-  const formulario = el<HTMLFormElement>('form-reservar');
-  formulario?.reset();
+  el<HTMLFormElement>('form-reservar')?.reset();
 
-  const data = el<HTMLInputElement>('reservar-data');
-  if (data) data.min = hojeISO();
-
-  const qtd = el<HTMLInputElement>('reservar-qtd');
-  if (qtd) {
-    qtd.max = String(estufa.cap);
-    qtd.removeAttribute('aria-invalid');
+  // O período não pode começar no passado.
+  const hoje = hojeISO();
+  const inicio = el<HTMLInputElement>('reservar-data-inicio');
+  const fim = el<HTMLInputElement>('reservar-data-fim');
+  if (inicio) {
+    inicio.min = hoje;
+    inicio.removeAttribute('aria-invalid');
   }
-  setText('reservar-limite', `Até ${estufa.cap} por reserva`);
+  if (fim) {
+    fim.min = hoje;
+    fim.removeAttribute('aria-invalid');
+  }
 
   fecharPainel();
   abrirModal('modal-reservar');
+}
+
+/** O fim do período acompanha o início, para não ficar para trás dele. */
+export function ajustarFimDoPeriodo(): void {
+  const inicio = el<HTMLInputElement>('reservar-data-inicio');
+  const fim = el<HTMLInputElement>('reservar-data-fim');
+  if (!inicio || !fim) return;
+
+  if (inicio.value) fim.min = inicio.value;
+  if (fim.value && inicio.value && fim.value < inicio.value) fim.value = inicio.value;
 }
 
 export function confirmarReserva(): void {
@@ -68,38 +88,37 @@ export function confirmarReserva(): void {
   const estufa = ESTUFAS[espacoDaReserva];
   if (!estufa) return;
 
-  const data = el<HTMLInputElement>('reservar-data')?.value ?? '';
-  const qtdCampo = el<HTMLInputElement>('reservar-qtd');
-  const qtd = Number(qtdCampo?.value ?? '');
-  const projeto = el<HTMLSelectElement>('reservar-projeto')?.value ?? '';
+  const inicio = valor('reservar-data-inicio');
+  const fim = valor('reservar-data-fim');
+  const projeto = valor('reservar-projeto');
+  const finalidade = valor('reservar-finalidade');
+  const obs = valor('reservar-obs');
 
-  if (!data || !qtdCampo?.value || !projeto) {
-    aviso('Preencha data, quantidade e projeto.', 'error');
+  if (!inicio || !fim || !projeto || !finalidade) {
+    aviso('Preencha o período, o projeto e a finalidade.', 'error');
     return;
   }
 
-  if (!Number.isInteger(qtd) || qtd < 1) {
-    qtdCampo.setAttribute('aria-invalid', 'true');
-    qtdCampo.focus();
-    aviso('A quantidade precisa ser um número inteiro de 1 para cima.', 'error');
+  const campoFim = el<HTMLInputElement>('reservar-data-fim');
+  if (fim < inicio) {
+    campoFim?.setAttribute('aria-invalid', 'true');
+    campoFim?.focus();
+    aviso('O fim do período não pode ser antes do início.', 'error');
     return;
   }
-
-  if (qtd > estufa.cap) {
-    qtdCampo.setAttribute('aria-invalid', 'true');
-    qtdCampo.focus();
-    aviso(`${estufa.nome} comporta até ${estufa.cap} por reserva.`, 'error');
-    return;
-  }
-
-  qtdCampo.removeAttribute('aria-invalid');
+  campoFim?.removeAttribute('aria-invalid');
 
   reservas.push({
     id: proximoIdReserva(),
     estufaId: espacoDaReserva,
-    data,
-    qtd,
+    data: inicio,
+    dataFim: fim,
     projeto,
+    finalidade,
+    obs,
+    // Quem está na sessão é o dono da reserva; com a API o back-end faz o
+    // mesmo a partir do token.
+    pesquisador: usuarioAtual()?.nome ?? '',
     status: 'pendente',
   });
 
@@ -126,16 +145,17 @@ export function verReserva(id: string): void {
   setText('ver-reserva-titulo', estufa ? estufa.nome : reserva.estufaId);
   setText('ver-reserva-descricao', estufa?.tipo ?? 'Espaço não encontrado');
   setText('ver-reserva-codigo', reserva.id);
-  setText('ver-reserva-data', dataBR(reserva.data));
-  setText('ver-reserva-qtd', plural(reserva.qtd, 'vaso ou estante', 'vasos ou estantes'));
+  setText('ver-reserva-inicio', dataBR(reserva.data));
+  setText('ver-reserva-fim', dataBR(reserva.dataFim));
   setText('ver-reserva-projeto', reserva.projeto);
+  setText('ver-reserva-finalidade', reserva.finalidade || '—');
+  setText('ver-reserva-pesquisador', reserva.pesquisador || '—');
 
   const status = el('ver-reserva-status');
   if (status) status.innerHTML = html`${statusPill(reserva.status)}`;
 
   // Reserva já cancelada não oferece o botão de cancelar.
-  const cancelar = el('ver-reserva-cancelar');
-  show(cancelar, reserva.status !== 'cancelada');
+  show(el('ver-reserva-cancelar'), reserva.status !== 'cancelada');
 
   fecharPainel();
   abrirModal('modal-ver-reserva');

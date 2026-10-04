@@ -114,6 +114,12 @@
   color: var(--fg-2);
 }
 
+/* Marca um campo que pode ficar em branco, dentro do próprio rótulo. */
+.field__opcional {
+  font-weight: var(--fw-regular);
+  color: var(--fg-muted);
+}
+
 .field__hint {
   margin-top: var(--s-1);
   font-size: var(--text-xs);

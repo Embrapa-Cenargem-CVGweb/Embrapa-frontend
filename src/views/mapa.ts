@@ -159,8 +159,8 @@ function preencherPainel(id: string): void {
     setText('painel-reserva-projeto', reserva.projeto);
     setText(
       'painel-reserva-meta',
-      `${statusInfo(reserva.status).label}, para ${dataBR(reserva.data)}, com `
-      + `${plural(reserva.qtd, 'vaso ou estante', 'vasos ou estantes')}.`,
+      `${statusInfo(reserva.status).label}, de ${dataBR(reserva.data)} `
+      + `a ${dataBR(reserva.dataFim)}.`,
     );
   }
 

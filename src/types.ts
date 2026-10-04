@@ -1,5 +1,8 @@
 /**
  * Tipos de domínio do CVGWeb.
+ *
+ * O formato de reserva acompanha o da API Laravel: período (início e fim),
+ * projeto e finalidade.
  */
 
 export type EstufaStatus = 'livre' | 'ocupada' | 'reservada' | 'manutencao';
@@ -41,19 +44,36 @@ export type Estufas = Record<string, Estufa>;
 export interface Reserva {
   id: string;
   estufaId: string;
-  /** Data no formato AAAA-MM-DD. */
+  /** Início do período, AAAA-MM-DD (data_inicio na API). */
   data: string;
-  qtd: number;
+  /** Fim do período, AAAA-MM-DD (data_fim na API). */
+  dataFim: string;
+  /** Código do projeto vinculado. */
   projeto: string;
+  /** Para que o espaço será usado. */
+  finalidade?: string;
+  /** Observações livres. */
+  obs?: string;
+  /** Nome do funcionário dono da reserva, quando vem da API. */
+  pesquisador?: string;
   status: ReservaStatus;
 }
 
+/**
+ * Usuário da sessão. Mesmo formato nos dois modos: em demonstração vem da
+ * lista local, com a API vem do funcionário devolvido em /login.
+ */
 export interface Usuario {
   id: string;
-  name: string;
-  role: PerfilUsuario;
+  nome: string;
+  /** Dá acesso à administração (super_usuario na API). */
+  admin: boolean;
+  /** Cargo mostrado na barra lateral. */
+  cargo: string;
+  /** Identificação usada para entrar. */
   login: string;
-  senha: string;
+  /** Só no modo demonstração; a API nunca devolve senha. */
+  senha?: string;
 }
 
 export interface StatusInfo {

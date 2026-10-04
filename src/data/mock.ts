@@ -59,7 +59,25 @@ export const MOCK_ESTUFAS: Record<string, Estufa> = {
 };
 
 export const MOCK_RESERVAS: Reserva[] = [
-  { id: 'R001', estufaId: 'E03', data: '2026-04-10', qtd: 5, projeto: 'CRISPR-Soja: Resistência a Nematódeos', status: 'ativa' },
-  { id: 'R002', estufaId: 'E05', data: '2026-05-11', qtd: 6, projeto: 'Biofortificação em Feijão', status: 'pendente' },
-  { id: 'R003', estufaId: 'E11', data: '2026-06-12', qtd: 7, projeto: 'Melhoramento de Milho Tropical', status: 'ativa' },
+  {
+    id: 'R001', estufaId: 'E03',
+    data: '2026-04-10', dataFim: '2026-07-10',
+    projeto: 'CRISPR-Soja: resistência a nematódeos',
+    finalidade: 'Ensaio de resistência em linhagens editadas',
+    pesquisador: 'Rafael Lima', status: 'ativa',
+  },
+  {
+    id: 'R002', estufaId: 'E05',
+    data: '2026-05-11', dataFim: '2026-08-11',
+    projeto: 'Biofortificação em feijão',
+    finalidade: 'Multiplicação de sementes da geração F3',
+    pesquisador: 'Ana Oliveira', status: 'pendente',
+  },
+  {
+    id: 'R003', estufaId: 'E11',
+    data: '2026-06-12', dataFim: '2026-09-12',
+    projeto: 'Melhoramento de milho tropical',
+    finalidade: 'Avaliação de tolerância a estresse hídrico',
+    pesquisador: 'Rafael Lima', status: 'ativa',
+  },
 ];

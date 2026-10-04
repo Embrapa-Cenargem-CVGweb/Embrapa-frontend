@@ -46,6 +46,7 @@ import {
 } from './views/mapa';
 import {
   abrirModalReservar,
+  ajustarFimDoPeriodo,
   cancelarReservaAberta,
   confirmarReserva,
   verReserva,
@@ -59,7 +60,7 @@ type Secao = 'mapa' | 'admin';
    =========================================================================== */
 
 function mostrarSecao(secao: Secao): void {
-  if (secao === 'admin' && usuarioAtual()?.role !== 'admin') {
+  if (secao === 'admin' && !usuarioAtual()?.admin) {
     aviso('A área de administração é restrita a administradores.', 'error');
     return;
   }
@@ -103,16 +104,16 @@ function montarApp(usuario: Usuario): void {
   show(el('tela-entrada'), false);
   show(el('app'), true);
 
-  setText('conta-nome', usuario.name);
-  setText('conta-perfil', usuario.role === 'admin' ? 'Administrador' : 'Pesquisador');
-  show(el('nav-admin'), usuario.role === 'admin');
+  setText('conta-nome', usuario.nome);
+  setText('conta-perfil', usuario.cargo);
+  show(el('nav-admin'), usuario.admin);
 
   mostrarSecao('mapa');
 
   // Os marcadores só sobem depois que os dados chegam.
   void carregarEstado().then(() => {
     renderizarMarcadores();
-    if (usuario.role === 'admin') renderizarAdmin();
+    if (usuario.admin) renderizarAdmin();
   });
 }
 
@@ -201,13 +202,15 @@ function registrarTodasAsAcoes(): void {
 function ligarFormularios(): void {
   el<HTMLFormElement>('form-entrada')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
-    entrar();
+    void entrar();
   });
 
   el<HTMLFormElement>('form-reservar')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
     confirmarReserva();
   });
+
+  el<HTMLInputElement>('reservar-data-inicio')?.addEventListener('change', ajustarFimDoPeriodo);
 
   el<HTMLFormElement>('form-novo-usuario')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
@@ -297,7 +300,7 @@ export function iniciarApp(): void {
   // Uma mudança de dado atualiza marcadores e, se estiver aberta, a administração.
   aoMudar(() => {
     sincronizarMarcadores();
-    if (usuarioAtual()?.role === 'admin') renderizarAdmin();
+    if (usuarioAtual()?.admin) renderizarAdmin();
   });
 
   iniciarAutenticacao(montarApp, desmontarApp);

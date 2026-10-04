@@ -29,7 +29,7 @@ let filtroReservas: FiltroReserva = 'todas';
 let perfilNovoUsuario: PerfilUsuario = 'pesquisador';
 
 function ehAdmin(): boolean {
-  return usuarioAtual()?.role === 'admin';
+  return usuarioAtual()?.admin === true;
 }
 
 export function renderizarAdmin(): void {
@@ -180,7 +180,7 @@ function renderizarReservas(): void {
 
   if (!linhas.length) {
     corpo.innerHTML = linhaVazia(
-      7,
+      6,
       'calendar-x',
       termo
         ? `Nenhuma reserva corresponde a “${buscaReservas}”.`
@@ -198,8 +198,9 @@ function renderizarReservas(): void {
           <td data-label="Código"><span class="code">${r.id}</span></td>
           <td data-label="Espaço" class="table__name">${nome}</td>
           <td data-label="Projeto" class="table__truncate" title="${r.projeto}">${r.projeto}</td>
-          <td data-label="Data" style="white-space:nowrap">${dataBR(r.data)}</td>
-          <td data-label="Qtd.">${r.qtd}</td>
+          <td data-label="Período" style="white-space:nowrap">
+            ${dataBR(r.data)} a ${dataBR(r.dataFim)}
+          </td>
           <td data-label="Status">${statusPill(r.status)}</td>
           <td data-label="Ações">
             <div class="table__actions">
@@ -296,27 +297,27 @@ function renderizarUsuarios(): void {
 
   grade.innerHTML = juntar(
     usuarios.map((u) => {
-      const admin = u.role === 'admin';
+      const admin = u.admin;
       const souEu = eu?.id === u.id;
       // Um admin remove pesquisadores e a própria conta, nunca outro admin.
       const podeExcluir = !admin || souEu;
       return html`
-        <div class="user-card" data-role="${u.role}">
+        <div class="user-card" data-role="${admin ? 'admin' : 'pesquisador'}">
           <span class="user-card__avatar">${icone(admin ? 'shield-user' : 'user', 'ic ic--sm')}</span>
           <div class="user-card__body">
             <div class="user-card__name">
-              ${u.name}
+              ${u.nome}
               ${raw(souEu ? html`<span class="pill pill--ok">você</span>` : '')}
             </div>
             <div class="user-card__meta">
-              ${admin ? 'Administrador' : 'Pesquisador'}
+              ${u.cargo}
               <span class="code">${u.login}</span>
             </div>
           </div>
           ${raw(podeExcluir
             ? html`<button type="button" class="user-card__del"
                     data-action="excluir-usuario" data-id="${u.id}"
-                    aria-label="Excluir ${souEu ? 'minha conta' : u.name}">
+                    aria-label="Excluir ${souEu ? 'minha conta' : u.nome}">
                     ${icone('trash-2', 'ic ic--sm')}
                   </button>`
             : '')}
@@ -369,7 +370,7 @@ export function confirmarNovoUsuario(): void {
 
   trocarModal('modal-novo-usuario', 'modal-usuarios');
   aviso(
-    `${resultado.usuario!.name} cadastrado. Primeiro acesso com o e-mail e a senha ${resultado.senha}.`,
+    `${resultado.usuario!.nome} cadastrado. Primeiro acesso com o e-mail e a senha ${resultado.senha}.`,
     'success',
   );
 }
@@ -385,9 +386,9 @@ export async function pedirExclusaoUsuario(
   const ok = await confirmar({
     titulo: souEu ? 'Excluir sua conta?' : 'Excluir este usuário?',
     mensagem: souEu
-      ? html`A conta <strong>${usuario.name}</strong> é removida e a sessão
+      ? html`A conta <strong>${usuario.nome}</strong> é removida e a sessão
              termina agora. Não é possível desfazer.`
-      : html`<strong>${usuario.name}</strong> perde o acesso ao sistema.
+      : html`<strong>${usuario.nome}</strong> perde o acesso ao sistema.
              Não é possível desfazer.`,
     icone: 'user-x',
     confirmar: 'Excluir',
@@ -408,7 +409,7 @@ export async function pedirExclusaoUsuario(
   }
 
   renderizarUsuarios();
-  aviso(`${usuario.name} foi removido do sistema.`, 'info');
+  aviso(`${usuario.nome} foi removido do sistema.`, 'info');
 }
 
 /* ===========================================================================

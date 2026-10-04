@@ -132,7 +132,7 @@
                autocomplete="current-password" required />
       </div>
 
-      <button class="btn btn--primary login__submit" type="submit">
+      <button class="btn btn--primary login__submit" type="submit" id="entrada-enviar">
         <svg class="ic" aria-hidden="true"><use href="#i-log-in" /></svg>
         Entrar
       </button>
@@ -522,8 +522,7 @@
                 <th scope="col">Código</th>
                 <th scope="col">Espaço</th>
                 <th scope="col">Projeto</th>
-                <th scope="col">Data</th>
-                <th scope="col">Qtd.</th>
+                <th scope="col">Período</th>
                 <th scope="col">Status</th>
                 <th scope="col">Ações</th>
               </tr>
@@ -647,26 +646,38 @@
 
       <div class="field-row">
         <div class="field">
-          <label class="field__label" for="reservar-data">Data</label>
-          <input class="input" type="date" id="reservar-data" name="data" required />
+          <label class="field__label" for="reservar-data-inicio">Início</label>
+          <input class="input" type="date" id="reservar-data-inicio" name="data_inicio" required />
         </div>
         <div class="field">
-          <label class="field__label" for="reservar-qtd">Vasos ou estantes</label>
-          <input class="input" type="number" id="reservar-qtd" name="qtd" min="1"
-                 inputmode="numeric" aria-describedby="reservar-limite" required />
-          <p class="field__hint" id="reservar-limite">&mdash;</p>
+          <label class="field__label" for="reservar-data-fim">Fim</label>
+          <input class="input" type="date" id="reservar-data-fim" name="data_fim" required />
         </div>
       </div>
 
       <div class="field">
         <label class="field__label" for="reservar-projeto">Projeto</label>
-        <select class="select" id="reservar-projeto" name="projeto" required>
+        <select class="select" id="reservar-projeto" name="projeto_id" required>
           <option value="">Selecione o projeto</option>
           <option>CRISPR-Soja: resistência a nematódeos</option>
           <option>Biofortificação em feijão</option>
           <option>Resistência fúngica em arroz</option>
           <option>Melhoramento de milho tropical</option>
         </select>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="reservar-finalidade">Finalidade</label>
+        <input class="input" type="text" id="reservar-finalidade" name="finalidade"
+               placeholder="Ensaio de resistência a nematódeos" required />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="reservar-obs">
+          Observações <span class="field__opcional">opcional</span>
+        </label>
+        <input class="input" type="text" id="reservar-obs" name="obs"
+               placeholder="Precisa de irrigação automática" />
       </div>
     </form>
 
@@ -705,16 +716,24 @@
           <div class="datagrid__value" id="ver-reserva-status">&mdash;</div>
         </div>
         <div>
-          <div class="datagrid__label">Data</div>
-          <div class="datagrid__value" id="ver-reserva-data">&mdash;</div>
+          <div class="datagrid__label">Início</div>
+          <div class="datagrid__value" id="ver-reserva-inicio">&mdash;</div>
         </div>
         <div>
-          <div class="datagrid__label">Vasos ou estantes</div>
-          <div class="datagrid__value" id="ver-reserva-qtd">&mdash;</div>
+          <div class="datagrid__label">Fim</div>
+          <div class="datagrid__value" id="ver-reserva-fim">&mdash;</div>
         </div>
         <div>
           <div class="datagrid__label">Projeto</div>
           <div class="datagrid__value" id="ver-reserva-projeto">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Finalidade</div>
+          <div class="datagrid__value" id="ver-reserva-finalidade">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Pesquisador</div>
+          <div class="datagrid__value" id="ver-reserva-pesquisador">&mdash;</div>
         </div>
       </div>
     </div>
