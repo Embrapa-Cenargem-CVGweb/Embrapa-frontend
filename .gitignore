@@ -135,3 +135,6 @@ api-keys.json
 # Descomente se quiser manter alguns arquivos
 # !.gitkeep
 # !important-file.txt
+
+# Cópia dos arquivos antes do refactor de design (apagar quando não precisar)
+.pre-refactor-backup/

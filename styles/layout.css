@@ -1,0 +1,319 @@
+/* ===========================================================================
+   CVGWeb · Casca da aplicação
+   Navegação lateral, área principal e troca de views.
+   =========================================================================== */
+
+.app {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ===========================================================================
+   Navegação lateral
+   =========================================================================== */
+
+.sidebar {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--sidebar-w);
+  padding: var(--s-4) var(--s-3) var(--s-3);
+  color: var(--nav-fg);
+  background: var(--nav-bg);
+  border-right: 1px solid var(--nav-line);
+}
+
+/* --- Marca --------------------------------------------------------------- */
+
+.brand {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  padding: var(--s-1) var(--s-2) var(--s-5);
+}
+
+/* Quadradinho com o logo institucional dentro. O logo é colorido para fundo
+   claro, por isso a placa é branca mesmo sobre a lateral escura; o logo não é
+   recortado nem redesenhado, só entra inteiro e contido. */
+.brand__logo {
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 3px;
+  object-fit: contain;
+  background: var(--logo-plate);
+  border-radius: var(--r-md);
+}
+
+.brand__text {
+  min-width: 0;
+}
+
+.brand__name {
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+}
+
+.brand__org {
+  font-size: var(--text-xs);
+  color: var(--nav-fg-muted);
+}
+
+/* --- Itens ---------------------------------------------------------------- */
+
+.nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.nav__item {
+  position: relative;
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--text-md);
+  font-weight: var(--fw-medium);
+  color: var(--nav-fg-muted);
+  text-align: left;
+  border-radius: var(--r-md);
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.nav__item:hover {
+  color: var(--nav-fg);
+  background: var(--nav-hover);
+}
+
+.nav__item[aria-current="page"] {
+  font-weight: var(--fw-semibold);
+  color: var(--nav-active-fg);
+  background: var(--nav-active-bg);
+}
+
+.nav__item:focus-visible {
+  outline-color: var(--nav-fg);
+}
+
+/* --- Rodapé: usuário e menu --------------------------------------------- */
+
+.sidebar__footer {
+  position: relative;
+  padding-top: var(--s-3);
+  margin-top: var(--s-3);
+  border-top: 1px solid var(--nav-line);
+}
+
+.account {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--s-2);
+  text-align: left;
+  border-radius: var(--r-md);
+  transition: background var(--dur-1) var(--ease);
+}
+
+.account:hover {
+  background: var(--nav-hover);
+}
+
+.account:focus-visible {
+  outline-color: var(--nav-fg);
+}
+
+.account__avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  color: var(--nav-fg);
+  background: var(--nav-hover);
+  border: 1px solid var(--nav-line);
+  border-radius: var(--r-pill);
+}
+
+.account__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.account__name {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account__role {
+  font-size: var(--text-xs);
+  color: var(--nav-fg-muted);
+  line-height: var(--lh-snug);
+}
+
+.account__caret {
+  flex: none;
+  color: var(--nav-fg-muted);
+}
+
+/* --- Menu do usuário (abre para cima) ----------------------------------- */
+
+.menu {
+  position: absolute;
+  bottom: calc(100% + var(--s-2));
+  left: 0;
+  z-index: 60;
+  min-width: 100%;
+  padding: var(--s-2);
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+}
+
+.menu[hidden] {
+  display: none;
+}
+
+.menu__item {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  width: 100%;
+  padding: var(--s-2) var(--s-2);
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+  text-align: left;
+  border-radius: var(--r-sm);
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.menu__item:hover {
+  color: var(--fg);
+  background: var(--surface-3);
+}
+
+.menu__item--danger:hover {
+  color: var(--down-soft-fg);
+  background: var(--down-soft);
+}
+
+/* ===========================================================================
+   Área principal e views
+   =========================================================================== */
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.view {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.view.is-active {
+  display: flex;
+}
+
+/* ===========================================================================
+   Cabeçalho de página — usado pelas views que não sao o mapa
+   =========================================================================== */
+
+.page-head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--s-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.page-head__title {
+  font-size: var(--text-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.015em;
+}
+
+.page-head__desc {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.page-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+/* ===========================================================================
+   Responsivo — abaixo de 56rem a lateral vira trilho de ícones
+   =========================================================================== */
+
+@media (width <= 56rem) {
+  .sidebar {
+    width: var(--sidebar-w-rail);
+    padding-inline: var(--s-2);
+  }
+
+  .brand {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  /* No trilho os rótulos saem da vista, mas continuam no nome acessível dos
+     botões: `display: none` os apagaria também para o leitor de tela. */
+  .brand__text,
+  .nav__item span,
+  .account__text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Só decoração: pode sair do fluxo e da árvore de acessibilidade. */
+  .account__caret {
+    display: none;
+  }
+
+  .nav__item,
+  .account {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  .menu {
+    min-width: 13rem;
+  }
+}

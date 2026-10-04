@@ -1,0 +1,158 @@
+/* ===========================================================================
+   CVGWeb · Tokens de design
+   Fonte única de verdade para cor, tipografia, espaço, raio, sombra e motion.
+   Nenhum valor literal de cor deve aparecer fora deste arquivo.
+   =========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* --- Marca institucional -------------------------------------------------
+     Os dois valores oficiais da Embrapa. Usados como grafismo; para texto
+     valem as versões de --accent / --booked, que passam em AA.             */
+  --brand-green: #007a3d;
+  --brand-blue: #003da5;
+
+  /* --- Superfícies --------------------------------------------------------- */
+  --bg: #f1f5f0;
+  --surface: #ffffff;
+  --surface-2: #f7faf6;
+  --surface-3: #eef3ec;
+  --scrim: rgb(10 30 20 / 45%);
+
+  /* --- Linhas ------------------------------------------------------------- */
+  --line: #dde6d9;
+  --line-strong: #c2d2bb;
+
+  /* --- Texto (todos >= 4.5:1 sobre --surface) ----------------------------- */
+  --fg: #14211a;
+  --fg-2: #3a4a40;
+  --fg-muted: #5b6b61;
+
+  /* --- Ação primaria ------------------------------------------------------ */
+  --accent: #00703a;
+  --accent-hover: #005c30;
+  --accent-active: #044626;
+  --accent-fg: #ffffff;
+  --accent-soft: #e6f2ea;
+  --accent-soft-fg: #005c30;
+  --accent-line: #a3d3b8;
+
+  /* --- Estados de espaço e de reserva ------------------------------------- */
+  --ok: #00703a;              /* livre, ativa */
+  --ok-fg: #ffffff;
+  --ok-soft: #e6f2ea;
+  --ok-soft-fg: #005c30;
+
+  --busy: #9a5b00;            /* ocupada, pendente */
+  --busy-fg: #ffffff;
+  --busy-soft: #f8efdf;
+  --busy-soft-fg: #7d4a00;
+
+  --booked: #0043a0;          /* reservada, admin, informação */
+  --booked-fg: #ffffff;
+  --booked-soft: #e7eefa;
+  --booked-soft-fg: #00398f;
+
+  --down: #b02525;            /* manutenção, cancelada, perigo */
+  --down-fg: #ffffff;
+  --down-soft: #fbeaea;
+  --down-soft-fg: #94201f;
+
+  /* --- Placa do logo -------------------------------------------------------
+     O logo da Embrapa é azul e verde sobre claro, então a placa continua
+     branca também no tema escuro.                                        */
+  --logo-plate: #ffffff;
+
+  /* --- Marcadores do mapa -------------------------------------------------
+     Cores próprias, mais vivas que as dos status em tela: os pontos ficam
+     sobre a foto aérea, não sobre uma superfície do tema, e precisam saltar
+     do verde e do telhado. Valem nos dois temas.                          */
+  --marker-livre: #00a651;
+  --marker-livre-glow: rgb(0 166 81 / 52%);
+  --marker-ocupada: #c07800;
+  --marker-ocupada-glow: rgb(192 120 0 / 48%);
+  --marker-reservada: #0a58d6;
+  --marker-reservada-glow: rgb(10 88 214 / 46%);
+  --marker-manutencao: #d23b3b;
+  --marker-manutencao-glow: rgb(210 59 59 / 46%);
+  --marker-indefinido: #9aa5a0;
+  --marker-aro: #ffffff;
+  --marker-balao: rgb(8 34 18 / 95%);
+
+  /* --- Navegação lateral (escura nos dois temas) -------------------------- */
+  --nav-bg: #0c231a;
+  --nav-bg-2: #081a13;
+  --nav-line: rgb(255 255 255 / 10%);
+  --nav-fg: #e8f0ea;
+  --nav-fg-muted: #9fb3a7;
+  --nav-hover: rgb(255 255 255 / 8%);
+  --nav-active-bg: #ffffff;
+  --nav-active-fg: #0a3d24;
+
+  /* --- Foco --------------------------------------------------------------- */
+  --focus: #0043a0;
+  --focus-offset: 2px;
+
+  /* --- Tipografia --------------------------------------------------------- */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo,
+    Consolas, monospace;
+
+  --text-2xs: 0.6875rem;      /* 11px — só pills e badges */
+  --text-xs: 0.75rem;         /* 12px */
+  --text-sm: 0.8125rem;       /* 13px */
+  --text-md: 0.875rem;        /* 14px — corpo padrão da interface */
+  --text-base: 1rem;          /* 16px */
+  --text-lg: 1.25rem;         /* 20px */
+  --text-xl: 1.5rem;          /* 24px */
+  --text-2xl: 1.875rem;       /* 30px */
+
+  --lh-tight: 1.15;
+  --lh-snug: 1.35;
+  --lh-normal: 1.55;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* --- Espaço (escala de 4) ----------------------------------------------- */
+  --s-1: 0.25rem;   /*  4 */
+  --s-2: 0.5rem;    /*  8 */
+  --s-3: 0.75rem;   /* 12 */
+  --s-4: 1rem;      /* 16 */
+  --s-5: 1.25rem;   /* 20 */
+  --s-6: 1.5rem;    /* 24 */
+  --s-7: 2rem;      /* 32 */
+  --s-8: 2.5rem;    /* 40 */
+
+  /* --- Raio --------------------------------------------------------------- */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* --- Sombra ------------------------------------------------------------- */
+  --shadow-1: 0 1px 2px rgb(16 38 26 / 6%);
+  --shadow-2: 0 1px 2px rgb(16 38 26 / 6%), 0 4px 12px rgb(16 38 26 / 7%);
+  --shadow-3: 0 8px 32px rgb(10 32 20 / 16%), 0 2px 8px rgb(10 32 20 / 8%);
+
+  /* --- Motion ------------------------------------------------------------- */
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Painéis que deslizam: sai devagar, chega devagar, sem o arranco do
+     --ease-out, que percorre quase todo o caminho no primeiro terço. */
+  --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --dur-4: 440ms;
+
+  /* --- Medidas da casca --------------------------------------------------- */
+  --sidebar-w: 15rem;
+  --sidebar-w-rail: 4.25rem;
+  --panel-w: 22rem;
+}

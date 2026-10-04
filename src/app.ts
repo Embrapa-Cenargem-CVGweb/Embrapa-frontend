@@ -1,186 +1,304 @@
 /**
- * App — Inicialização e orquestração geral
- * Embrapa Cenargen
+ * Casca da aplicação: navegação, menu da conta, tema e ligação das ações.
+ *
+ * Todo clique entra por um único listener delegado (lib/actions). Nenhuma função
+ * é publicada em `window` e não existe `onclick` no HTML.
  */
-import { ESTUFAS, reservas } from './data/estufas';
-import { Calendar } from './components/Calendar';
-import { Dashboard } from './components/Dashboard';
-import { renderHotspots, updateEstufaOnMap, closePopup } from './views/mapa';
-import { renderReservasList } from './views/reservas';
-import { renderAdmin } from './views/admin';
-import { initAuth } from './views/login';
+import { carregarEstado } from './data/estufas';
+import { iniciarAcoes, registrarAcoes } from './lib/actions';
+import { aoMudar } from './lib/bus';
+import { debounce, el, qsa, setText, show } from './lib/dom';
+import { abrirModal, fecharTodosModais, iniciarModais } from './lib/modal';
+import { aviso } from './lib/toast';
+import type { Usuario } from './types';
 
-const $ = (id: string): HTMLElement | null => document.getElementById(id);
+import {
+  abrirModalReservas,
+  abrirModalUsuarios,
+  abrirNovoUsuario,
+  abrirPainelMetricas,
+  alterarStatusEspaco,
+  aprovarReserva,
+  buscarEspacos,
+  buscarReservas,
+  cancelarReserva,
+  confirmarNovoUsuario,
+  definirPerfilNovoUsuario,
+  filtrarReservas,
+  irPara,
+  limparBusca,
+  pedirExclusaoUsuario,
+  renderizarAdmin,
+} from './views/admin';
+import {
+  entrar,
+  iniciarAutenticacao,
+  preencherPerfilDemo,
+  sair,
+  usuarioAtual,
+} from './views/login';
+import {
+  abrirPainel,
+  fecharPainel,
+  iniciarMapa,
+  renderizarMarcadores,
+  sincronizarMarcadores,
+} from './views/mapa';
+import {
+  abrirModalReservar,
+  cancelarReservaAberta,
+  confirmarReserva,
+  verReserva,
+} from './views/reservas';
+import type { PerfilUsuario } from './types';
 
-// ─── Navegação ────────────────────────────────────────────────
+type Secao = 'mapa' | 'admin';
 
-function showView(viewId: string): void {
-  document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
-  const target = $('view-' + viewId);
-  if (target) target.classList.add('active');
+/* ===========================================================================
+   Navegação entre views
+   =========================================================================== */
 
-  document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
-  const navBtn = $('btn-nav-' + viewId);
-  if (navBtn) navBtn.classList.add('active');
-
-  if (viewId === 'dashboard') refreshDashboard();
-  if (viewId === 'admin') renderAdmin();
-  closePopup();
-}
-
-// ─── User Dropdown ────────────────────────────────────────
-
-function toggleDropdown(): void {
-  $('user-dropdown')?.classList.toggle('open');
-}
-
-function openDocs(): void {
-  $('user-dropdown')?.classList.remove('open');
-  $('overlay-docs')?.classList.add('open');
-}
-
-document.addEventListener('click', (e) => {
-  const target = e.target as HTMLElement;
-  if (!target.closest('#user-btn') && !target.closest('#user-dropdown')) {
-    $('user-dropdown')?.classList.remove('open');
-  }
-});
-
-// ─── Modais ───────────────────────────────────────────────
-
-function closeAll(): void {
-  document.querySelectorAll('.overlay').forEach((o) => o.classList.remove('open'));
-}
-
-// ─── Toast ────────────────────────────────────────────────
-
-function showToast(msg: string, type: 'success' | 'error' | 'info' = 'info'): void {
-  const ICONS: Record<string, string> = { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info' };
-  const wrap = $('toast-wrap');
-  if (!wrap) return;
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `<i class="fa-solid ${ICONS[type] || ICONS.info}"></i> ${msg}`;
-  wrap.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .3s'; }, 3000);
-  setTimeout(() => toast.remove(), 3300);
-}
-
-// ─── Init: Dashboard ──────────────────────────────────────
-
-function initDashboard(): void {
-  renderDashboardCards();
-  renderReservasList();
-}
-
-// Recalcula os KPIs a partir dos dados reais (ESTUFAS + reservas)
-function renderDashboardCards(): void {
-  const ids = Object.keys(ESTUFAS);
-  const total = ids.length;
-  const livres = ids.filter((id) => ESTUFAS[id].status === 'livre').length;
-  const manut = ids.filter((id) => ESTUFAS[id].status === 'manutencao').length;
-  const ativas = reservas.filter((r) => r.status !== 'cancelada').length;
-  const taxa = total ? Math.round((total - livres) / total * 100) : 0;
-
-  new Dashboard('dashboard-cards')
-    .addCard({ label: 'Espaços Livres',   value: String(livres), icon: 'fa-circle-check', color: '#007A3D' })
-    .addCard({ label: 'Reservas Ativas',  value: String(ativas), icon: 'fa-calendar',     color: '#003DA5' })
-    .addCard({ label: 'Em Manutenção',    value: String(manut),  icon: 'fa-wrench',       color: '#c42828' })
-    .addCard({ label: 'Taxa de Ocupação', value: taxa + '%',     icon: 'fa-chart-pie',    color: '#b86b00' })
-    .render();
-}
-
-// Atualiza tudo que depende de reservas/estufas (chamado após reservar/cancelar)
-function refreshDashboard(): void {
-  renderDashboardCards();
-  renderReservasList();
-  rebuildCalendarEvents();
-}
-
-// ─── Init: Calendário ─────────────────────────────────────
-
-function initCalendar(): void {
-  window.calendarInstance = new Calendar('calendar-container', {
-    onDateSelect(date: Date) { renderDayEvents(date); },
-  });
-  rebuildCalendarEvents();
-}
-
-// Marca no calendário as datas que possuem reservas
-function rebuildCalendarEvents(): void {
-  if (!window.calendarInstance) return;
-  window.calendarInstance.events = {};
-  reservas.filter((r) => r.status !== 'cancelada').forEach((r) => {
-    const [y, m, d] = r.data.split('-').map(Number);
-    const estufa = ESTUFAS[r.estufaId];
-    window.calendarInstance!.addEvent(new Date(y, m - 1, d), {
-      title: r.projeto,
-      estufa: estufa ? estufa.nome : r.estufaId,
-      status: r.status,
-    });
-  });
-}
-
-// Lista os eventos do dia selecionado no painel lateral
-function renderDayEvents(date: Date): void {
-  const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-  const evs = (window.calendarInstance?.events[key] || []);
-  const box = $('calendar-events');
-  if (!box) return;
-
-  if (!evs.length) {
-    box.innerHTML =
-      `<div style="text-align:center;color:var(--muted);font-size:12px;padding:14px 0">
-         <i class="fa-solid fa-calendar-day" style="color:var(--accent-md);margin-bottom:6px;display:block;font-size:18px"></i>
-         Nenhuma reserva em ${date.toLocaleDateString('pt-BR')}
-       </div>`;
+function mostrarSecao(secao: Secao): void {
+  if (secao === 'admin' && usuarioAtual()?.role !== 'admin') {
+    aviso('A área de administração é restrita a administradores.', 'error');
     return;
   }
 
-  box.innerHTML = `<div class="activity-list">${evs.map((e) => `
-    <div class="activity-item">
-      <div class="activity-icon" style="background:var(--accent-lt);color:var(--accent)">
-        <i class="fa-solid fa-calendar-day"></i>
-      </div>
-      <div class="activity-content">
-        <div class="activity-title">${e.estufa}</div>
-        <div class="activity-time">${e.title}</div>
-      </div>
-    </div>`).join('')}</div>`;
+  for (const view of qsa('.view')) {
+    view.classList.toggle('is-active', view.id === `view-${secao}`);
+  }
+  for (const item of qsa('.nav__item')) {
+    const ativo = item.dataset.view === secao;
+    if (ativo) item.setAttribute('aria-current', 'page');
+    else item.removeAttribute('aria-current');
+  }
+
+  fecharPainel();
+  if (secao === 'admin') renderizarAdmin();
 }
 
-// ─── Init: Restaurar estado visual do mapa ───────────────
+/* ===========================================================================
+   Menu da conta
+   =========================================================================== */
 
-function initMapState(): void {
-  renderHotspots();
-  Object.keys(ESTUFAS).forEach((id) => updateEstufaOnMap(id));
+function alternarMenu(forcar?: boolean): void {
+  const botao = el('conta-btn');
+  const menu = el('conta-menu');
+  if (!botao || !menu) return;
+
+  const abrir = forcar ?? menu.hidden;
+  show(menu, abrir);
+  botao.setAttribute('aria-expanded', String(abrir));
 }
 
-// ─── Init geral ───────────────────────────────────────────
+function fecharMenu(): void {
+  alternarMenu(false);
+}
 
-document.addEventListener('DOMContentLoaded', () => {
-  initDashboard();
-  initCalendar();
+/* ===========================================================================
+   Entrada e saída da sessão
+   =========================================================================== */
 
-  // Data mínima no formulário de reserva
-  const dateInput = $('reservar-data') as HTMLInputElement | null;
-  if (dateInput) dateInput.min = new Date().toISOString().split('T')[0];
+function montarApp(usuario: Usuario): void {
+  show(el('tela-entrada'), false);
+  show(el('app'), true);
 
-  // Fecha modal ao clicar fora
-  document.querySelectorAll('.overlay').forEach((o) => {
-    o.addEventListener('click', (e) => { if (e.target === o) closeAll(); });
+  setText('conta-nome', usuario.name);
+  setText('conta-perfil', usuario.role === 'admin' ? 'Administrador' : 'Pesquisador');
+  show(el('nav-admin'), usuario.role === 'admin');
+
+  mostrarSecao('mapa');
+
+  // Os marcadores só sobem depois que os dados chegam.
+  void carregarEstado().then(() => {
+    renderizarMarcadores();
+    if (usuario.role === 'admin') renderizarAdmin();
+  });
+}
+
+function desmontarApp(): void {
+  fecharTodosModais();
+  fecharMenu();
+  show(el('app'), false);
+  show(el('tela-entrada'), true);
+}
+
+/* ===========================================================================
+   Ações declaradas no HTML
+   =========================================================================== */
+
+function registrarTodasAsAcoes(): void {
+  registrarAcoes({
+    // casca
+    ver: (elemento) => mostrarSecao((elemento.dataset.view as Secao) ?? 'mapa'),
+    'alternar-menu': () => alternarMenu(),
+    sair: () => {
+      fecharMenu();
+      sair();
+    },
+    abrir: (elemento) => {
+      fecharMenu();
+      const id = elemento.dataset.modal;
+      if (id) abrirModal(id);
+    },
+    fechar: () => fecharTodosModais(),
+
+    // entrada
+    'usar-perfil': (elemento) => preencherPerfilDemo(elemento.dataset.role ?? ''),
+
+    // mapa
+    'abrir-espaco': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirPainel(id);
+    },
+    'fechar-painel': () => fecharPainel(),
+    'sem-acao': () => {},
+
+    // reservas
+    'abrir-reservar': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirModalReservar(id);
+    },
+    'ver-reserva': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) verReserva(id);
+    },
+    'cancelar-reserva-atual': () => cancelarReservaAberta(),
+
+    // administração
+    'abrir-painel-metricas': () => abrirPainelMetricas(),
+    'abrir-reservas': () => abrirModalReservas(),
+    'abrir-usuarios': () => abrirModalUsuarios(),
+    'abrir-novo-usuario': () => abrirNovoUsuario(),
+    'ir-para': (elemento) => irPara(elemento.dataset.target ?? 'espacos'),
+    'filtrar-reservas': (elemento) => {
+      const status = elemento.dataset.status as 'todas' | 'pendente' | 'ativa';
+      filtrarReservas(status ?? 'todas', elemento);
+    },
+    'limpar-busca': (elemento) => {
+      const alvo = elemento.dataset.target === 'reservas' ? 'reservas' : 'espacos';
+      limparBusca(alvo);
+    },
+    'aprovar-reserva': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) aprovarReserva(id);
+    },
+    'cancelar-reserva': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void cancelarReserva(id);
+    },
+    'excluir-usuario': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void pedirExclusaoUsuario(id, sair);
+    },
+  });
+}
+
+/* ===========================================================================
+   Formulários, campos e teclado
+   =========================================================================== */
+
+function ligarFormularios(): void {
+  el<HTMLFormElement>('form-entrada')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    entrar();
   });
 
-  // Inicia autenticação
-  initAuth();
-});
+  el<HTMLFormElement>('form-reservar')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    confirmarReserva();
+  });
 
-// Expõe globalmente
-window.showView = showView;
-window.toggleDropdown = toggleDropdown;
-window.openDocs = openDocs;
-window.closeAll = closeAll;
-window.showToast = showToast;
-window.initMapState = initMapState;
-window.renderDashboardCards = renderDashboardCards;
-window.refreshDashboard = refreshDashboard;
+  el<HTMLFormElement>('form-novo-usuario')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    confirmarNovoUsuario();
+  });
+}
+
+function ligarBuscas(): void {
+  const buscaEspacos = debounce((valor: string) => buscarEspacos(valor));
+  el<HTMLInputElement>('busca-espacos')?.addEventListener('input', (ev) => {
+    buscaEspacos((ev.target as HTMLInputElement).value);
+  });
+
+  const buscaReservas = debounce((valor: string) => buscarReservas(valor));
+  el<HTMLInputElement>('busca-reservas')?.addEventListener('input', (ev) => {
+    buscaReservas((ev.target as HTMLInputElement).value);
+  });
+}
+
+/** Selects declaram o que fazem com `data-change`, como os cliques com `data-action`. */
+function ligarSelects(): void {
+  document.addEventListener('change', (ev) => {
+    const alvo = ev.target;
+    if (!(alvo instanceof HTMLSelectElement)) return;
+    if (alvo.dataset.change !== 'status-espaco') return;
+
+    const id = alvo.dataset.id;
+    if (!id) return;
+    alvo.dataset.status = alvo.value;
+    alterarStatusEspaco(id, alvo.value);
+  });
+}
+
+function ligarTeclado(): void {
+  // Setas percorrem o radiogroup, como num grupo de rádio nativo.
+  el('novo-usuario-perfil')?.addEventListener('keydown', (ev) => {
+    if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(ev.key)) return;
+    ev.preventDefault();
+
+    const opcoes = qsa('#novo-usuario-perfil [data-role]');
+    const atual = opcoes.findIndex((o) => o === ev.target);
+    if (atual === -1) return;
+
+    const passo = ev.key === 'ArrowRight' || ev.key === 'ArrowDown' ? 1 : -1;
+    const proximo = opcoes[(atual + passo + opcoes.length) % opcoes.length];
+    definirPerfilNovoUsuario(proximo.dataset.role as PerfilUsuario);
+    proximo.focus();
+  });
+
+  // O segmentado de perfil responde ao clique pelo próprio listener do grupo.
+  el('novo-usuario-perfil')?.addEventListener('click', (ev) => {
+    const opcao = (ev.target as Element).closest<HTMLElement>('[data-role]');
+    if (opcao) definirPerfilNovoUsuario(opcao.dataset.role as PerfilUsuario);
+  });
+
+  // Clique fora fecha o menu da conta.
+  document.addEventListener('click', (ev) => {
+    const alvo = ev.target;
+    if (!(alvo instanceof Element)) return;
+    if (alvo.closest('#conta-btn') || alvo.closest('#conta-menu')) return;
+    fecharMenu();
+  });
+
+  // Esc fecha o menu da conta e devolve o foco ao botão.
+  el('conta-menu')?.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Escape') return;
+    fecharMenu();
+    el('conta-btn')?.focus();
+  });
+}
+
+/* ===========================================================================
+   Boot
+   =========================================================================== */
+
+export function iniciarApp(): void {
+  iniciarAcoes();
+  iniciarModais();
+  iniciarMapa();
+
+  registrarTodasAsAcoes();
+  ligarFormularios();
+  ligarBuscas();
+  ligarSelects();
+  ligarTeclado();
+
+  // Uma mudança de dado atualiza marcadores e, se estiver aberta, a administração.
+  aoMudar(() => {
+    sincronizarMarcadores();
+    if (usuarioAtual()?.role === 'admin') renderizarAdmin();
+  });
+
+  iniciarAutenticacao(montarApp, desmontarApp);
+}

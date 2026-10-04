@@ -1,21 +1,24 @@
 /**
- * Tipos compartilhados do sistema Embrapa Cenargen.
+ * Tipos de domínio do CVGWeb.
  */
 
 export type EstufaStatus = 'livre' | 'ocupada' | 'reservada' | 'manutencao';
 
 export type ReservaStatus = 'ativa' | 'pendente' | 'cancelada';
 
-/** Chave usada no STATUS_MAP: status de estufa ou de reserva. */
+/** Chave aceita pelo mapa de status: de espaço ou de reserva. */
 export type StatusKey = EstufaStatus | ReservaStatus;
+
+/** Tom visual de um status. Casa com os tokens --ok / --busy / --booked / --down. */
+export type Tom = 'ok' | 'busy' | 'booked' | 'down' | 'neutral';
 
 export type PerfilUsuario = 'admin' | 'pesquisador';
 
-/** Capacidade teórica (aproximada) de vasos por tamanho. */
+/** Capacidade aproximada de vasos, por diâmetro. */
 export interface VasosCapacidade {
-  c3: number;   // vasos de 3 cm
-  c5: number;   // vasos de 5 cm
-  c10: number;  // vasos de 10 cm
+  c3: number;
+  c5: number;
+  c10: number;
 }
 
 export interface Estufa {
@@ -24,19 +27,22 @@ export interface Estufa {
   setor?: string;
   status: EstufaStatus;
   area: string;
+  /** Número de bancadas disponíveis. */
   cap: number;
+  /** Nome do símbolo no sprite, sem o prefixo `i-`. */
   icon: string;
   desc: string;
   vasos?: VasosCapacidade;
 }
 
-/** Mapa de estufas indexado pelo código (ex.: "E01"). */
+/** Espaços indexados pelo código (E01, E02, ...). */
 export type Estufas = Record<string, Estufa>;
 
 export interface Reserva {
   id: string;
   estufaId: string;
-  data: string; // formato YYYY-MM-DD
+  /** Data no formato AAAA-MM-DD. */
+  data: string;
   qtd: number;
   projeto: string;
   status: ReservaStatus;
@@ -52,30 +58,6 @@ export interface Usuario {
 
 export interface StatusInfo {
   label: string;
-  cls: string;
+  tom: Tom;
   icon: string;
-}
-
-export interface CardTrend {
-  direction: 'up' | 'down';
-  value: number;
-}
-
-export interface DashboardCardData {
-  label: string;
-  value: string;
-  icon?: string;
-  color?: string;
-  trend?: CardTrend;
-}
-
-export interface CalendarEvent {
-  title: string;
-  estufa: string;
-  status: ReservaStatus;
-}
-
-export interface CalendarOptions {
-  events?: Record<string, CalendarEvent[]>;
-  onDateSelect?: (date: Date) => void;
 }

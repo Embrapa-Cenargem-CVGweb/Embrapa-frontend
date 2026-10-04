@@ -1,0 +1,160 @@
+/* ===========================================================================
+   CVGWeb · Tela de entrada
+   =========================================================================== */
+
+.login {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: var(--s-4);
+  overflow-y: auto;
+  /* Cor sólida, a mesma da navegação lateral: sem degradê nem textura. */
+  background: var(--nav-bg);
+}
+
+.login__card {
+  position: relative;
+  width: min(25rem, 100%);
+  padding: var(--s-6);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-3);
+}
+
+.login__brand {
+  display: flex;
+  gap: var(--s-4);
+  align-items: center;
+  padding-bottom: var(--s-5);
+  margin-bottom: var(--s-5);
+  border-bottom: 1px solid var(--line);
+}
+
+/* O cartão já é claro, então o logo entra direto, sem placa. */
+.login__logo {
+  flex: none;
+  width: 7rem;
+  height: auto;
+}
+
+.login__brand-name {
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+}
+
+.login__brand-org {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.login__title {
+  font-size: var(--text-lg);
+}
+
+.login__desc {
+  margin-top: var(--s-1);
+  margin-bottom: var(--s-5);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* --- Atalhos de perfil (modo demonstração) ------------------------------- */
+
+.login__shortcuts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-2);
+}
+
+.login__shortcut {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  align-items: center;
+  padding: var(--s-3) var(--s-2);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  color: var(--fg-2);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  transition: background var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.login__shortcut .ic {
+  color: var(--fg-muted);
+}
+
+.login__shortcut:hover {
+  background: var(--surface-3);
+}
+
+.login__shortcut[aria-pressed="true"] {
+  font-weight: var(--fw-semibold);
+  color: var(--accent-soft-fg);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.login__shortcut[aria-pressed="true"] .ic {
+  color: var(--accent-soft-fg);
+}
+
+.login__shortcut[data-role="admin"][aria-pressed="true"] {
+  color: var(--booked-soft-fg);
+  background: var(--booked-soft);
+  border-color: var(--booked);
+}
+
+.login__shortcut[data-role="admin"][aria-pressed="true"] .ic {
+  color: var(--booked-soft-fg);
+}
+
+/* --- Separador ----------------------------------------------------------- */
+
+.login__or {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  margin: var(--s-5) 0;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.login__or::before,
+.login__or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* --- Erro de autenticação ----------------------------------------------- */
+
+.login__error {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+  padding: var(--s-3);
+  margin-bottom: var(--s-4);
+  font-size: var(--text-sm);
+  color: var(--down-soft-fg);
+  background: var(--down-soft);
+  border-radius: var(--r-md);
+}
+
+.login__error[hidden] {
+  display: none;
+}
+
+.login__submit {
+  width: 100%;
+  min-height: 2.5rem;
+  margin-top: var(--s-5);
+}

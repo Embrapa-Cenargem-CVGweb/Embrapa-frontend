@@ -1,520 +1,484 @@
 /**
- * View: Admin
- * Gestão completa: métricas, estufas, reservas e usuários.
+ * Administração: métricas, espaços, reservas e usuários.
+ *
+ * O acesso é verificado a cada render, não só na navegação.
  */
-import { ESTUFAS, STATUS_MAP, reservas, saveState } from '../data/estufas';
-import { updateEstufaOnMap } from './mapa';
-import type { Estufa, PerfilUsuario } from '../types';
+import { ESTUFAS, reservas, reservasVigentes, salvarEstado } from '../data/estufas';
+import { dadosMudaram } from '../lib/bus';
+import { el, qsa, setText, show } from '../lib/dom';
+import { html, icone, juntar, raw } from '../lib/html';
+import { dataBR, statusInfo, statusPill } from '../lib/format';
+import { abrirModal, confirmar, fecharTodosModais, trocarModal } from '../lib/modal';
+import { aviso } from '../lib/toast';
+import { liberarEspacoSeVazio } from './reservas';
+import {
+  cadastrarUsuario,
+  excluirUsuario,
+  listarUsuarios,
+  usuarioAtual,
+} from './login';
+import type { EstufaStatus, PerfilUsuario, ReservaStatus } from '../types';
 
-const $ = (id: string): HTMLElement | null => document.getElementById(id);
+type FiltroReserva = 'todas' | 'pendente' | 'ativa';
 
-// ─── Estado de filtros/busca ───────────────────────────────
-let estufaQuery = '';
-let reservaQuery = '';
-let reservaStatus: 'todas' | 'pendente' | 'ativa' = 'todas';
+const STATUS_ESPACO: EstufaStatus[] = ['livre', 'ocupada', 'reservada', 'manutencao'];
 
-function renderAdmin(): void {
-  // Acesso restrito
-  if (!window.currentUser || window.currentUser.role !== 'admin') {
-    window.showToast('Acesso restrito a administradores', 'error');
-    window.showView('mapa');
-    return;
-  }
-  _renderAdminMetrics();
-  _renderAdminEstufas();
-  _renderAdminReservas();
-  _renderAdminUsers();
+let buscaEspacos = '';
+let buscaReservas = '';
+let filtroReservas: FiltroReserva = 'todas';
+let perfilNovoUsuario: PerfilUsuario = 'pesquisador';
+
+function ehAdmin(): boolean {
+  return usuarioAtual()?.role === 'admin';
 }
 
-// ─── Métricas ──────────────────────────────────────────────
-
-function _renderAdminMetrics(): void {
-  const vals = Object.values(ESTUFAS);
-  const total = vals.length;
-  const livres = vals.filter((e) => e.status === 'livre').length;
-  const ocup = vals.filter((e) => e.status === 'ocupada' || e.status === 'reservada').length;
-  const manut = vals.filter((e) => e.status === 'manutencao').length;
-  const ativos = reservas.filter((r) => r.status === 'ativa' || r.status === 'pendente').length;
-  const taxa = total > 0 ? Math.round((ocup / total) * 100) : 0;
-
-  _set('adm-total', total);
-  _set('adm-livres', livres);
-  _set('adm-reservas', ativos);
-  _set('adm-taxa', taxa + '%');
-  _set('adm-manut', manut);
-
-  const bar = $('adm-taxa-bar');
-  if (bar) {
-    bar.style.width = taxa + '%';
-    const gauge = bar.parentElement;
-    if (gauge) {
-      gauge.setAttribute('role', 'progressbar');
-      gauge.setAttribute('aria-valuenow', String(taxa));
-      gauge.setAttribute('aria-valuemin', '0');
-      gauge.setAttribute('aria-valuemax', '100');
-      gauge.setAttribute('aria-label', `Taxa de ocupação: ${taxa}%`);
-    }
-  }
+export function renderizarAdmin(): void {
+  if (!ehAdmin()) return;
+  renderizarMetricas();
+  renderizarEspacos();
+  renderizarReservas();
+  renderizarUsuarios();
 }
 
-function _set(id: string, val: string | number): void {
-  const el = $(id);
-  if (el) el.textContent = String(val);
+/* ===========================================================================
+   Métricas
+   =========================================================================== */
+
+function renderizarMetricas(): void {
+  const espacos = Object.values(ESTUFAS);
+  const total = espacos.length;
+  const livres = espacos.filter((e) => e.status === 'livre').length;
+  const ocupados = espacos.filter(
+    (e) => e.status === 'ocupada' || e.status === 'reservada',
+  ).length;
+  const manutencao = espacos.filter((e) => e.status === 'manutencao').length;
+  const emAberto = reservas.filter(
+    (r) => r.status === 'ativa' || r.status === 'pendente',
+  ).length;
+  const taxa = total ? Math.round((ocupados / total) * 100) : 0;
+
+  setText('m-total', String(total));
+  setText('m-livres', String(livres));
+  setText('m-reservas', String(emAberto));
+  setText('m-manutencao', String(manutencao));
+  setText('m-taxa', `${taxa}%`);
+
+  const barra = el('m-taxa-barra');
+  if (barra) barra.style.width = `${taxa}%`;
+  el('m-taxa-barra-wrap')?.setAttribute('aria-valuenow', String(taxa));
 }
 
-/** Navegação a partir dos cards de métrica (clicáveis). */
-function adminGoto(target: 'estufas' | 'reservas' | 'reservas-ativa' | 'reservas-pendente'): void {
-  if (target === 'reservas-ativa' || target === 'reservas-pendente') {
-    const status = target === 'reservas-ativa' ? 'ativa' : 'pendente';
-    const chip = document.querySelector(`.adm-chip[data-status="${status}"]`) as HTMLElement | null;
-    adminFiltrarReservas(status, chip || undefined);
-    _scrollTo('adm-sec-reservas');
-  } else if (target === 'reservas') {
-    _scrollTo('adm-sec-reservas');
-  } else {
-    _scrollTo('adm-sec-estufas');
-  }
-}
+/* ===========================================================================
+   Espaços
+   =========================================================================== */
 
-function _scrollTo(id: string): void {
-  const el = $(id);
-  if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  el.classList.add('is-flash');
-  setTimeout(() => el.classList.remove('is-flash'), 900);
-}
+function renderizarEspacos(): void {
+  const corpo = el('tbody-espacos');
+  if (!corpo) return;
 
-// ─── Estufas ───────────────────────────────────────────────
-
-function _renderAdminEstufas(): void {
-  const tbody = $('adm-estufas-tbody');
-  if (!tbody) return;
-
-  const total = Object.keys(ESTUFAS).length;
-  const q = estufaQuery.trim().toLowerCase();
-  const rows = Object.entries(ESTUFAS).filter(([id, e]) =>
-    !q || id.toLowerCase().includes(q) || e.nome.toLowerCase().includes(q) || e.tipo.toLowerCase().includes(q)
+  const termo = buscaEspacos.trim().toLowerCase();
+  const todos = Object.entries(ESTUFAS);
+  const linhas = todos.filter(
+    ([id, e]) =>
+      !termo
+      || id.toLowerCase().includes(termo)
+      || e.nome.toLowerCase().includes(termo)
+      || e.tipo.toLowerCase().includes(termo),
   );
 
-  _setCount('adm-estufas-count', rows.length, total, q);
+  atualizarContador('conta-espacos', linhas.length, todos.length, Boolean(termo));
 
-  if (!rows.length) {
-    tbody.innerHTML = _emptyRow(7, 'fa-warehouse', q ? `Nenhum espaço para “${estufaQuery}”` : 'Nenhum espaço cadastrado');
+  if (!linhas.length) {
+    corpo.innerHTML = linhaVazia(
+      7,
+      'warehouse',
+      termo ? `Nenhum espaço corresponde a “${buscaEspacos}”.` : 'Nenhum espaço cadastrado.',
+    );
     return;
   }
 
-  tbody.innerHTML = rows.map(([id, e]) => {
-    const s = STATUS_MAP[e.status] || { label: e.status, cls: 'pill-muted', icon: 'fa-circle' };
-    return `
+  corpo.innerHTML = juntar(
+    linhas.map(([id, e]) => html`
       <tr>
-        <td data-label="ID"><span class="td-id">${id}</span></td>
-        <td data-label="Nome" class="cell-name">${e.nome}</td>
-        <td data-label="Tipo" class="cell-muted">${e.tipo}</td>
+        <td data-label="Código"><span class="code">${id}</span></td>
+        <td data-label="Nome" class="table__name">${e.nome}</td>
+        <td data-label="Tipo" class="table__muted">
+          <span class="table__type">${icone(e.icon, 'ic ic--sm')}${e.tipo}</span>
+        </td>
         <td data-label="Área">${e.area}</td>
-        <td data-label="Cap.">${e.cap}</td>
-        <td data-label="Status"><span class="pill ${s.cls}"><i class="fa-solid ${s.icon}" style="font-size:8px"></i> ${s.label}</span></td>
-        <td data-label="Alterar Status">
-          <div class="actions">
-            <select class="status-select st-${e.status}" aria-label="Alterar status de ${e.nome}" onchange="adminSetStatus('${id}', this.value)">
-              <option value="livre"      ${e.status === 'livre' ? 'selected' : ''}>Livre</option>
-              <option value="ocupada"    ${e.status === 'ocupada' ? 'selected' : ''}>Ocupada</option>
-              <option value="reservada"  ${e.status === 'reservada' ? 'selected' : ''}>Reservada</option>
-              <option value="manutencao" ${e.status === 'manutencao' ? 'selected' : ''}>Manutenção</option>
+        <td data-label="Bancadas">${e.cap}</td>
+        <td data-label="Status">${statusPill(e.status)}</td>
+        <td data-label="Alterar status">
+          <div class="table__actions">
+            <select class="select status-select" data-status="${e.status}"
+                    data-change="status-espaco" data-id="${id}"
+                    aria-label="Alterar status de ${e.nome}">
+              ${raw(opcoesStatus(e.status))}
             </select>
           </div>
         </td>
-      </tr>`;
-  }).join('');
+      </tr>
+    `),
+  );
 }
 
-function adminSetStatus(id: string, status: string): void {
-  ESTUFAS[id].status = status as Estufa['status'];
-  updateEstufaOnMap(id);
-  saveState();
-  _renderAdminMetrics();
-  _renderAdminEstufas();
-  window.showToast(`${ESTUFAS[id].nome}: status atualizado para ${STATUS_MAP[status]?.label || status}`, 'success');
+function opcoesStatus(atual: EstufaStatus): string {
+  return juntar(
+    STATUS_ESPACO.map(
+      (status) => html`
+        <option value="${status}" ${raw(status === atual ? 'selected' : '')}>
+          ${statusInfo(status).label}
+        </option>`,
+    ),
+  );
 }
 
-function adminBuscarEstufas(q: string): void {
-  estufaQuery = q;
-  _toggleClear('adm-estufas-clear', q);
-  _renderAdminEstufas();
+export function alterarStatusEspaco(id: string, status: string): void {
+  const estufa = ESTUFAS[id];
+  if (!estufa || !STATUS_ESPACO.includes(status as EstufaStatus)) return;
+
+  estufa.status = status as EstufaStatus;
+  salvarEstado();
+  dadosMudaram();
+  aviso(`${estufa.nome}: status alterado para ${statusInfo(status).label.toLowerCase()}.`, 'success');
 }
 
-function adminLimparEstufas(): void {
-  estufaQuery = '';
-  const input = $('adm-estufas-search') as HTMLInputElement | null;
-  if (input) { input.value = ''; input.focus(); }
-  _toggleClear('adm-estufas-clear', '');
-  _renderAdminEstufas();
+export function buscarEspacos(termo: string): void {
+  buscaEspacos = termo;
+  show(el('limpar-espacos'), Boolean(termo));
+  renderizarEspacos();
 }
 
-// ─── Reservas ──────────────────────────────────────────────
+/* ===========================================================================
+   Reservas
+   =========================================================================== */
 
-function _renderAdminReservas(): void {
-  const tbody = $('adm-reservas-tbody');
-  if (!tbody) return;
+function renderizarReservas(): void {
+  const corpo = el('tbody-reservas');
+  if (!corpo) return;
 
-  const base = reservas.filter((r) => r.status !== 'cancelada');
+  const base = reservasVigentes();
   const pendentes = base.filter((r) => r.status === 'pendente').length;
-  _updatePendBadge(pendentes);
+  atualizarBadgePendentes(pendentes);
 
-  const q = reservaQuery.trim().toLowerCase();
-  const filtering = q !== '' || reservaStatus !== 'todas';
-  const all = base
-    .filter((r) => reservaStatus === 'todas' || r.status === reservaStatus)
+  const termo = buscaReservas.trim().toLowerCase();
+  const filtrando = Boolean(termo) || filtroReservas !== 'todas';
+
+  const linhas = base
+    .filter((r) => filtroReservas === 'todas' || r.status === filtroReservas)
     .filter((r) => {
-      if (!q) return true;
-      const e = ESTUFAS[r.estufaId];
-      return r.id.toLowerCase().includes(q)
-        || r.projeto.toLowerCase().includes(q)
-        || (e ? e.nome.toLowerCase().includes(q) : r.estufaId.toLowerCase().includes(q));
+      if (!termo) return true;
+      const nome = ESTUFAS[r.estufaId]?.nome ?? r.estufaId;
+      return (
+        r.id.toLowerCase().includes(termo)
+        || r.projeto.toLowerCase().includes(termo)
+        || nome.toLowerCase().includes(termo)
+      );
     });
 
-  _setCount('adm-reservas-count', all.length, base.length, filtering ? '1' : '');
+  atualizarContador('conta-reservas', linhas.length, base.length, filtrando);
 
-  if (!all.length) {
-    tbody.innerHTML = _emptyRow(7, 'fa-calendar-xmark', q ? `Nenhuma reserva para “${reservaQuery}”` : 'Nenhuma reserva encontrada');
+  if (!linhas.length) {
+    corpo.innerHTML = linhaVazia(
+      7,
+      'calendar-x',
+      termo
+        ? `Nenhuma reserva corresponde a “${buscaReservas}”.`
+        : 'Nenhuma reserva neste filtro.',
+    );
     return;
   }
 
-  tbody.innerHTML = all.map((r) => {
-    const e = ESTUFAS[r.estufaId];
-    const s = STATUS_MAP[r.status] || { label: r.status, cls: 'pill-muted', icon: 'fa-circle' };
-    const canApprove = r.status === 'pendente';
-    return `
-      <tr class="${canApprove ? 'row-pending' : ''}">
-        <td data-label="ID"><span class="td-id">${r.id}</span></td>
-        <td data-label="Espaço" class="cell-name">${e ? e.nome : r.estufaId}</td>
-        <td data-label="Projeto" class="cell-proj" title="${r.projeto}">${r.projeto}</td>
-        <td data-label="Data" style="white-space:nowrap">${_fmtDateAdmin(r.data)}</td>
-        <td data-label="Qtd">${r.qtd}</td>
-        <td data-label="Status"><span class="pill ${s.cls}"><i class="fa-solid ${s.icon}" style="font-size:8px"></i> ${s.label}</span></td>
-        <td data-label="Ações">
-          <div class="actions">
-            ${canApprove ? `<button class="btn btn-primary btn-sm btn-xs" onclick="adminAprovarReserva('${r.id}')"><i class="fa-solid fa-check"></i> Aprovar</button>` : ''}
-            <button class="btn btn-danger btn-sm btn-icon" title="Cancelar reserva" aria-label="Cancelar reserva ${r.id}" onclick="adminCancelarReserva('${r.id}')"><i class="fa-solid fa-xmark"></i></button>
+  corpo.innerHTML = juntar(
+    linhas.map((r) => {
+      const nome = ESTUFAS[r.estufaId]?.nome ?? r.estufaId;
+      const aprovar = r.status === 'pendente';
+      return html`
+        <tr class="${raw(aprovar ? 'is-pending' : '')}">
+          <td data-label="Código"><span class="code">${r.id}</span></td>
+          <td data-label="Espaço" class="table__name">${nome}</td>
+          <td data-label="Projeto" class="table__truncate" title="${r.projeto}">${r.projeto}</td>
+          <td data-label="Data" style="white-space:nowrap">${dataBR(r.data)}</td>
+          <td data-label="Qtd.">${r.qtd}</td>
+          <td data-label="Status">${statusPill(r.status)}</td>
+          <td data-label="Ações">
+            <div class="table__actions">
+              ${raw(aprovar
+                ? html`<button type="button" class="btn btn--primary btn--sm"
+                        data-action="aprovar-reserva" data-id="${r.id}">
+                        ${icone('check', 'ic ic--sm')}Aprovar
+                      </button>`
+                : '')}
+              <button type="button" class="btn btn--danger btn--sm btn--icon"
+                      data-action="cancelar-reserva" data-id="${r.id}"
+                      aria-label="Cancelar a reserva ${r.id} de ${nome}">
+                ${icone('x', 'ic ic--sm')}
+              </button>
+            </div>
+          </td>
+        </tr>`;
+    }),
+  );
+}
+
+function atualizarBadgePendentes(total: number): void {
+  for (const id of ['badge-pendentes', 'badge-pendentes-topo']) {
+    const badge = el(id);
+    if (!badge) continue;
+    badge.textContent = String(total);
+    show(badge, total > 0);
+  }
+}
+
+export function aprovarReserva(id: string): void {
+  const reserva = reservas.find((r) => r.id === id);
+  if (!reserva || reserva.status !== 'pendente') return;
+
+  reserva.status = 'ativa';
+  const estufa = ESTUFAS[reserva.estufaId];
+  if (estufa) estufa.status = 'ocupada';
+
+  salvarEstado();
+  dadosMudaram();
+  aviso(`Reserva ${reserva.id} aprovada.`, 'success');
+}
+
+export async function cancelarReserva(id: string): Promise<void> {
+  const reserva = reservas.find((r) => r.id === id);
+  if (!reserva) return;
+
+  const nome = ESTUFAS[reserva.estufaId]?.nome ?? reserva.estufaId;
+  const ok = await confirmar({
+    titulo: 'Cancelar esta reserva?',
+    mensagem: html`
+      A reserva <strong>${reserva.id}</strong> de ${nome}, para
+      ${dataBR(reserva.data)}, sai da agenda. Não é possível desfazer.`,
+    icone: 'calendar-x',
+    confirmar: 'Cancelar reserva',
+    cancelar: 'Voltar',
+    perigo: true,
+  });
+  if (!ok) return;
+
+  reserva.status = 'cancelada' as ReservaStatus;
+  liberarEspacoSeVazio(reserva.estufaId, reserva.id);
+
+  salvarEstado();
+  dadosMudaram();
+  aviso(`Reserva ${reserva.id} cancelada.`, 'info');
+}
+
+export function buscarReservas(termo: string): void {
+  buscaReservas = termo;
+  show(el('limpar-reservas'), Boolean(termo));
+  renderizarReservas();
+}
+
+export function filtrarReservas(status: FiltroReserva, botao?: HTMLElement): void {
+  filtroReservas = status;
+  for (const chip of qsa('[data-action="filtrar-reservas"]')) {
+    chip.setAttribute('aria-selected', String(chip === botao || chip.dataset.status === status));
+  }
+  renderizarReservas();
+}
+
+/* ===========================================================================
+   Usuários
+   =========================================================================== */
+
+function renderizarUsuarios(): void {
+  const grade = el('grid-usuarios');
+  if (!grade) return;
+
+  const usuarios = listarUsuarios();
+  const eu = usuarioAtual();
+  setText('conta-usuarios', String(usuarios.length));
+
+  grade.innerHTML = juntar(
+    usuarios.map((u) => {
+      const admin = u.role === 'admin';
+      const souEu = eu?.id === u.id;
+      // Um admin remove pesquisadores e a própria conta, nunca outro admin.
+      const podeExcluir = !admin || souEu;
+      return html`
+        <div class="user-card" data-role="${u.role}">
+          <span class="user-card__avatar">${icone(admin ? 'shield-user' : 'user', 'ic ic--sm')}</span>
+          <div class="user-card__body">
+            <div class="user-card__name">
+              ${u.name}
+              ${raw(souEu ? html`<span class="pill pill--ok">você</span>` : '')}
+            </div>
+            <div class="user-card__meta">
+              ${admin ? 'Administrador' : 'Pesquisador'}
+              <span class="code">${u.login}</span>
+            </div>
           </div>
-        </td>
-      </tr>`;
-  }).join('');
+          ${raw(podeExcluir
+            ? html`<button type="button" class="user-card__del"
+                    data-action="excluir-usuario" data-id="${u.id}"
+                    aria-label="Excluir ${souEu ? 'minha conta' : u.name}">
+                    ${icone('trash-2', 'ic ic--sm')}
+                  </button>`
+            : '')}
+        </div>`;
+    }),
+  );
 }
 
-function _updatePendBadge(n: number): void {
-  const badge = $('adm-pend-badge');
-  if (!badge) return;
-  badge.textContent = String(n);
-  badge.classList.toggle('is-hidden', n === 0);
+export function abrirNovoUsuario(): void {
+  perfilNovoUsuario = 'pesquisador';
+
+  el<HTMLFormElement>('form-novo-usuario')?.reset();
+  const campo = el<HTMLInputElement>('novo-usuario-email');
+  campo?.removeAttribute('aria-invalid');
+  show(el('novo-usuario-erro'), false);
+  marcarPerfilNovoUsuario('pesquisador');
+
+  if (el('modal-usuarios')?.hidden === false) trocarModal('modal-usuarios', 'modal-novo-usuario');
+  else abrirModal('modal-novo-usuario');
 }
 
-function adminAprovarReserva(id: string): void {
-  const r = reservas.find((x) => x.id === id);
-  if (!r) return;
-  r.status = 'ativa';
-  ESTUFAS[r.estufaId].status = 'ocupada';
-  updateEstufaOnMap(r.estufaId);
-  saveState();
-  renderAdmin();
-  window.showToast('Reserva aprovada com sucesso!', 'success');
+export function definirPerfilNovoUsuario(perfil: PerfilUsuario): void {
+  perfilNovoUsuario = perfil;
+  marcarPerfilNovoUsuario(perfil);
 }
 
-function adminCancelarReserva(id: string): void {
-  const r = reservas.find((x) => x.id === id);
-  if (!r) return;
-  const e = ESTUFAS[r.estufaId];
-  const nome = e ? e.nome : r.estufaId;
-
-  _confirm({
-    icon: 'fa-calendar-xmark',
-    title: 'Cancelar reserva?',
-    message: `A reserva <b>${r.id}</b> — ${r.projeto} em <b>${nome}</b> (${_fmtDateAdmin(r.data)}) será cancelada. Esta ação não pode ser desfeita.`,
-    confirmLabel: 'Cancelar reserva',
-    cancelLabel: 'Voltar',
-    danger: true,
-  }).then((ok) => {
-    if (!ok) return;
-    r.status = 'cancelada';
-    // Só libera estufa se não tiver mais reservas ativas
-    const outras = reservas.filter((x) => x.estufaId === r.estufaId && (x.status === 'ativa' || x.status === 'pendente') && x.id !== id);
-    if (!outras.length && e) {
-      ESTUFAS[r.estufaId].status = 'livre';
-      updateEstufaOnMap(r.estufaId);
-    }
-    saveState();
-    renderAdmin();
-    window.showToast('Reserva cancelada', 'info');
-  });
-}
-
-function adminBuscarReservas(q: string): void {
-  reservaQuery = q;
-  _toggleClear('adm-reservas-clear', q);
-  _renderAdminReservas();
-}
-
-function adminLimparReservas(): void {
-  reservaQuery = '';
-  const input = $('adm-reservas-search') as HTMLInputElement | null;
-  if (input) { input.value = ''; input.focus(); }
-  _toggleClear('adm-reservas-clear', '');
-  _renderAdminReservas();
-}
-
-function adminFiltrarReservas(status: 'todas' | 'pendente' | 'ativa', el?: HTMLElement): void {
-  reservaStatus = status;
-  const chips = document.querySelectorAll('.adm-chip');
-  chips.forEach((c) => {
-    c.classList.remove('active');
-    c.setAttribute('aria-selected', 'false');
-  });
-  const active = el || document.querySelector(`.adm-chip[data-status="${status}"]`);
-  if (active) {
-    active.classList.add('active');
-    active.setAttribute('aria-selected', 'true');
-  }
-  _renderAdminReservas();
-}
-
-// ─── Usuários ──────────────────────────────────────────────
-
-function _renderAdminUsers(): void {
-  const grid = $('adm-users-grid');
-  if (!grid) return;
-
-  const users = window.USERS || [];
-  _set('adm-users-count', users.length);
-
-  grid.innerHTML = users.map((u) => {
-    const isAdmin = u.role === 'admin';
-    const bg = isAdmin ? 'var(--info)' : 'var(--accent)';
-    const icon = isAdmin ? 'fa-user-shield' : 'fa-user';
-    const label = isAdmin ? 'Administrador' : 'Pesquisador';
-    const isMe = window.currentUser && window.currentUser.id === u.id;
-    // Admin pode excluir pesquisadores e a si próprio (não outros admins).
-    const canDelete = !isAdmin || isMe;
-    const delBtn = canDelete
-      ? `<button class="admin-user-del${isMe ? ' admin-user-del-self' : ''}" title="${isMe ? 'Excluir minha conta' : 'Excluir usuário'}" aria-label="Excluir ${u.name}" onclick="adminExcluirUsuario('${u.id}')"><i class="fa-solid fa-trash-can"></i></button>`
-      : '';
-    return `
-      <div class="admin-user-card ${isAdmin ? 'is-admin' : ''} ${isMe ? 'is-me' : ''}">
-        <div class="admin-user-avatar" style="background:${bg}">
-          <i class="fa-solid ${icon}"></i>
-        </div>
-        <div class="admin-user-info">
-          <div class="admin-user-name">${u.name}${isMe ? '<span class="admin-user-tag">você</span>' : ''}</div>
-          <div class="admin-user-role">${label} <code>${u.login}</code></div>
-        </div>
-        ${delBtn}
-      </div>`;
-  }).join('');
-}
-
-// ─── Usuários: modais (lista + cadastro) ───────────────────
-
-let newUserRole: PerfilUsuario = 'pesquisador';
-
-function _openOverlay(id: string): void {
-  $(id)?.classList.add('open');
-}
-
-function adminOpenMetrics(): void {
-  _renderAdminMetrics();
-  _openOverlay('overlay-metrics');
-}
-
-function adminOpenUsers(): void {
-  _renderAdminUsers();
-  _openOverlay('overlay-users');
-}
-
-function adminOpenNewUser(): void {
-  newUserRole = 'pesquisador';
-  const input = $('new-user-email') as HTMLInputElement | null;
-  if (input) input.value = '';
-  const err = $('new-user-error');
-  if (err) err.style.display = 'none';
-  document.querySelectorAll('#overlay-new-user .seg-btn').forEach((b) => {
-    const isDefault = b.getAttribute('data-role') === 'pesquisador';
-    b.classList.toggle('active', isDefault);
-    b.setAttribute('aria-checked', String(isDefault));
-  });
-  _openOverlay('overlay-new-user');
-  setTimeout(() => input?.focus(), 60);
-}
-
-function adminSetNewRole(role: PerfilUsuario, el?: HTMLElement): void {
-  newUserRole = role;
-  document.querySelectorAll('#overlay-new-user .seg-btn').forEach((b) => {
-    b.classList.remove('active');
-    b.setAttribute('aria-checked', 'false');
-  });
-  const active = el || document.querySelector(`#overlay-new-user .seg-btn[data-role="${role}"]`);
-  if (active) {
-    active.classList.add('active');
-    active.setAttribute('aria-checked', 'true');
+function marcarPerfilNovoUsuario(perfil: PerfilUsuario): void {
+  for (const opcao of qsa('#novo-usuario-perfil [data-role]')) {
+    const ativo = opcao.dataset.role === perfil;
+    opcao.setAttribute('aria-checked', String(ativo));
+    opcao.tabIndex = ativo ? 0 : -1;
   }
 }
 
-function adminCadastrarUsuario(): void {
-  const input = $('new-user-email') as HTMLInputElement | null;
-  const err = $('new-user-error');
-  const email = (input?.value || '').trim();
-  const res = window.addUser(email, newUserRole);
+export function confirmarNovoUsuario(): void {
+  const campo = el<HTMLInputElement>('novo-usuario-email');
+  const resultado = cadastrarUsuario(campo?.value ?? '', perfilNovoUsuario);
 
-  if (!res.ok) {
-    if (err) {
-      err.textContent = res.error || 'Não foi possível cadastrar.';
-      err.style.display = 'block';
-    }
-    input?.focus();
+  if (!resultado.ok) {
+    campo?.setAttribute('aria-invalid', 'true');
+    setText('novo-usuario-erro-texto', resultado.erro ?? 'Não foi possível cadastrar.');
+    show(el('novo-usuario-erro'), true);
+    campo?.focus();
     return;
   }
 
-  window.closeAll();
-  _renderAdminUsers();
-  window.showToast(`Usuário ${res.user!.name} cadastrado — acesso com o e-mail e a senha ${res.senha}`, 'success');
-  _openOverlay('overlay-users');
+  campo?.removeAttribute('aria-invalid');
+  show(el('novo-usuario-erro'), false);
+  renderizarUsuarios();
+
+  trocarModal('modal-novo-usuario', 'modal-usuarios');
+  aviso(
+    `${resultado.usuario!.name} cadastrado. Primeiro acesso com o e-mail e a senha ${resultado.senha}.`,
+    'success',
+  );
 }
 
-function adminExcluirUsuario(id: string): void {
-  const user = (window.USERS || []).find((u) => u.id === id);
-  if (!user) return;
-  const isMe = !!window.currentUser && window.currentUser.id === id;
+export async function pedirExclusaoUsuario(
+  id: string,
+  aoSairDaPropriaConta: () => void,
+): Promise<void> {
+  const usuario = listarUsuarios().find((u) => u.id === id);
+  if (!usuario) return;
 
-  _confirm({
-    icon: 'fa-user-xmark',
-    title: isMe ? 'Excluir sua conta?' : 'Excluir usuário?',
-    message: isMe
-      ? `Sua conta <b>${user.name}</b> será removida e você sairá do sistema. Esta ação não pode ser desfeita.`
-      : `O usuário <b>${user.name}</b> (${user.login}) perderá o acesso ao sistema. Esta ação não pode ser desfeita.`,
-    confirmLabel: 'Excluir',
-    cancelLabel: 'Cancelar',
-    danger: true,
-  }).then((ok) => {
-    if (!ok) return;
-    const res = window.removeUser(id);
-    if (!res.ok) {
-      window.showToast(res.error || 'Não foi possível excluir.', 'error');
-      return;
-    }
-    if (res.wasSelf) {
-      window.closeAll();
-      window.doLogoff();
-      return;
-    }
-    _renderAdminUsers();
-    window.showToast(`${user.name} foi removido do sistema.`, 'info');
+  const souEu = usuarioAtual()?.id === id;
+  const ok = await confirmar({
+    titulo: souEu ? 'Excluir sua conta?' : 'Excluir este usuário?',
+    mensagem: souEu
+      ? html`A conta <strong>${usuario.name}</strong> é removida e a sessão
+             termina agora. Não é possível desfazer.`
+      : html`<strong>${usuario.name}</strong> perde o acesso ao sistema.
+             Não é possível desfazer.`,
+    icone: 'user-x',
+    confirmar: 'Excluir',
+    perigo: true,
   });
+  if (!ok) return;
+
+  const resultado = excluirUsuario(id);
+  if (!resultado.ok) {
+    aviso(resultado.erro ?? 'Não foi possível excluir.', 'error');
+    return;
+  }
+
+  if (resultado.eraEuMesmo) {
+    fecharTodosModais();
+    aoSairDaPropriaConta();
+    return;
+  }
+
+  renderizarUsuarios();
+  aviso(`${usuario.name} foi removido do sistema.`, 'info');
 }
 
-// ─── Diálogo de confirmação ────────────────────────────────
+/* ===========================================================================
+   Navegação interna
+   =========================================================================== */
 
-interface ConfirmOpts {
-  icon?: string;
-  title: string;
-  message: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  danger?: boolean;
+export function irPara(destino: string): void {
+  fecharTodosModais();
+
+  if (destino.startsWith('reservas')) {
+    const status = destino.split('-')[1] as FiltroReserva | undefined;
+    filtrarReservas(status ?? 'todas');
+    abrirModal('modal-reservas');
+    return;
+  }
+
+  const secao = el('sec-espacos');
+  if (!secao) return;
+  secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  secao.classList.add('is-flash');
+  window.setTimeout(() => secao.classList.remove('is-flash'), 900);
 }
 
-function _confirm(opts: ConfirmOpts): Promise<boolean> {
-  return new Promise((resolve) => {
-    const prev = document.activeElement as HTMLElement | null;
-    const overlay = document.createElement('div');
-    overlay.className = 'adm-confirm-overlay';
-    overlay.innerHTML = `
-      <div class="adm-confirm" role="dialog" aria-modal="true" aria-labelledby="adm-cf-title">
-        <div class="adm-confirm-icon ${opts.danger ? 'is-danger' : ''}">
-          <i class="fa-solid ${opts.icon || 'fa-circle-question'}"></i>
+export function abrirPainelMetricas(): void {
+  renderizarMetricas();
+  abrirModal('modal-metricas');
+}
+
+export function abrirModalReservas(status?: FiltroReserva): void {
+  filtrarReservas(status ?? filtroReservas);
+  abrirModal('modal-reservas');
+}
+
+export function abrirModalUsuarios(): void {
+  renderizarUsuarios();
+  abrirModal('modal-usuarios');
+}
+
+/* ===========================================================================
+   Auxiliares
+   =========================================================================== */
+
+function atualizarContador(
+  id: string,
+  mostrados: number,
+  total: number,
+  filtrando: boolean,
+): void {
+  setText(id, filtrando && mostrados !== total ? `${mostrados} de ${total}` : String(total));
+}
+
+function linhaVazia(colunas: number, simbolo: string, mensagem: string): string {
+  return html`
+    <tr class="table__empty">
+      <td colspan="${colunas}">
+        <div class="empty">
+          ${icone(simbolo, 'ic ic--xl')}
+          <p class="empty__text">${mensagem}</p>
         </div>
-        <div class="adm-confirm-title" id="adm-cf-title">${opts.title}</div>
-        <div class="adm-confirm-msg">${opts.message}</div>
-        <div class="adm-confirm-actions">
-          <button class="btn btn-ghost adm-cf-cancel">${opts.cancelLabel || 'Cancelar'}</button>
-          <button class="btn ${opts.danger ? 'btn-danger' : 'btn-primary'} adm-cf-ok">${opts.confirmLabel || 'Confirmar'}</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('open'));
-
-    const done = (result: boolean) => {
-      overlay.classList.remove('open');
-      document.removeEventListener('keydown', onKey);
-      setTimeout(() => overlay.remove(), 180);
-      if (prev && typeof prev.focus === 'function') prev.focus();
-      resolve(result);
-    };
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') done(false);
-      if (ev.key === 'Enter') done(true);
-    };
-    document.addEventListener('keydown', onKey);
-    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) done(false); });
-    overlay.querySelector('.adm-cf-cancel')?.addEventListener('click', () => done(false));
-    overlay.querySelector('.adm-cf-ok')?.addEventListener('click', () => done(true));
-    (overlay.querySelector('.adm-cf-ok') as HTMLElement | null)?.focus();
-  });
+      </td>
+    </tr>`;
 }
 
-// ─── Helpers ───────────────────────────────────────────────
-
-function _setCount(id: string, shown: number, total: number, filtered: string): void {
-  const el = $(id);
-  if (!el) return;
-  el.textContent = filtered && shown !== total ? `${shown} de ${total}` : String(total);
+/** Reaplica a busca visível quando a tabela é redesenhada de fora. */
+export function limparBusca(qual: 'espacos' | 'reservas'): void {
+  const campo = el<HTMLInputElement>(`busca-${qual}`);
+  if (campo) {
+    campo.value = '';
+    campo.focus();
+  }
+  if (qual === 'espacos') buscarEspacos('');
+  else buscarReservas('');
 }
-
-function _toggleClear(id: string, val: string): void {
-  const btn = $(id);
-  if (btn) btn.classList.toggle('is-hidden', !val);
-}
-
-function _emptyRow(cols: number, icon: string, msg: string): string {
-  return `<tr class="adm-empty-row"><td colspan="${cols}">
-    <i class="fa-solid ${icon}"></i>${msg}</td></tr>`;
-}
-
-function _fmtDateAdmin(d: string): string {
-  if (!d) return '—';
-  const [y, m, day] = d.split('-');
-  return `${day}/${m}/${y}`;
-}
-
-// Expõe globalmente
-window.renderAdmin = renderAdmin;
-window.adminSetStatus = adminSetStatus;
-window.adminAprovarReserva = adminAprovarReserva;
-window.adminCancelarReserva = adminCancelarReserva;
-window.adminBuscarEstufas = adminBuscarEstufas;
-window.adminBuscarReservas = adminBuscarReservas;
-window.adminFiltrarReservas = adminFiltrarReservas;
-window.adminLimparEstufas = adminLimparEstufas;
-window.adminLimparReservas = adminLimparReservas;
-window.adminGoto = adminGoto;
-window.adminOpenMetrics = adminOpenMetrics;
-window.adminOpenUsers = adminOpenUsers;
-window.adminOpenNewUser = adminOpenNewUser;
-window.adminSetNewRole = adminSetNewRole;
-window.adminCadastrarUsuario = adminCadastrarUsuario;
-window.adminExcluirUsuario = adminExcluirUsuario;
-
-export {
-  renderAdmin,
-  adminSetStatus,
-  adminAprovarReserva,
-  adminCancelarReserva,
-  adminBuscarEstufas,
-  adminBuscarReservas,
-  adminFiltrarReservas,
-  adminLimparEstufas,
-  adminLimparReservas,
-  adminGoto,
-  adminOpenMetrics,
-  adminOpenUsers,
-  adminOpenNewUser,
-  adminSetNewRole,
-  adminCadastrarUsuario,
-  adminExcluirUsuario,
-};

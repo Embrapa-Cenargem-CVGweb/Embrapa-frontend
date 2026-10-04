@@ -2,7 +2,7 @@
  * Posição de cada estufa sobre a foto aérea do campus (% relativo à imagem).
  * O tamanho do alvo de clique é constante e vem do CSS (.estufa-hotspot).
  */
-export interface HotspotPos {
+interface HotspotPos {
   id: string;
   left: number;   // %
   top: number;    // %

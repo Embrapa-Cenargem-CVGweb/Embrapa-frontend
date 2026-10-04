@@ -1,257 +1,273 @@
 /**
- * View: Mapa
- * Marcadores minimalistas (pontos) sobre a foto aérea + painel lateral de
- * detalhes que desliza da direita ao clicar numa estufa.
+ * Mapa do campus.
+ *
+ * Cada espaço é um <button> posicionado em porcentagem sobre a foto aérea, com
+ * nome acessível completo ("Estufa 03, ocupada"), alcançável por teclado. Clicar
+ * ou acionar abre a ficha lateral.
  */
-import { ESTUFAS, STATUS_MAP, reservas } from '../data/estufas';
+import { ESTUFAS, reservaDoEspaco } from '../data/estufas';
 import { HOTSPOTS } from '../data/hotspots';
+import { el, qs, qsa, setText, show } from '../lib/dom';
+import { html, icone } from '../lib/html';
+import { dataBR, plural, statusInfo, statusPill } from '../lib/format';
+import { modalAberto } from '../lib/modal';
+import { aviso } from '../lib/toast';
 import type { Estufa } from '../types';
 
-let activeEstufaId: string | null = null;
+let espacoAtivo: string | null = null;
+let fechandoPainel: number | undefined;
 
-const _HS_STATUSES = ['livre', 'ocupada', 'reservada', 'manutencao'];
-
-// ─── Helpers ──────────────────────────────────────────────
-
-// Valores "ambientais" plausíveis e estáveis por estufa (só para exibição).
-function _seed(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h;
-}
-function _envFor(id: string): { temp: number; umid: number } {
-  const h = _seed(id);
-  return { temp: 24 + (h % 7), umid: 55 + ((h >> 3) % 20) };
-}
-// Setor derivado do nome ("Casa de Vegetação A1" → "Setor A").
-function _setorFor(estufa: Estufa): string {
-  if (estufa.setor) return estufa.setor;
-  const m = (estufa.nome.match(/([A-Z])\s*\d+\s*$/) || [])[1];
-  return m ? ('Setor ' + m) : estufa.tipo;
-}
-function _fmtDataBR(d: string): string {
-  if (!d) return '—';
-  const p = d.split('-');
-  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
-}
-
-const $ = (id: string): HTMLElement | null => document.getElementById(id);
-
-// ─── Abrir / preencher painel ─────────────────────────────
-
-function openPanel(id: string): void {
-  const estufa = ESTUFAS[id];
-  if (!estufa) return;
-  activeEstufaId = id;
-
-  const status = STATUS_MAP[estufa.status] ||
-    { label: estufa.status, cls: 'pill-muted', icon: 'fa-circle' };
-
-  // Marcador selecionado
-  document.querySelectorAll('.estufa-hotspot.selected')
-    .forEach((h) => h.classList.remove('selected'));
-  const hs = document.querySelector(`.estufa-hotspot[data-id="${id}"]`);
-  if (hs) hs.classList.add('selected');
-
-  const panel = $('estufa-panel');
-  if (!panel) return;
-  const wasOpen = panel.classList.contains('open');
-
-  // Classe de status controla a cor do painel (banner, ícones, tipo)
-  panel.className = 'estufa-panel st-' + estufa.status + (wasOpen ? ' open' : '');
-
-  // Banner
-  const panelIcon = $('panel-icon');
-  if (panelIcon) panelIcon.className = 'fa-solid ' + estufa.icon;
-  const panelCode = $('panel-code');
-  if (panelCode) panelCode.textContent = id;
-  const panelStatus = $('panel-status');
-  if (panelStatus) panelStatus.innerHTML = `<i class="fa-solid ${status.icon}"></i> ${status.label}`;
-
-  // Cabeçalho
-  const setText = (elId: string, value: string) => { const el = $(elId); if (el) el.textContent = value; };
-  setText('panel-name', estufa.nome);
-  setText('panel-type', estufa.tipo);
-  setText('panel-desc', estufa.desc);
-
-  // Info
-  const env = _envFor(id);
-  setText('panel-loc', _setorFor(estufa) + ' · Cenargen');
-  setText('panel-area', estufa.area);
-  setText('panel-cap', `${estufa.cap} bancadas`);
-  setText('panel-cult', 'Hortaliças, grãos e ornamentais');
-  setText('panel-cond', `${env.temp} °C · ${env.umid}% UR`);
-  setText('panel-disp',
-    estufa.status === 'livre'      ? 'Disponível agora' :
-    estufa.status === 'manutencao' ? 'Em manutenção'    :
-    estufa.status === 'ocupada'    ? 'Em uso'           : 'Sob reserva');
-
-  // Capacidade teórica de vasos (por tamanho)
-  const vbox = $('panel-vasos');
-  if (vbox) {
-    if (estufa.vasos) {
-      vbox.style.display = '';
-      setText('panel-vaso3', String(estufa.vasos.c3));
-      setText('panel-vaso5', String(estufa.vasos.c5));
-      setText('panel-vaso10', String(estufa.vasos.c10));
-    } else {
-      vbox.style.display = 'none';
-    }
-  }
-
-  // Reserva vinculada (se houver)
-  const reserva = reservas.find((r) => r.estufaId === id && r.status !== 'cancelada') || null;
-  const rbox = $('panel-reserva');
-  if (rbox) {
-    if (reserva) {
-      rbox.style.display = '';
-      setText('panel-reserva-proj', reserva.projeto);
-      const rs = STATUS_MAP[reserva.status];
-      setText('panel-reserva-meta',
-        `${_fmtDataBR(reserva.data)} · ${reserva.qtd} vasos/estantes · ${rs ? rs.label : reserva.status}`);
-    } else {
-      rbox.style.display = 'none';
-    }
-  }
-
-  // Botão de ação
-  const btn = $('panel-action-btn') as HTMLButtonElement | null;
-  if (btn) {
-    btn.style.cssText = 'width:100%;justify-content:center';
-    btn.disabled = false;
-
-    if (estufa.status === 'livre') {
-      btn.innerHTML = '<i class="fa-solid fa-calendar-plus"></i> Reservar esta estufa';
-      btn.className = 'btn btn-primary';
-      btn.onclick = () => window.openReservarModal();
-    } else if (estufa.status === 'reservada' && reserva) {
-      btn.innerHTML = '<i class="fa-solid fa-eye"></i> Ver detalhes da reserva';
-      btn.className = 'btn btn-ghost';
-      btn.onclick = () => window.verReserva(reserva.id);
-    } else if (estufa.status === 'manutencao') {
-      btn.innerHTML = '<i class="fa-solid fa-wrench"></i> Em manutenção';
-      btn.className = 'btn btn-ghost';
-      btn.disabled = true;
-      btn.onclick = null;
-    } else {
-      // ocupada, ou reservada sem registro vinculado
-      btn.innerHTML = `<i class="fa-solid ${status.icon}"></i> ${status.label}`;
-      btn.className = 'btn btn-ghost';
-      btn.disabled = true;
-      btn.onclick = null;
-    }
-  }
-
-  panel.classList.add('open');
-  panel.setAttribute('aria-hidden', 'false');
-}
-
-function closePanel(): void {
-  const panel = $('estufa-panel');
-  if (panel) {
-    panel.classList.remove('open');
-    panel.setAttribute('aria-hidden', 'true');
-  }
-  document.querySelectorAll('.estufa-hotspot.selected')
-    .forEach((h) => h.classList.remove('selected'));
-  activeEstufaId = null;
-}
-
-// Aliases de compatibilidade (onclick nos hotspots e chamadas antigas)
-function openPopup(id: string): void { openPanel(id); }
-function closePopup(): void { closePanel(); }
-
-// ─── Atualização visual do marcador ──────────────────────
-
-function updateEstufaOnMap(id: string): void {
-  const hs = document.querySelector(`.estufa-hotspot[data-id="${id}"]`);
-  if (!hs) return;
-  const st = ESTUFAS[id].status;
-  _HS_STATUSES.forEach((s) => hs.classList.remove('st-' + s));
-  hs.classList.add('st-' + st);
-
-  // Se o painel estiver aberto nesta estufa, reflete a mudança
-  if (activeEstufaId === id && $('estufa-panel')?.classList.contains('open')) {
-    openPanel(id);
-  }
-}
-
-// ─── Render dos marcadores ───────────────────────────────
+/* ===========================================================================
+   Valores derivados
+   =========================================================================== */
 
 /**
- * Monta os 50 marcadores dentro de #map-hotspots a partir de HOTSPOTS.
- * Substitui o bloco de <div> repetidos que existia no index.html.
+ * Condições ambientais plausíveis e estáveis por espaço. São só ilustrativas,
+ * enquanto a telemetria não existir: derivadas do código, nunca sorteadas, para
+ * não mudarem a cada render.
  */
-function renderHotspots(): void {
-  const overlay = $('map-hotspots');
-  if (!overlay) return;
+function condicoes(id: string): { temp: number; umidade: number } {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return { temp: 24 + (hash % 7), umidade: 55 + ((hash >> 3) % 20) };
+}
 
-  overlay.innerHTML = '';
-  const frag = document.createDocumentFragment();
+function setor(estufa: Estufa): string {
+  if (estufa.setor) return estufa.setor;
+  const letra = estufa.nome.match(/([A-Z])\s*\d+\s*$/)?.[1];
+  return letra ? `Setor ${letra}` : estufa.tipo;
+}
 
-  HOTSPOTS.forEach(({ id, left, top }) => {
+function disponibilidade(status: Estufa['status']): string {
+  switch (status) {
+    case 'livre': return 'Disponível agora';
+    case 'manutencao': return 'Em manutenção';
+    case 'ocupada': return 'Em uso';
+    default: return 'Sob reserva';
+  }
+}
+
+function nomeAcessivel(id: string): string {
+  const estufa = ESTUFAS[id];
+  if (!estufa) return `${id}, sem dados`;
+  return `${estufa.nome}, ${statusInfo(estufa.status).label.toLowerCase()}`;
+}
+
+/* ===========================================================================
+   Marcadores
+   =========================================================================== */
+
+export function renderizarMarcadores(): void {
+  const camada = el('map-marcadores');
+  if (!camada) return;
+
+  const fragmento = document.createDocumentFragment();
+
+  for (const { id, left, top } of HOTSPOTS) {
     const estufa = ESTUFAS[id];
-    const hs = document.createElement('div');
-    hs.className = 'estufa-hotspot' + (estufa ? ' st-' + estufa.status : '');
-    hs.dataset.id = id;
-    hs.style.left = left + '%';
-    hs.style.top = top + '%';
-    hs.addEventListener('click', () => openPanel(id));
 
-    const name = document.createElement('div');
-    name.className = 'hs-name';
-    name.textContent = estufa ? estufa.nome : id;
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'marker';
+    botao.dataset.action = 'abrir-espaco';
+    botao.dataset.id = id;
+    botao.dataset.status = estufa ? estufa.status : 'indefinido';
+    botao.style.left = `${left}%`;
+    botao.style.top = `${top}%`;
+    botao.setAttribute('aria-controls', 'painel');
+    botao.setAttribute('aria-expanded', 'false');
+    botao.setAttribute('aria-label', nomeAcessivel(id));
 
-    const dot = document.createElement('div');
-    dot.className = 'hs-dot';
+    const nome = document.createElement('span');
+    nome.className = 'marker__name';
+    nome.setAttribute('aria-hidden', 'true');
+    nome.textContent = estufa ? estufa.nome : id;
 
-    hs.append(name, dot);
-    frag.appendChild(hs);
+    const ponto = document.createElement('span');
+    ponto.className = 'marker__dot';
+
+    botao.append(nome, ponto);
+    fragmento.append(botao);
+  }
+
+  camada.replaceChildren(fragmento);
+}
+
+/** Atualiza status e rótulo dos marcadores sem recriá-los (preserva o foco). */
+export function sincronizarMarcadores(): void {
+  for (const botao of qsa<HTMLButtonElement>('.marker')) {
+    const id = botao.dataset.id;
+    if (!id) continue;
+    const estufa = ESTUFAS[id];
+    botao.dataset.status = estufa ? estufa.status : 'indefinido';
+    botao.setAttribute('aria-label', nomeAcessivel(id));
+    const nome = qs('.marker__name', botao);
+    if (nome && estufa) nome.textContent = estufa.nome;
+  }
+
+  // A ficha aberta reflete a mudança na hora.
+  if (espacoAtivo && ESTUFAS[espacoAtivo]) preencherPainel(espacoAtivo);
+}
+
+function marcarSelecionado(id: string | null): void {
+  for (const botao of qsa<HTMLButtonElement>('.marker')) {
+    botao.setAttribute('aria-expanded', String(botao.dataset.id === id));
+  }
+}
+
+/* ===========================================================================
+   Ficha do espaço
+   =========================================================================== */
+
+function preencherPainel(id: string): void {
+  const estufa = ESTUFAS[id];
+  const painel = el('painel');
+  if (!estufa || !painel) return;
+
+  painel.dataset.status = estufa.status;
+
+  setText('painel-codigo', id);
+  setText('painel-nome', estufa.nome);
+  setText('painel-tipo', estufa.tipo);
+
+  const status = el('painel-status');
+  if (status) status.innerHTML = html`${statusPill(estufa.status)}`;
+
+  setText('painel-descricao', estufa.desc || 'Sem descrição cadastrada.');
+  setText('painel-setor', setor(estufa));
+  setText('painel-area', estufa.area);
+  setText('painel-bancadas', plural(estufa.cap, 'bancada', 'bancadas'));
+
+  const { temp, umidade } = condicoes(id);
+  setText('painel-condicoes', `${temp} °C, ${umidade}% de umidade`);
+  setText('painel-disponibilidade', disponibilidade(estufa.status));
+
+  // Capacidade de vasos
+  const vasos = el('painel-vasos');
+  show(vasos, Boolean(estufa.vasos));
+  if (estufa.vasos) {
+    setText('painel-vaso-3', String(estufa.vasos.c3));
+    setText('painel-vaso-5', String(estufa.vasos.c5));
+    setText('painel-vaso-10', String(estufa.vasos.c10));
+  }
+
+  // Reserva vinculada
+  const reserva = reservaDoEspaco(id);
+  const bloco = el('painel-reserva');
+  show(bloco, Boolean(reserva));
+  if (reserva) {
+    setText('painel-reserva-projeto', reserva.projeto);
+    setText(
+      'painel-reserva-meta',
+      `${statusInfo(reserva.status).label}, para ${dataBR(reserva.data)}, com `
+      + `${plural(reserva.qtd, 'vaso ou estante', 'vasos ou estantes')}.`,
+    );
+  }
+
+  configurarAcao(estufa, id, reserva?.id);
+}
+
+function configurarAcao(estufa: Estufa, id: string, reservaId?: string): void {
+  const botao = el<HTMLButtonElement>('painel-acao');
+  if (!botao) return;
+
+  botao.disabled = false;
+  botao.className = 'btn btn--primary btn--block';
+  delete botao.dataset.id;
+
+  if (estufa.status === 'livre') {
+    botao.dataset.action = 'abrir-reservar';
+    botao.dataset.id = id;
+    botao.innerHTML = html`${icone('calendar-plus', 'ic ic--sm')}Reservar este espaço`;
+    return;
+  }
+
+  if (reservaId) {
+    botao.dataset.action = 'ver-reserva';
+    botao.dataset.id = reservaId;
+    botao.className = 'btn btn--quiet btn--block';
+    botao.innerHTML = html`${icone('eye', 'ic ic--sm')}Ver a reserva`;
+    return;
+  }
+
+  const status = statusInfo(estufa.status);
+  botao.dataset.action = 'sem-acao';
+  botao.className = 'btn btn--quiet btn--block';
+  botao.disabled = true;
+  botao.innerHTML = html`${icone(status.icon, 'ic ic--sm')}${status.label}`;
+}
+
+export function abrirPainel(id: string): void {
+  if (!ESTUFAS[id]) {
+    aviso('Os dados deste espaço ainda não foram carregados.', 'error');
+    return;
+  }
+
+  const painel = el('painel');
+  if (!painel) return;
+
+  window.clearTimeout(fechandoPainel);
+  espacoAtivo = id;
+  preencherPainel(id);
+  marcarSelecionado(id);
+
+  const jaAberto = painel.classList.contains('is-open');
+  show(painel, true);
+  if (!jaAberto) {
+    // Um frame com a ficha visível mas fora da tela, para a transição rodar.
+    requestAnimationFrame(() => painel.classList.add('is-open'));
+    // preventScroll é essencial: a ficha começa deslocada para fora do mapa,
+    // e sem isso o navegador rola o contêiner para trazê-la à vista — é o
+    // que dava a impressão de que o mapa era empurrado para o lado.
+    painel.focus({ preventScroll: true });
+  }
+}
+
+export function fecharPainel(): void {
+  const painel = el('painel');
+  if (!painel || !painel.classList.contains('is-open')) return;
+
+  const anterior = espacoAtivo;
+  painel.classList.remove('is-open');
+  marcarSelecionado(null);
+  espacoAtivo = null;
+
+  // Esconde de vez só quando a animação terminar, para sair da ordem de foco.
+  // O tempo acompanha --dur-4 em tokens.css.
+  window.clearTimeout(fechandoPainel);
+  fechandoPainel = window.setTimeout(() => show(painel, false), 440);
+
+  // Devolve o foco ao marcador de onde veio, sem mexer na rolagem.
+  if (anterior) {
+    qs<HTMLElement>(`.marker[data-id="${anterior}"]`)?.focus({ preventScroll: true });
+  }
+}
+
+/* ===========================================================================
+   Ligações
+   =========================================================================== */
+
+export function iniciarMapa(): void {
+  // A foto pode faltar (caminho errado, deploy incompleto): os marcadores
+  // continuam funcionando sobre o fundo de aviso, nas posições salvas.
+  const foto = el<HTMLImageElement>('map-foto');
+  foto?.addEventListener('error', () => {
+    foto.hidden = true;
+    show(el('map-fallback'), true);
   });
 
-  overlay.appendChild(frag);
+  // Esc fecha a ficha, desde que nenhum modal esteja na frente.
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Escape' || modalAberto()) return;
+    fecharPainel();
+  });
+
+  // Clique fora fecha a ficha. Clique no marcador ou dentro dela, não.
+  document.addEventListener('click', (ev) => {
+    if (modalAberto()) return;
+    const alvo = ev.target;
+    if (!(alvo instanceof Element)) return;
+    if (alvo.closest('.marker') || alvo.closest('#painel')) return;
+    fecharPainel();
+  });
 }
-
-// ─── Layer de hotspots cobre a imagem ────────────────────
-
-function syncHotspots(): void {
-  const img = $('map-photo') as HTMLImageElement | null;
-  const overlay = $('map-hotspots');
-  if (!img || !overlay || !img.naturalWidth) return;
-  overlay.style.left = '0px';
-  overlay.style.top = '0px';
-  overlay.style.width = '100%';
-  overlay.style.height = '100%';
-}
-window.addEventListener('resize', syncHotspots);
-
-// ─── Fechar ao clicar fora / Esc ─────────────────────────
-
-document.addEventListener('click', (e) => {
-  const target = e.target as HTMLElement;
-  if (target.closest('.estufa-hotspot')) return;   // o marcador abre/troca
-  if (target.closest('#estufa-panel')) return;     // clique dentro do painel
-  const panel = $('estufa-panel');
-  if (panel && panel.classList.contains('open')) closePanel();
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closePanel();
-});
-
-// Acesso interno ao id ativo para outros modulos (reservas.ts)
-export function getActiveEstufaId(): string | null {
-  return activeEstufaId;
-}
-
-// ─── Expõe globalmente ───────────────────────────────────
-
-window.openPanel = openPanel;
-window.closePanel = closePanel;
-window.openPopup = openPopup;
-window.closePopup = closePopup;
-window.updateEstufaOnMap = updateEstufaOnMap;
-window.syncHotspots = syncHotspots;
-window.renderHotspots = renderHotspots;
-
-export { openPanel, closePanel, openPopup, closePopup, updateEstufaOnMap, syncHotspots, renderHotspots };
