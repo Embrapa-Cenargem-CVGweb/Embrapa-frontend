@@ -415,6 +415,19 @@
   color: var(--fg-muted);
 }
 
+/* Célula de duas linhas: nome em cima, período/detalhe embaixo. */
+.table__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.table__sub {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
 /* Célula que combina ícone e texto. */
 .table__type {
   display: inline-flex;

@@ -8,6 +8,7 @@
  * localStorage. Com `VITE_API_URL` configurada, vêm da API Laravel.
  */
 import type { Estufas, Reserva, EstufaStatus } from '../types';
+import { dadosMudaram } from '../lib/bus';
 import { getCasasVegetacao, getReservas } from '../services/api';
 import { MOCK_ESTUFAS, MOCK_RESERVAS } from './mock';
 import { hojeISO } from '../lib/format';
@@ -23,9 +24,18 @@ export const reservas: Reserva[] = [];
 export const ID_REAL_ESPACO: Record<string, number> = {};
 export const ID_REAL_RESERVA: Record<string, number> = {};
 
+/** Quando os dados foram lidos pela última vez (epoch ms). 0 = nunca. */
+let lidoEm = 0;
+
+export function ultimaLeitura(): number {
+  return lidoEm;
+}
+
+// A versão no nome da chave aposenta o estado salvo quando o mock muda de
+// formato — sem isso o navegador seguiria mostrando as reservas antigas.
 const CHAVES = {
-  reservas: 'cvgweb:reservas',
-  status: 'cvgweb:status',
+  reservas: 'cvgweb:reservas:v2',
+  status: 'cvgweb:status:v2',
 } as const;
 
 /* ===========================================================================
@@ -123,10 +133,17 @@ function statusDaCasa(chave: string, ativa: boolean): EstufaStatus {
   return ocupadaHoje ? 'ocupada' : 'livre';
 }
 
-export async function carregarEstado(): Promise<void> {
+/**
+ * `aoFalhar` decide o que acontece quando a API não responde: no primeiro
+ * carregamento vale cair no mock, para a tela não subir vazia; numa releitura
+ * no meio da sessão não vale — trocar dados reais por dados de exemplo é pior
+ * do que continuar com o que já estava na tela.
+ */
+export async function carregarEstado(aoFalhar: 'mock' | 'manter' = 'mock'): Promise<void> {
   if (MODO_DEMO) {
     console.info('[CVGWeb] modo demonstração: dados locais, sem API.');
     carregarMock();
+    lidoEm = Date.now();
     return;
   }
 
@@ -184,10 +201,44 @@ export async function carregarEstado(): Promise<void> {
         status: statusDaReserva(item.status),
       });
     }
+
+    lidoEm = Date.now();
   } catch (erro) {
+    if (aoFalhar === 'manter') {
+      console.warn('[CVGWeb] falha ao reler da API; mantendo o estado atual:', erro);
+      throw erro;
+    }
     console.error('[CVGWeb] falha ao carregar da API; usando dados locais:', erro);
     carregarMock();
+    lidoEm = Date.now();
   }
+}
+
+/**
+ * Garante que o estado não está velho antes de alguém consultá-lo.
+ *
+ * O assistente chama isto antes de cada pergunta: as reservas mudam o tempo
+ * todo e quem respondeu "a E03 está livre" dois minutos atrás pode estar
+ * errado agora. Em modo demonstração não há o que buscar — a memória já é a
+ * verdade, e muda junto com cada reserva feita na tela.
+ *
+ * Releituras seguidas dentro da janela são ignoradas, para que uma sequência
+ * de perguntas não vire uma sequência de chamadas à API.
+ */
+export async function garantirEstadoFresco(janelaMs = 15_000): Promise<void> {
+  if (MODO_DEMO) return;
+  if (lidoEm && Date.now() - lidoEm < janelaMs) return;
+
+  try {
+    await carregarEstado('manter');
+  } catch {
+    // Sem rede, responde com o último estado conhecido: o campo "Atualização"
+    // do prompt mostra de quando ele é.
+    return;
+  }
+
+  // Mapa, marcadores e administração acompanham o que o assistente leu.
+  dadosMudaram();
 }
 
 /* ===========================================================================

@@ -157,9 +157,11 @@ function preencherPainel(id: string): void {
   show(bloco, Boolean(reserva));
   if (reserva) {
     setText('painel-reserva-projeto', reserva.projeto);
+    const responsavel = reserva.pesquisador?.trim();
     setText(
       'painel-reserva-meta',
-      `${statusInfo(reserva.status).label}, de ${dataBR(reserva.data)} `
+      `${responsavel ? `${responsavel} · ` : ''}`
+      + `${statusInfo(reserva.status).label}, de ${dataBR(reserva.data)} `
       + `a ${dataBR(reserva.dataFim)}.`,
     );
   }

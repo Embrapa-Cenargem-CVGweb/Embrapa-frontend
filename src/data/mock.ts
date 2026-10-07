@@ -58,26 +58,119 @@ export const MOCK_ESTUFAS: Record<string, Estufa> = {
   E50: { nome: 'Estufa 50', tipo: 'Estufa climatizada', setor: 'Setor Sul', status: 'livre', area: '399 m²', cap: 6, vasos: { c3: 443, c5: 159, c10: 39 }, icon: 'sprout', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
 };
 
-export const MOCK_RESERVAS: Reserva[] = [
+/* ===========================================================================
+   Reservas de exemplo
+
+   Os períodos são relativos ao dia em que o sistema é aberto, não datas fixas:
+   assim a demonstração nunca aparece com tudo vencido. Cobrem todos os espaços
+   marcados como ocupados ou reservados acima, para que a coluna "Reservado por"
+   da administração tenha o que mostrar.
+   =========================================================================== */
+
+/** AAAA-MM-DD a partir de hoje, deslocado em dias. */
+function emDias(deslocamento: number): string {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + deslocamento);
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mes}-${dia}`;
+}
+
+interface Semente {
+  estufaId: string;
+  /** Dias a partir de hoje: negativo já começou, positivo começa depois. */
+  de: number;
+  ate: number;
+  projeto: string;
+  finalidade: string;
+  pesquisador: string;
+  status?: Reserva['status'];
+  obs?: string;
+}
+
+/** Em uso agora (espaços com status "ocupada") e por vir (status "reservada"). */
+const SEMENTES: Semente[] = [
   {
-    id: 'R001', estufaId: 'E03',
-    data: '2026-04-10', dataFim: '2026-07-10',
+    estufaId: 'E03', de: -42, ate: 48,
     projeto: 'CRISPR-Soja: resistência a nematódeos',
-    finalidade: 'Ensaio de resistência em linhagens editadas',
-    pesquisador: 'Rafael Lima', status: 'ativa',
+    finalidade: 'Ensaio de resistência em linhagens editadas de soja',
+    pesquisador: 'Rafael Lima',
   },
   {
-    id: 'R002', estufaId: 'E05',
-    data: '2026-05-11', dataFim: '2026-08-11',
-    projeto: 'Biofortificação em feijão',
-    finalidade: 'Multiplicação de sementes da geração F3',
-    pesquisador: 'Ana Oliveira', status: 'pendente',
-  },
-  {
-    id: 'R003', estufaId: 'E11',
-    data: '2026-06-12', dataFim: '2026-09-12',
+    estufaId: 'E11', de: -18, ate: 72,
     projeto: 'Melhoramento de milho tropical',
-    finalidade: 'Avaliação de tolerância a estresse hídrico',
-    pesquisador: 'Rafael Lima', status: 'ativa',
+    finalidade: 'Avaliação de tolerância a estresse hídrico em milho',
+    pesquisador: 'Rafael Lima',
+  },
+  {
+    estufaId: 'E19', de: -7, ate: 83,
+    projeto: 'Banco ativo de germoplasma de mandioca',
+    finalidade: 'Aclimatação de mudas de mandioca vindas de cultura de tecidos',
+    pesquisador: 'Marcos Teixeira',
+  },
+  {
+    estufaId: 'E27', de: -60, ate: 30,
+    projeto: 'Fitossanidade do algodoeiro',
+    finalidade: 'Inoculação controlada de ramulose em algodão',
+    pesquisador: 'Juliana Prado',
+    obs: 'Acesso restrito: material inoculado.',
+  },
+  {
+    estufaId: 'E35', de: -3, ate: 25,
+    projeto: 'Biofortificação em feijão',
+    finalidade: 'Multiplicação de sementes da geração F3 de feijão-carioca',
+    pesquisador: 'Ana Oliveira',
+  },
+  {
+    estufaId: 'E41', de: -29, ate: 61,
+    projeto: 'Conservação de espécies nativas do Cerrado',
+    finalidade: 'Germinação e crescimento inicial de baru e pequi',
+    pesquisador: 'Carlos Menezes',
+  },
+  {
+    estufaId: 'E05', de: 9, ate: 99,
+    projeto: 'Biofortificação em feijão',
+    finalidade: 'Multiplicação de sementes da geração F4 de feijão-preto',
+    pesquisador: 'Ana Oliveira',
+    status: 'pendente',
+  },
+  {
+    estufaId: 'E13', de: 15, ate: 60,
+    projeto: 'Pré-melhoramento de arroz de terras altas',
+    finalidade: 'Cruzamentos dirigidos entre acessos de arroz',
+    pesquisador: 'Beatriz Nogueira',
+  },
+  {
+    estufaId: 'E21', de: 5, ate: 35,
+    projeto: 'Quarentena vegetal de material importado',
+    finalidade: 'Observação quarentenária de acessos de trigo',
+    pesquisador: 'Paulo Sérgio Alves',
+    status: 'pendente',
+    obs: 'Depende da liberação da quarentena.',
+  },
+  {
+    estufaId: 'E29', de: 21, ate: 111,
+    projeto: 'Interação planta-microrganismo em cana',
+    finalidade: 'Ensaio de inoculação de bactérias fixadoras em cana-de-açúcar',
+    pesquisador: 'Helena Vasques',
+  },
+  {
+    estufaId: 'E45', de: 12, ate: 42,
+    projeto: 'Fenotipagem de tomate para pós-colheita',
+    finalidade: 'Produção de frutos para avaliação de firmeza e vida de prateleira',
+    pesquisador: 'Marcos Teixeira',
   },
 ];
+
+export const MOCK_RESERVAS: Reserva[] = SEMENTES.map((s, indice) => ({
+  id: `R${String(indice + 1).padStart(3, '0')}`,
+  estufaId: s.estufaId,
+  data: emDias(s.de),
+  dataFim: emDias(s.ate),
+  projeto: s.projeto,
+  finalidade: s.finalidade,
+  pesquisador: s.pesquisador,
+  obs: s.obs,
+  status: s.status ?? 'ativa',
+}));

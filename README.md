@@ -61,9 +61,13 @@ src/
     html.ts           template de HTML com escape automático
     modal.ts          modais acessíveis e diálogo de confirmação
     toast.ts          avisos temporários
+  chat/
+    base-conhecimento.md  o que o assistente sabe e como responde
+    contexto.ts           injeta o estado do sistema nesse .md
   data/               estado, dados de exemplo e coordenadas dos marcadores
   services/api.ts     chamadas à API Laravel
-  views/              login, mapa, reservas, administração
+  services/llm.ts     chamada à LLM do assistente (Groq)
+  views/              login, mapa, reservas, administração, assistente
 ```
 
 ## Convenções
@@ -96,6 +100,29 @@ avisa se algum `<use>` aponta para um símbolo que não existe.
 
 **Tipografia.** IBM Plex Sans e IBM Plex Mono auto-hospedadas em `.woff2`. Não
 há requisição a CDN nenhuma: o app funciona offline e na rede interna.
+
+## Assistente
+
+Botão no canto inferior direito, visível depois da entrada no sistema. Responde
+quem está usando cada espaço, por quanto tempo e qual projeto está lá dentro.
+
+O que ele sabe está em `src/chat/base-conhecimento.md`: regras de resposta em
+texto fixo e marcadores `{{...}}` que `src/chat/contexto.ts` preenche a cada
+pergunta com o estado real (ocupação, responsável, período, projeto e
+finalidade). Para mudar o comportamento do chat, edite o `.md` — não o código.
+
+Configuração no `.env`:
+
+```
+VITE_GROQ_API_KEY=gsk_...                 # chave da Groq
+VITE_GROQ_MODEL=llama-3.3-70b-versatile   # opcional
+```
+
+Sem a chave o widget abre e explica o que falta, sem chamar a rede.
+
+> **Produção:** toda variável `VITE_` é embutida no JavaScript publicado e fica
+> legível para qualquer visitante. Antes de publicar, troque o `ENDPOINT` de
+> `src/services/llm.ts` por uma rota do Laravel que guarde a chave no servidor.
 
 ## Integração com a API
 

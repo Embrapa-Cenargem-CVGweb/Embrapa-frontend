@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/styles/login.css" />
   <link rel="stylesheet" href="/styles/map.css" />
   <link rel="stylesheet" href="/styles/admin.css" />
+  <link rel="stylesheet" href="/styles/chat.css" />
 
   <script type="module" src="/src/main.ts"></script>
 </head>
@@ -74,6 +75,9 @@
 <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></symbol>
 <symbol id="i-circle-question-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /> <path d="M12 17h.01" /></symbol>
 <symbol id="i-image-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="22" y1="2" y2="22" /> <path d="M10.41 10.41a2 2 0 1 1-2.83-2.83" /> <line x1="13.5" x2="6" y1="13.5" y2="21" /> <line x1="18" x2="21" y1="12" y2="15" /> <path d="M3.59 3.59A1.99 1.99 0 0 0 3 5v14a2 2 0 0 0 2 2h14c.55 0 1.052-.22 1.41-.59" /> <path d="M21 15V5a2 2 0 0 0-2-2H9" /></symbol>
+<symbol id="i-message-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></symbol>
+<symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8" /> <rect width="16" height="12" x="4" y="8" rx="2" /> <path d="M2 14h2" /> <path d="M20 14h2" /> <path d="M15 13v2" /> <path d="M9 13v2" /></symbol>
+<symbol id="i-send-horizontal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z" /> <path d="M6 12h16" /></symbol>
 </svg>
 <!-- icons:end -->
 
@@ -363,7 +367,7 @@
               <div class="search">
                 <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
                 <input class="input" type="search" id="busca-espacos"
-                       placeholder="Buscar por código, nome ou tipo" aria-label="Buscar espaço" />
+                       placeholder="Buscar por código, nome, tipo ou responsável" aria-label="Buscar espaço" />
                 <button type="button" class="search__clear" id="limpar-espacos"
                         data-action="limpar-busca" data-target="espacos" aria-label="Limpar busca de espaços" hidden>
                   <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
@@ -374,7 +378,7 @@
 
           <div class="table-wrap">
             <table class="table">
-              <caption class="sr-only">Espaços experimentais, com área, capacidade e status editável</caption>
+              <caption class="sr-only">Espaços experimentais, com área, capacidade, quem reservou e status editável</caption>
               <thead>
                 <tr>
                   <th scope="col">Código</th>
@@ -383,6 +387,7 @@
                   <th scope="col">Área</th>
                   <th scope="col">Bancadas</th>
                   <th scope="col">Status</th>
+                  <th scope="col">Reservado por</th>
                   <th scope="col">Alterar status</th>
                 </tr>
               </thead>
@@ -505,7 +510,7 @@
             <div class="search">
               <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
               <input class="input" type="search" id="busca-reservas"
-                     placeholder="Buscar por código, espaço ou projeto" aria-label="Buscar reserva" />
+                     placeholder="Buscar por código, espaço, projeto ou responsável" aria-label="Buscar reserva" />
               <button type="button" class="search__clear" id="limpar-reservas"
                       data-action="limpar-busca" data-target="reservas" aria-label="Limpar busca de reservas" hidden>
                 <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
@@ -521,6 +526,7 @@
               <tr>
                 <th scope="col">Código</th>
                 <th scope="col">Espaço</th>
+                <th scope="col">Responsável</th>
                 <th scope="col">Projeto</th>
                 <th scope="col">Período</th>
                 <th scope="col">Status</th>
@@ -801,6 +807,56 @@
       </a>
     </div>
   </div>
+</div>
+
+
+<!-- Assistente. Fica fora de .app de propósito: é fixo na viewport e aparece
+     só com a sessão aberta (src/views/chat.ts). -->
+<div class="chat" id="chat" hidden>
+
+  <section class="chat__janela" id="chat-janela" hidden aria-labelledby="chat-titulo">
+    <header class="chat__head">
+      <span class="chat__avatar">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-bot" /></svg>
+      </span>
+      <div class="chat__heading">
+        <h2 class="chat__title" id="chat-titulo">Assistente do CVGWeb</h2>
+        <p class="chat__sub">Ocupação, períodos e projetos</p>
+      </div>
+      <button type="button" class="close-btn" id="chat-limpar" data-action="chat-limpar"
+              aria-label="Limpar conversa" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-trash-2" /></svg>
+      </button>
+      <button type="button" class="close-btn" data-action="chat-fechar"
+              aria-label="Fechar assistente">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </header>
+
+    <div class="chat__log" id="chat-log" role="log" aria-live="polite"></div>
+
+    <div class="chat__sugestoes" id="chat-sugestoes" hidden></div>
+
+    <form class="chat__form" id="chat-form" autocomplete="off">
+      <label class="sr-only" for="chat-entrada">Pergunta para o assistente</label>
+      <textarea class="chat__input" id="chat-entrada" rows="1"
+                placeholder="Quem está usando a Estufa 03?"></textarea>
+      <button type="submit" class="chat__enviar" id="chat-enviar" aria-label="Enviar pergunta">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-send-horizontal" /></svg>
+      </button>
+    </form>
+
+    <p class="chat__rodape">
+      Respostas geradas por IA a partir dos dados do sistema. Confira antes de decidir.
+    </p>
+  </section>
+
+  <button type="button" class="chat__fab" id="chat-fab" data-action="chat-alternar"
+          aria-expanded="false" aria-controls="chat-janela">
+    <svg class="ic" aria-hidden="true"><use href="#i-message-circle" /></svg>
+    <span class="chat__fab-label">Assistente</span>
+  </button>
+
 </div>
 
 

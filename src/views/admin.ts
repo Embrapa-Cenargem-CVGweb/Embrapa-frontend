@@ -3,7 +3,7 @@
  *
  * O acesso é verificado a cada render, não só na navegação.
  */
-import { ESTUFAS, reservas, reservasVigentes, salvarEstado } from '../data/estufas';
+import { ESTUFAS, reservaDoEspaco, reservas, reservasVigentes, salvarEstado } from '../data/estufas';
 import { dadosMudaram } from '../lib/bus';
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
@@ -72,25 +72,54 @@ function renderizarMetricas(): void {
    Espaços
    =========================================================================== */
 
+/**
+ * Quem está com o espaço, para a coluna "Reservado por".
+ *
+ * Mostra o responsável da reserva vigente, o período e, quando ela ainda não
+ * foi aprovada, o aviso de pendente. Espaço sem reserva fica com travessão —
+ * inclusive em manutenção, que não tem responsável.
+ */
+function celulaReservadoPor(id: string): string {
+  const reserva = reservaDoEspaco(id);
+  if (!reserva) return html`<span class="table__muted">&mdash;</span>`;
+
+  const nome = reserva.pesquisador?.trim() || 'Responsável não informado';
+  const periodo = `${dataBR(reserva.data)} a ${dataBR(reserva.dataFim)}`;
+
+  return html`
+    <div class="table__stack">
+      <span class="table__name">${nome}</span>
+      <span class="table__sub">
+        ${periodo}
+        ${raw(reserva.status === 'pendente'
+          ? html` &middot; <span class="pill pill--busy">${icone('clock', 'ic ic--sm')}pendente</span>`
+          : '')}
+      </span>
+    </div>`;
+}
+
 function renderizarEspacos(): void {
   const corpo = el('tbody-espacos');
   if (!corpo) return;
 
   const termo = buscaEspacos.trim().toLowerCase();
   const todos = Object.entries(ESTUFAS);
-  const linhas = todos.filter(
-    ([id, e]) =>
-      !termo
-      || id.toLowerCase().includes(termo)
+  const linhas = todos.filter(([id, e]) => {
+    if (!termo) return true;
+    const responsavel = reservaDoEspaco(id)?.pesquisador ?? '';
+    return (
+      id.toLowerCase().includes(termo)
       || e.nome.toLowerCase().includes(termo)
-      || e.tipo.toLowerCase().includes(termo),
-  );
+      || e.tipo.toLowerCase().includes(termo)
+      || responsavel.toLowerCase().includes(termo)
+    );
+  });
 
   atualizarContador('conta-espacos', linhas.length, todos.length, Boolean(termo));
 
   if (!linhas.length) {
     corpo.innerHTML = linhaVazia(
-      7,
+      8,
       'warehouse',
       termo ? `Nenhum espaço corresponde a “${buscaEspacos}”.` : 'Nenhum espaço cadastrado.',
     );
@@ -108,6 +137,7 @@ function renderizarEspacos(): void {
         <td data-label="Área">${e.area}</td>
         <td data-label="Bancadas">${e.cap}</td>
         <td data-label="Status">${statusPill(e.status)}</td>
+        <td data-label="Reservado por">${raw(celulaReservadoPor(id))}</td>
         <td data-label="Alterar status">
           <div class="table__actions">
             <select class="select status-select" data-status="${e.status}"
@@ -173,6 +203,7 @@ function renderizarReservas(): void {
         r.id.toLowerCase().includes(termo)
         || r.projeto.toLowerCase().includes(termo)
         || nome.toLowerCase().includes(termo)
+        || (r.pesquisador ?? '').toLowerCase().includes(termo)
       );
     });
 
@@ -180,7 +211,7 @@ function renderizarReservas(): void {
 
   if (!linhas.length) {
     corpo.innerHTML = linhaVazia(
-      6,
+      7,
       'calendar-x',
       termo
         ? `Nenhuma reserva corresponde a “${buscaReservas}”.`
@@ -197,6 +228,11 @@ function renderizarReservas(): void {
         <tr class="${raw(aprovar ? 'is-pending' : '')}">
           <td data-label="Código"><span class="code">${r.id}</span></td>
           <td data-label="Espaço" class="table__name">${nome}</td>
+          <td data-label="Responsável">
+            ${raw(r.pesquisador
+              ? html`${r.pesquisador}`
+              : html`<span class="table__muted">não informado</span>`)}
+          </td>
           <td data-label="Projeto" class="table__truncate" title="${r.projeto}">${r.projeto}</td>
           <td data-label="Período" style="white-space:nowrap">
             ${dataBR(r.data)} a ${dataBR(r.dataFim)}

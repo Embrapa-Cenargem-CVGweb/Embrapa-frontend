@@ -31,6 +31,14 @@ import {
   renderizarAdmin,
 } from './views/admin';
 import {
+  alternarChat,
+  fecharChat,
+  iniciarChat,
+  limparConversa,
+  mostrarChat,
+  sugerir,
+} from './views/chat';
+import {
   entrar,
   iniciarAutenticacao,
   preencherPerfilDemo,
@@ -103,6 +111,7 @@ function fecharMenu(): void {
 function montarApp(usuario: Usuario): void {
   show(el('tela-entrada'), false);
   show(el('app'), true);
+  mostrarChat(true);
 
   setText('conta-nome', usuario.nome);
   setText('conta-perfil', usuario.cargo);
@@ -120,6 +129,7 @@ function montarApp(usuario: Usuario): void {
 function desmontarApp(): void {
   fecharTodosModais();
   fecharMenu();
+  mostrarChat(false);
   show(el('app'), false);
   show(el('tela-entrada'), true);
 }
@@ -165,6 +175,12 @@ function registrarTodasAsAcoes(): void {
       if (id) verReserva(id);
     },
     'cancelar-reserva-atual': () => cancelarReservaAberta(),
+
+    // assistente
+    'chat-alternar': () => alternarChat(),
+    'chat-fechar': () => fecharChat(),
+    'chat-limpar': () => limparConversa(),
+    'chat-sugerir': (elemento) => sugerir(elemento.dataset.texto ?? ''),
 
     // administração
     'abrir-painel-metricas': () => abrirPainelMetricas(),
@@ -290,6 +306,7 @@ export function iniciarApp(): void {
   iniciarAcoes();
   iniciarModais();
   iniciarMapa();
+  iniciarChat();
 
   registrarTodasAsAcoes();
   ligarFormularios();
