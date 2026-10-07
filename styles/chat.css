@@ -13,15 +13,40 @@
   flex-direction: column;
   align-items: flex-end;
   gap: var(--s-3);
+  transition: right var(--dur-4) var(--ease-panel),
+    opacity var(--dur-2) var(--ease),
+    visibility var(--dur-2) var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat { transition: none; }
 }
 
 .chat[hidden] {
   display: none;
 }
 
-/* Com a ficha do espaço aberta, o botão sobe para não cobrir a ação do rodapé. */
-body:has(.panel.is-open) .chat {
-  bottom: 5.25rem;
+/* ---------------------------------------------------------------------------
+   Convivência com a ficha do espaço
+
+   A ficha desliza da direita ocupando --panel-w e vai até o rodapé, onde ficam
+   "Reservar" e "Ver a reserva". O assistente sai da frente dela em vez de
+   flutuar por cima: com espaço, desloca-se para a esquerda da ficha; sem
+   espaço (a ficha toma a tela toda), some enquanto ela estiver aberta.
+   --------------------------------------------------------------------------- */
+
+@media (width >= 60rem) {
+  body:has(.panel.is-open) .chat {
+    right: calc(var(--panel-w) + var(--s-4));
+  }
+}
+
+@media (width < 60rem) {
+  body:has(.panel.is-open) .chat {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 /* --- Botão flutuante ------------------------------------------------------ */
