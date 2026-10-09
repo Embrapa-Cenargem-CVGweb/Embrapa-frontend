@@ -1,0 +1,102 @@
+/* ===========================================================================
+   CVGWeb · Administração
+   Uma página: cabeçalho com as ações e a tabela de espaços em altura cheia.
+   Painel, reservas e usuários abrem em modal.
+   =========================================================================== */
+
+.admin {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-height: 0;
+  padding: var(--s-5) var(--s-6) var(--s-5);
+}
+
+/* ===========================================================================
+   Seção com cabeçalho próprio (título, contador e ferramentas)
+   Reaproveitada tanto na página quanto dentro dos modais.
+   =========================================================================== */
+
+.section {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.section__head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  align-items: center;
+  margin-bottom: var(--s-3);
+}
+
+.section__title {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.01em;
+}
+
+.section__title .ic {
+  color: var(--fg-muted);
+}
+
+.section__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+  margin-left: auto;
+}
+
+.section__tools .search .input {
+  width: 13rem;
+}
+
+/* Realce curto ao chegar numa seção por um atalho de métrica. */
+.section.is-flash .table-wrap {
+  animation: flash var(--dur-3) var(--ease) 2 alternate;
+}
+
+@keyframes flash {
+  to {
+    border-color: var(--accent);
+  }
+}
+
+/* ===========================================================================
+   Responsivo
+   =========================================================================== */
+
+@media (width <= 48rem) {
+  .admin {
+    display: block;
+    flex: none;
+    padding: var(--s-4);
+    overflow-y: auto;
+  }
+
+  .section {
+    display: block;
+  }
+
+  .section__tools {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .section__tools .search {
+    flex: 1;
+  }
+
+  .section__tools .search .input {
+    width: 100%;
+  }
+}

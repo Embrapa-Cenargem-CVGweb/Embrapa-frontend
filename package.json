@@ -1,15 +1,17 @@
 {
-  "name": "embrapa-cenargen",
-  "version": "1.0.0",
-  "description": "Sistema de gerenciamento de estufas e reservas da Embrapa Cenargen",
-  "author": "Embrapa",
+  "name": "embrapa-cenargen-frontend",
+  "version": "2.0.0",
+  "description": "CVGWeb — interface de gestão dos campos experimentais e casas de vegetação da Embrapa Cenargen",
+  "author": "Embrapa Cenargen",
   "license": "MIT",
   "type": "module",
+  "private": true,
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/build-icons.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.3",
@@ -18,8 +20,8 @@
   "keywords": [
     "embrapa",
     "cenargen",
-    "estufas",
-    "reservas",
-    "agricultura"
+    "cvgweb",
+    "casas-de-vegetacao",
+    "reservas"
   ]
 }

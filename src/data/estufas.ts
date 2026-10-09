@@ -1,122 +1,265 @@
 /**
- * Dados das Estufas e Reservas
- * Embrapa Cenargen — 50 estufas (numeradas 1 a 50)
+ * Estado dos espaços e das reservas.
+ *
+ * `ESTUFAS` e `reservas` são mutados no lugar (nunca reatribuídos), para que
+ * quem importou continue vendo a mesma referência.
+ *
+ * Em modo demonstração os dados vêm de `mock.ts` e as alterações ficam no
+ * localStorage. Com `VITE_API_URL` configurada, vêm da API Laravel.
  */
-import type { Estufas, Reserva, StatusInfo } from '../types';
+import type { Estufas, Reserva, EstufaStatus } from '../types';
+import { dadosMudaram } from '../lib/bus';
+import { getCasasVegetacao, getReservas } from '../services/api';
+import { MOCK_ESTUFAS, MOCK_RESERVAS } from './mock';
+import { hojeISO } from '../lib/format';
+import { MODO_DEMO } from '../lib/ambiente';
 
-export const ESTUFAS: Estufas = {
-  E01: { nome: 'Estufa 01', tipo: 'Casa de vegetação', setor: 'Setor Norte', status: 'livre', area: '204 m²', cap: 4, vasos: { c3: 226, c5: 81, c10: 20 }, icon: 'fa-leaf', desc: 'Estrutura em alumínio com cobertura de policarbonato, bancadas e sistema de nebulização.' },
-  E02: { nome: 'Estufa 02', tipo: 'Estufa climatizada', setor: 'Setor Norte', status: 'livre', area: '133 m²', cap: 6, vasos: { c3: 148, c5: 53, c10: 13 }, icon: 'fa-seedling', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
-  E03: { nome: 'Estufa 03', tipo: 'Telado agrícola', setor: 'Setor Norte', status: 'ocupada', area: '139 m²', cap: 8, vasos: { c3: 154, c5: 55, c10: 13 }, icon: 'fa-sprout', desc: 'Câmara com controle de temperatura, umidade e fotoperíodo para ensaios de precisão.' },
-  E04: { nome: 'Estufa 04', tipo: 'Casa de vegetação', setor: 'Setor Norte', status: 'livre', area: '113 m²', cap: 10, vasos: { c3: 125, c5: 45, c10: 11 }, icon: 'fa-leaf', desc: 'Casa de vegetação para multiplicação e aclimatação de mudas e plântulas.' },
-  E05: { nome: 'Estufa 05', tipo: 'Estufa climatizada', setor: 'Setor Norte', status: 'reservada', area: '113 m²', cap: 12, vasos: { c3: 125, c5: 45, c10: 11 }, icon: 'fa-seedling', desc: 'Ambiente protegido para estudos de melhoramento e fitossanidade vegetal.' },
-  E06: { nome: 'Estufa 06', tipo: 'Telado agrícola', setor: 'Setor Norte', status: 'livre', area: '96 m²', cap: 14, vasos: { c3: 106, c5: 38, c10: 9 }, icon: 'fa-sprout', desc: 'Casa de vegetação climatizada com irrigação automatizada para condições controladas.' },
-  E07: { nome: 'Estufa 07', tipo: 'Casa de vegetação', setor: 'Setor Norte', status: 'livre', area: '96 m²', cap: 4, vasos: { c3: 106, c5: 38, c10: 9 }, icon: 'fa-leaf', desc: 'Estrutura em alumínio com cobertura de policarbonato, bancadas e sistema de nebulização.' },
-  E08: { nome: 'Estufa 08', tipo: 'Estufa climatizada', setor: 'Setor Norte', status: 'manutencao', area: '180 m²', cap: 6, vasos: { c3: 200, c5: 72, c10: 18 }, icon: 'fa-seedling', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
-  E09: { nome: 'Estufa 09', tipo: 'Telado agrícola', setor: 'Setor Norte', status: 'livre', area: '125 m²', cap: 8, vasos: { c3: 138, c5: 50, c10: 12 }, icon: 'fa-sprout', desc: 'Câmara com controle de temperatura, umidade e fotoperíodo para ensaios de precisão.' },
-  E10: { nome: 'Estufa 10', tipo: 'Casa de vegetação', setor: 'Setor Norte', status: 'livre', area: '121 m²', cap: 10, vasos: { c3: 134, c5: 48, c10: 12 }, icon: 'fa-leaf', desc: 'Casa de vegetação para multiplicação e aclimatação de mudas e plântulas.' },
-  E11: { nome: 'Estufa 11', tipo: 'Estufa climatizada', setor: 'Setor Norte', status: 'ocupada', area: '123 m²', cap: 12, vasos: { c3: 136, c5: 49, c10: 12 }, icon: 'fa-seedling', desc: 'Ambiente protegido para estudos de melhoramento e fitossanidade vegetal.' },
-  E12: { nome: 'Estufa 12', tipo: 'Telado agrícola', setor: 'Setor Norte', status: 'livre', area: '134 m²', cap: 14, vasos: { c3: 149, c5: 53, c10: 13 }, icon: 'fa-sprout', desc: 'Casa de vegetação climatizada com irrigação automatizada para condições controladas.' },
-  E13: { nome: 'Estufa 13', tipo: 'Casa de vegetação', setor: 'Setor Norte', status: 'reservada', area: '106 m²', cap: 4, vasos: { c3: 117, c5: 42, c10: 10 }, icon: 'fa-leaf', desc: 'Estrutura em alumínio com cobertura de policarbonato, bancadas e sistema de nebulização.' },
-  E14: { nome: 'Estufa 14', tipo: 'Estufa climatizada', setor: 'Setor Norte', status: 'livre', area: '106 m²', cap: 6, vasos: { c3: 117, c5: 42, c10: 10 }, icon: 'fa-seedling', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
-  E15: { nome: 'Estufa 15', tipo: 'Telado agrícola', setor: 'Setor Norte', status: 'livre', area: '103 m²', cap: 8, vasos: { c3: 114, c5: 41, c10: 10 }, icon: 'fa-sprout', desc: 'Câmara com controle de temperatura, umidade e fotoperíodo para ensaios de precisão.' },
-  E16: { nome: 'Estufa 16', tipo: 'Casa de vegetação', setor: 'Setor Norte', status: 'manutencao', area: '103 m²', cap: 10, vasos: { c3: 114, c5: 41, c10: 10 }, icon: 'fa-leaf', desc: 'Casa de vegetação para multiplicação e aclimatação de mudas e plântulas.' },
-  E17: { nome: 'Estufa 17', tipo: 'Estufa climatizada', setor: 'Setor Leste', status: 'livre', area: '122 m²', cap: 12, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-seedling', desc: 'Ambiente protegido para estudos de melhoramento e fitossanidade vegetal.' },
-  E18: { nome: 'Estufa 18', tipo: 'Telado agrícola', setor: 'Setor Leste', status: 'livre', area: '122 m²', cap: 14, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-sprout', desc: 'Casa de vegetação climatizada com irrigação automatizada para condições controladas.' },
-  E19: { nome: 'Estufa 19', tipo: 'Casa de vegetação', setor: 'Setor Leste', status: 'ocupada', area: '124 m²', cap: 4, vasos: { c3: 138, c5: 49, c10: 12 }, icon: 'fa-leaf', desc: 'Estrutura em alumínio com cobertura de policarbonato, bancadas e sistema de nebulização.' },
-  E20: { nome: 'Estufa 20', tipo: 'Estufa climatizada', setor: 'Setor Leste', status: 'livre', area: '124 m²', cap: 6, vasos: { c3: 138, c5: 49, c10: 12 }, icon: 'fa-seedling', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
-  E21: { nome: 'Estufa 21', tipo: 'Telado agrícola', setor: 'Setor Leste', status: 'reservada', area: '58 m²', cap: 8, vasos: { c3: 64, c5: 23, c10: 5 }, icon: 'fa-sprout', desc: 'Câmara com controle de temperatura, umidade e fotoperíodo para ensaios de precisão.' },
-  E22: { nome: 'Estufa 22', tipo: 'Casa de vegetação', setor: 'Setor Central', status: 'livre', area: '122 m²', cap: 10, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-leaf', desc: 'Casa de vegetação para multiplicação e aclimatação de mudas e plântulas.' },
-  E23: { nome: 'Estufa 23', tipo: 'Estufa climatizada', setor: 'Setor Central', status: 'livre', area: '122 m²', cap: 12, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-seedling', desc: 'Ambiente protegido para estudos de melhoramento e fitossanidade vegetal.' },
-  E24: { nome: 'Estufa 24', tipo: 'Telado agrícola', setor: 'Setor Central', status: 'manutencao', area: '122 m²', cap: 14, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-sprout', desc: 'Casa de vegetação climatizada com irrigação automatizada para condições controladas.' },
-  E25: { nome: 'Estufa 25', tipo: 'Casa de vegetação', setor: 'Setor Central', status: 'livre', area: '122 m²', cap: 4, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-leaf', desc: 'Estrutura em alumínio com cobertura de policarbonato, bancadas e sistema de nebulização.' },
-  E26: { nome: 'Estufa 26', tipo: 'Estufa climatizada', setor: 'Setor Central', status: 'livre', area: '122 m²', cap: 6, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-seedling', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
-  E27: { nome: 'Estufa 27', tipo: 'Telado agrícola', setor: 'Setor Central', status: 'ocupada', area: '122 m²', cap: 8, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-sprout', desc: 'Câmara com controle de temperatura, umidade e fotoperíodo para ensaios de precisão.' },
-  E28: { nome: 'Estufa 28', tipo: 'Casa de vegetação', setor: 'Setor Central', status: 'livre', area: '122 m²', cap: 10, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-leaf', desc: 'Casa de vegetação para multiplicação e aclimatação de mudas e plântulas.' },
-  E29: { nome: 'Estufa 29', tipo: 'Estufa climatizada', setor: 'Setor Central', status: 'reservada', area: '122 m²', cap: 12, vasos: { c3: 135, c5: 48, c10: 12 }, icon: 'fa-seedling', desc: 'Ambiente protegido para estudos de melhoramento e fitossanidade vegetal.' },
-  E30: { nome: 'Estufa 30', tipo: 'Telado agrícola', setor: 'Setor Central', status: 'livre', area: '196 m²', cap: 14, vasos: { c3: 218, c5: 78, c10: 19 }, icon: 'fa-sprout', desc: 'Casa de vegetação climatizada com irrigação automatizada para condições controladas.' },
-  E31: { nome: 'Estufa 31', tipo: 'Casa de vegetação', setor: 'Setor Central', status: 'livre', area: '196 m²', cap: 4, vasos: { c3: 218, c5: 78, c10: 19 }, icon: 'fa-leaf', desc: 'Estrutura em alumínio com cobertura de policarbonato, bancadas e sistema de nebulização.' },
-  E32: { nome: 'Estufa 32', tipo: 'Estufa climatizada', setor: 'Setor Central', status: 'livre', area: '196 m²', cap: 6, vasos: { c3: 218, c5: 78, c10: 19 }, icon: 'fa-seedling', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
-  E33: { nome: 'Estufa 33', tipo: 'Telado agrícola', setor: 'Setor Central', status: 'livre', area: '196 m²', cap: 8, vasos: { c3: 218, c5: 78, c10: 19 }, icon: 'fa-sprout', desc: 'Câmara com controle de temperatura, umidade e fotoperíodo para ensaios de precisão.' },
-  E34: { nome: 'Estufa 34', tipo: 'Casa de vegetação', setor: 'Setor Central', status: 'livre', area: '135 m²', cap: 10, vasos: { c3: 149, c5: 53, c10: 13 }, icon: 'fa-leaf', desc: 'Casa de vegetação para multiplicação e aclimatação de mudas e plântulas.' },
-  E35: { nome: 'Estufa 35', tipo: 'Estufa climatizada', setor: 'Setor Central', status: 'ocupada', area: '123 m²', cap: 12, vasos: { c3: 136, c5: 49, c10: 12 }, icon: 'fa-seedling', desc: 'Ambiente protegido para estudos de melhoramento e fitossanidade vegetal.' },
-  E36: { nome: 'Estufa 36', tipo: 'Telado agrícola', setor: 'Setor Sul', status: 'livre', area: '222 m²', cap: 14, vasos: { c3: 246, c5: 88, c10: 22 }, icon: 'fa-sprout', desc: 'Casa de vegetação climatizada com irrigação automatizada para condições controladas.' },
-  E37: { nome: 'Estufa 37', tipo: 'Casa de vegetação', setor: 'Setor Sul', status: 'livre', area: '222 m²', cap: 4, vasos: { c3: 246, c5: 88, c10: 22 }, icon: 'fa-leaf', desc: 'Estrutura em alumínio com cobertura de policarbonato, bancadas e sistema de nebulização.' },
-  E38: { nome: 'Estufa 38', tipo: 'Estufa climatizada', setor: 'Setor Sul', status: 'manutencao', area: '222 m²', cap: 6, vasos: { c3: 246, c5: 88, c10: 22 }, icon: 'fa-seedling', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
-  E39: { nome: 'Estufa 39', tipo: 'Telado agrícola', setor: 'Setor Sul', status: 'livre', area: '222 m²', cap: 8, vasos: { c3: 246, c5: 88, c10: 22 }, icon: 'fa-sprout', desc: 'Câmara com controle de temperatura, umidade e fotoperíodo para ensaios de precisão.' },
-  E40: { nome: 'Estufa 40', tipo: 'Casa de vegetação', setor: 'Setor Sul', status: 'livre', area: '231 m²', cap: 10, vasos: { c3: 256, c5: 92, c10: 23 }, icon: 'fa-leaf', desc: 'Casa de vegetação para multiplicação e aclimatação de mudas e plântulas.' },
-  E41: { nome: 'Estufa 41', tipo: 'Estufa climatizada', setor: 'Setor Sul', status: 'ocupada', area: '119 m²', cap: 12, vasos: { c3: 132, c5: 47, c10: 11 }, icon: 'fa-seedling', desc: 'Ambiente protegido para estudos de melhoramento e fitossanidade vegetal.' },
-  E42: { nome: 'Estufa 42', tipo: 'Telado agrícola', setor: 'Setor Sul', status: 'livre', area: '123 m²', cap: 14, vasos: { c3: 137, c5: 49, c10: 12 }, icon: 'fa-sprout', desc: 'Casa de vegetação climatizada com irrigação automatizada para condições controladas.' },
-  E43: { nome: 'Estufa 43', tipo: 'Casa de vegetação', setor: 'Setor Sul', status: 'livre', area: '122 m²', cap: 4, vasos: { c3: 136, c5: 48, c10: 12 }, icon: 'fa-leaf', desc: 'Estrutura em alumínio com cobertura de policarbonato, bancadas e sistema de nebulização.' },
-  E44: { nome: 'Estufa 44', tipo: 'Estufa climatizada', setor: 'Setor Sul', status: 'livre', area: '151 m²', cap: 6, vasos: { c3: 167, c5: 60, c10: 15 }, icon: 'fa-seedling', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
-  E45: { nome: 'Estufa 45', tipo: 'Telado agrícola', setor: 'Setor Sul', status: 'reservada', area: '121 m²', cap: 8, vasos: { c3: 134, c5: 48, c10: 12 }, icon: 'fa-sprout', desc: 'Câmara com controle de temperatura, umidade e fotoperíodo para ensaios de precisão.' },
-  E46: { nome: 'Estufa 46', tipo: 'Casa de vegetação', setor: 'Setor Sul', status: 'livre', area: '121 m²', cap: 10, vasos: { c3: 134, c5: 48, c10: 12 }, icon: 'fa-leaf', desc: 'Casa de vegetação para multiplicação e aclimatação de mudas e plântulas.' },
-  E47: { nome: 'Estufa 47', tipo: 'Estufa climatizada', setor: 'Setor Sul', status: 'livre', area: '121 m²', cap: 12, vasos: { c3: 134, c5: 48, c10: 12 }, icon: 'fa-seedling', desc: 'Ambiente protegido para estudos de melhoramento e fitossanidade vegetal.' },
-  E48: { nome: 'Estufa 48', tipo: 'Telado agrícola', setor: 'Setor Sul', status: 'manutencao', area: '123 m²', cap: 14, vasos: { c3: 136, c5: 49, c10: 12 }, icon: 'fa-sprout', desc: 'Casa de vegetação climatizada com irrigação automatizada para condições controladas.' },
-  E49: { nome: 'Estufa 49', tipo: 'Casa de vegetação', setor: 'Setor Sul', status: 'livre', area: '78 m²', cap: 4, vasos: { c3: 86, c5: 31, c10: 7 }, icon: 'fa-leaf', desc: 'Estrutura em alumínio com cobertura de policarbonato, bancadas e sistema de nebulização.' },
-  E50: { nome: 'Estufa 50', tipo: 'Estufa climatizada', setor: 'Setor Sul', status: 'livre', area: '399 m²', cap: 6, vasos: { c3: 443, c5: 159, c10: 39 }, icon: 'fa-seedling', desc: 'Espaço para experimentos de pequeno porte com controle de luz e ventilação.' },
-};
+export const ESTUFAS: Estufas = {};
+export const reservas: Reserva[] = [];
 
-/** Lista mutavel de reservas (mutada in-place por loadState/confirmarReserva). */
-export const reservas: Reserva[] = [
-  { id: 'R001', estufaId: 'E03', data: '2026-04-10', qtd: 5, projeto: 'CRISPR-Soja: Resistência a Nematódeos', status: 'ativa' },
-  { id: 'R002', estufaId: 'E05', data: '2026-05-11', qtd: 6, projeto: 'Biofortificação em Feijão', status: 'pendente' },
-  { id: 'R003', estufaId: 'E11', data: '2026-06-12', qtd: 7, projeto: 'Melhoramento de Milho Tropical', status: 'ativa' },
-];
+/**
+ * Código da interface (E01, R001) para o id real do banco. A API precisa do id
+ * numérico ao criar ou alterar uma reserva; a interface só conhece o código.
+ */
+export const ID_REAL_ESPACO: Record<string, number> = {};
+export const ID_REAL_RESERVA: Record<string, number> = {};
 
-export const STATUS_MAP: Record<string, StatusInfo> = {
-  livre:      { label: 'Livre',       cls: 'pill-green',  icon: 'fa-circle-check'  },
-  ocupada:    { label: 'Ocupada',     cls: 'pill-warn',   icon: 'fa-house-leaf'    },
-  reservada:  { label: 'Reservada',   cls: 'pill-info',   icon: 'fa-calendar'      },
-  manutencao: { label: 'Manutenção',  cls: 'pill-danger', icon: 'fa-wrench'        },
-  ativa:      { label: 'Ativa',       cls: 'pill-green',  icon: 'fa-circle-check'  },
-  pendente:   { label: 'Pendente',    cls: 'pill-warn',   icon: 'fa-clock'         },
-  cancelada:  { label: 'Cancelada',   cls: 'pill-danger', icon: 'fa-xmark'         },
-};
+/** Quando os dados foram lidos pela última vez (epoch ms). 0 = nunca. */
+let lidoEm = 0;
 
-// ─── LocalStorage ─────────────────────────────────────────
+export function ultimaLeitura(): number {
+  return lidoEm;
+}
 
-const _KEYS = {
-  reservas: 'cenargen_reservas_v2',
-  statuses: 'cenargen_estufas_status_v2',
-};
+// A versão no nome da chave aposenta o estado salvo quando o mock muda de
+// formato — sem isso o navegador seguiria mostrando as reservas antigas.
+const CHAVES = {
+  reservas: 'cvgweb:reservas:v2',
+  status: 'cvgweb:status:v2',
+} as const;
 
-export function saveState(): void {
+/* ===========================================================================
+   Modo demonstração
+   =========================================================================== */
+
+function carregarMock(): void {
+  for (const chave of Object.keys(ESTUFAS)) delete ESTUFAS[chave];
+  reservas.length = 0;
+
+  for (const [chave, estufa] of Object.entries(MOCK_ESTUFAS)) {
+    ESTUFAS[chave] = { ...estufa, vasos: estufa.vasos ? { ...estufa.vasos } : undefined };
+  }
+  for (const reserva of MOCK_RESERVAS) reservas.push({ ...reserva });
+
+  restaurarLocal();
+}
+
+function restaurarLocal(): void {
   try {
-    const statuses: Record<string, string> = {};
-    Object.keys(ESTUFAS).forEach((id) => { statuses[id] = ESTUFAS[id].status; });
-    localStorage.setItem(_KEYS.reservas, JSON.stringify(reservas));
-    localStorage.setItem(_KEYS.statuses, JSON.stringify(statuses));
-  } catch (e) {
-    console.warn('[Cenargen] Erro ao salvar estado:', e);
+    const salvas = localStorage.getItem(CHAVES.reservas);
+    if (salvas) {
+      const lidas = JSON.parse(salvas) as Reserva[];
+      if (Array.isArray(lidas) && lidas.length) {
+        reservas.length = 0;
+        for (const reserva of lidas) reservas.push(reserva);
+      }
+    }
+
+    const status = localStorage.getItem(CHAVES.status);
+    if (status) {
+      const mapa = JSON.parse(status) as Record<string, EstufaStatus>;
+      for (const [id, valor] of Object.entries(mapa)) {
+        if (ESTUFAS[id]) ESTUFAS[id].status = valor;
+      }
+    }
+  } catch (erro) {
+    console.warn('[CVGWeb] estado local inválido, ignorando:', erro);
   }
 }
 
-export function loadState(): void {
+export function salvarEstado(): void {
+  if (!MODO_DEMO) return;
   try {
-    const savedR = localStorage.getItem(_KEYS.reservas);
-    const savedS = localStorage.getItem(_KEYS.statuses);
+    const status: Record<string, EstufaStatus> = {};
+    for (const [id, estufa] of Object.entries(ESTUFAS)) status[id] = estufa.status;
+    localStorage.setItem(CHAVES.reservas, JSON.stringify(reservas));
+    localStorage.setItem(CHAVES.status, JSON.stringify(status));
+  } catch (erro) {
+    console.warn('[CVGWeb] não foi possível salvar o estado:', erro);
+  }
+}
 
-    if (savedR) {
-      const loaded = JSON.parse(savedR) as Reserva[];
-      reservas.length = 0;
-      loaded.forEach((r) => reservas.push(r));
-    }
+/* ===========================================================================
+   API
+   =========================================================================== */
 
-    if (savedS) {
-      const statuses = JSON.parse(savedS) as Record<string, Estufas[string]['status']>;
-      Object.keys(statuses).forEach((id) => {
-        if (ESTUFAS[id]) ESTUFAS[id].status = statuses[id];
+interface CasaApi {
+  id: number;
+  descricao?: string;
+  localizacao?: string;
+  area_m2?: number;
+  capacidade?: number;
+  obs?: string;
+  ativa?: boolean;
+}
+
+interface ReservaApi {
+  id: number;
+  casa_vegetacao_id: number;
+  data_inicio?: string;
+  data_fim?: string;
+  projeto?: { codigo?: string };
+  projeto_id?: number | string;
+  funcionario?: { nome?: string };
+  finalidade?: string;
+  obs?: string;
+  status?: string;
+}
+
+/** A API devolve o status em maiúsculas; aqui ele vira a chave da interface. */
+function statusDaReserva(bruto: string | undefined): Reserva['status'] {
+  const valor = String(bruto ?? 'ativa').toLowerCase();
+  if (valor === 'cancelada') return 'cancelada';
+  if (valor === 'pendente') return 'pendente';
+  return 'ativa';
+}
+
+function statusDaCasa(chave: string, ativa: boolean): EstufaStatus {
+  if (!ativa) return 'manutencao';
+  const hoje = hojeISO();
+  const ocupadaHoje = reservas.some(
+    (r) => r.estufaId === chave && r.status !== 'cancelada' && r.data === hoje,
+  );
+  return ocupadaHoje ? 'ocupada' : 'livre';
+}
+
+/**
+ * `aoFalhar` decide o que acontece quando a API não responde: no primeiro
+ * carregamento vale cair no mock, para a tela não subir vazia; numa releitura
+ * no meio da sessão não vale — trocar dados reais por dados de exemplo é pior
+ * do que continuar com o que já estava na tela.
+ */
+export async function carregarEstado(aoFalhar: 'mock' | 'manter' = 'mock'): Promise<void> {
+  if (MODO_DEMO) {
+    console.info('[CVGWeb] modo demonstração: dados locais, sem API.');
+    carregarMock();
+    lidoEm = Date.now();
+    return;
+  }
+
+  try {
+    const [casasResposta, reservasResposta] = await Promise.all([
+      getCasasVegetacao(),
+      getReservas(),
+    ]);
+
+    for (const chave of Object.keys(ESTUFAS)) delete ESTUFAS[chave];
+    for (const chave of Object.keys(ID_REAL_ESPACO)) delete ID_REAL_ESPACO[chave];
+    for (const chave of Object.keys(ID_REAL_RESERVA)) delete ID_REAL_RESERVA[chave];
+    reservas.length = 0;
+
+    // Ordena pelo id real para que E01, E02... sigam sempre a mesma ordem,
+    // independente de como o backend devolveu.
+    const casas: CasaApi[] = (casasResposta.data ?? casasResposta)
+      .slice()
+      .sort((a: CasaApi, b: CasaApi) => a.id - b.id);
+
+    const chavePorId: Record<number, string> = {};
+    casas.forEach((casa, indice) => {
+      const chave = `E${String(indice + 1).padStart(2, '0')}`;
+      chavePorId[casa.id] = chave;
+      ID_REAL_ESPACO[chave] = casa.id;
+
+      ESTUFAS[chave] = {
+        nome: casa.descricao ?? chave,
+        tipo: 'Casa de vegetação',
+        setor: casa.localizacao ?? '—',
+        status: statusDaCasa(chave, casa.ativa !== false),
+        area: casa.area_m2 ? `${casa.area_m2} m²` : '—',
+        cap: casa.capacidade ?? 0,
+        icon: 'leaf',
+        desc: casa.obs ?? '',
+      };
+    });
+
+    const lista: ReservaApi[] = reservasResposta.data ?? reservasResposta;
+    for (const item of lista) {
+      const codigo = `R${String(item.id).padStart(3, '0')}`;
+      ID_REAL_RESERVA[codigo] = item.id;
+
+      reservas.push({
+        id: codigo,
+        estufaId:
+          chavePorId[item.casa_vegetacao_id]
+          ?? `E${String(item.casa_vegetacao_id).padStart(2, '0')}`,
+        data: item.data_inicio?.slice(0, 10) ?? '',
+        dataFim: item.data_fim?.slice(0, 10) ?? '',
+        projeto: item.projeto?.codigo ?? String(item.projeto_id ?? ''),
+        finalidade: item.finalidade ?? '',
+        obs: item.obs ?? '',
+        pesquisador: item.funcionario?.nome ?? '',
+        status: statusDaReserva(item.status),
       });
     }
-  } catch (e) {
-    console.warn('[Cenargen] Erro ao carregar estado:', e);
+
+    lidoEm = Date.now();
+  } catch (erro) {
+    if (aoFalhar === 'manter') {
+      console.warn('[CVGWeb] falha ao reler da API; mantendo o estado atual:', erro);
+      throw erro;
+    }
+    console.error('[CVGWeb] falha ao carregar da API; usando dados locais:', erro);
+    carregarMock();
+    lidoEm = Date.now();
   }
 }
 
-loadState();
+/**
+ * Garante que o estado não está velho antes de alguém consultá-lo.
+ *
+ * O assistente chama isto antes de cada pergunta: as reservas mudam o tempo
+ * todo e quem respondeu "a E03 está livre" dois minutos atrás pode estar
+ * errado agora. Em modo demonstração não há o que buscar — a memória já é a
+ * verdade, e muda junto com cada reserva feita na tela.
+ *
+ * Releituras seguidas dentro da janela são ignoradas, para que uma sequência
+ * de perguntas não vire uma sequência de chamadas à API.
+ */
+export async function garantirEstadoFresco(janelaMs = 15_000): Promise<void> {
+  if (MODO_DEMO) return;
+  if (lidoEm && Date.now() - lidoEm < janelaMs) return;
 
-window.ESTUFAS = ESTUFAS;
-window.reservas = reservas;
-window.STATUS_MAP = STATUS_MAP;
-window.saveState = saveState;
+  try {
+    await carregarEstado('manter');
+  } catch {
+    // Sem rede, responde com o último estado conhecido: o campo "Atualização"
+    // do prompt mostra de quando ele é.
+    return;
+  }
+
+  // Mapa, marcadores e administração acompanham o que o assistente leu.
+  dadosMudaram();
+}
+
+/* ===========================================================================
+   Consultas
+   =========================================================================== */
+
+/** Reservas que ainda valem: nem canceladas, nem de espaços inexistentes. */
+export function reservasVigentes(): Reserva[] {
+  return reservas.filter((r) => r.status !== 'cancelada');
+}
+
+/** Reserva vigente de um espaço, se houver. */
+export function reservaDoEspaco(estufaId: string): Reserva | undefined {
+  return reservasVigentes().find((r) => r.estufaId === estufaId);
+}
+
+/** Próximo código de reserva livre, considerando as já canceladas. */
+export function proximoIdReserva(): string {
+  const maior = reservas.reduce((max, r) => {
+    const numero = Number.parseInt(r.id.replace(/\D/g, ''), 10);
+    return Number.isNaN(numero) ? max : Math.max(max, numero);
+  }, 0);
+  return `R${String(maior + 1).padStart(3, '0')}`;
+}

@@ -1,190 +1,193 @@
 /**
- * View: Reservas
- * Modal de criar reserva, modal de ver reserva, lista de reservas.
+ * Reservar um espaço e consultar uma reserva.
+ *
+ * A reserva é um período (início e fim) vinculado a um projeto, no mesmo
+ * formato que a API Laravel espera.
  */
-import { ESTUFAS, STATUS_MAP, reservas, saveState } from '../data/estufas';
-import { getActiveEstufaId, updateEstufaOnMap, closePopup } from './mapa';
+import {
+  ESTUFAS,
+  proximoIdReserva,
+  reservas,
+  salvarEstado,
+} from '../data/estufas';
+import { dadosMudaram } from '../lib/bus';
+import { el, setText, show } from '../lib/dom';
+import { html, icone } from '../lib/html';
+import { dataBR, hojeISO, plural, statusPill } from '../lib/format';
+import { abrirModal, fecharModal, fecharTodosModais } from '../lib/modal';
+import { aviso } from '../lib/toast';
+import { fecharPainel } from './mapa';
+import { usuarioAtual } from './login';
 
-let activeReservaId: string | null = null;
+/** Espaço que o modal de reserva está preenchendo. */
+let espacoDaReserva: string | null = null;
+/** Reserva aberta no modal de consulta. */
+let reservaAberta: string | null = null;
 
-const $ = (id: string): HTMLElement | null => document.getElementById(id);
-
-// ─── Helper ───────────────────────────────────────────────
-
-function _pill(statusKey: string): string {
-  const s = STATUS_MAP[statusKey] || { label: statusKey, cls: 'pill-muted', icon: 'fa-circle' };
-  return `<span class="pill ${s.cls}"><i class="fa-solid ${s.icon}" style="font-size:8px"></i>${s.label}</span>`;
+function valor(id: string): string {
+  return (el<HTMLInputElement>(id)?.value ?? '').trim();
 }
 
-// ─── Modal: Reservar ──────────────────────────────────────
+/* ===========================================================================
+   Reservar
+   =========================================================================== */
 
-function openReservarModal(): void {
-  const activeEstufaId = getActiveEstufaId();
-  if (!activeEstufaId) return;
+export function abrirModalReservar(estufaId: string): void {
+  const estufa = ESTUFAS[estufaId];
+  if (!estufa) return;
 
-  const estufa = ESTUFAS[activeEstufaId];
   if (estufa.status !== 'livre') {
-    window.showToast('Este espaço não está disponível', 'error');
+    aviso('Este espaço não está disponível.', 'error');
     return;
   }
 
-  const status = STATUS_MAP[estufa.status];
-  const setHtml = (id: string, html: string) => { const el = $(id); if (el) el.innerHTML = html; };
-  const setText = (id: string, text: string) => { const el = $(id); if (el) el.textContent = text; };
-  const setValue = (id: string, value: string) => { const el = $(id) as HTMLInputElement | null; if (el) el.value = value; };
+  espacoDaReserva = estufaId;
 
-  setHtml('reservar-img-icon', `<i class="fa-solid ${estufa.icon}"></i>`);
-  const badge = $('reservar-badge');
-  if (badge) {
-    badge.innerHTML = `<i class="fa-solid ${status.icon}" style="font-size:8px"></i> ${status.label}`;
-    badge.className = `pill ${status.cls}`;
-  }
-  setText('reservar-title', estufa.nome);
-  setText('reservar-desc', estufa.desc);
+  setText('reservar-titulo', `Reservar ${estufa.nome}`);
+  setText('reservar-descricao', estufa.desc || estufa.tipo);
   setText('reservar-area', estufa.area);
-  setText('reservar-cap', `${estufa.cap} bancadas`);
-  setText('reservar-limite', `Limite: ${estufa.cap}`);
-  setValue('reservar-data', '');
-  setValue('reservar-qtd', '');
-  setValue('reservar-proj', '');
+  setText('reservar-bancadas', plural(estufa.cap, 'bancada', 'bancadas'));
 
-  $('overlay-reservar')?.classList.add('open');
-  closePopup();
+  const status = el('reservar-status');
+  if (status) status.innerHTML = html`${statusPill(estufa.status)}`;
+
+  const marca = el('reservar-marca');
+  if (marca) marca.innerHTML = html`${icone(estufa.icon)}`;
+
+  el<HTMLFormElement>('form-reservar')?.reset();
+
+  // O período não pode começar no passado.
+  const hoje = hojeISO();
+  const inicio = el<HTMLInputElement>('reservar-data-inicio');
+  const fim = el<HTMLInputElement>('reservar-data-fim');
+  if (inicio) {
+    inicio.min = hoje;
+    inicio.removeAttribute('aria-invalid');
+  }
+  if (fim) {
+    fim.min = hoje;
+    fim.removeAttribute('aria-invalid');
+  }
+
+  fecharPainel();
+  abrirModal('modal-reservar');
 }
 
-function confirmarReserva(): void {
-  const activeEstufaId = getActiveEstufaId();
-  if (!activeEstufaId) return;
+/** O fim do período acompanha o início, para não ficar para trás dele. */
+export function ajustarFimDoPeriodo(): void {
+  const inicio = el<HTMLInputElement>('reservar-data-inicio');
+  const fim = el<HTMLInputElement>('reservar-data-fim');
+  if (!inicio || !fim) return;
 
-  const data = ($('reservar-data') as HTMLInputElement | null)?.value || '';
-  const qtd = ($('reservar-qtd') as HTMLInputElement | null)?.value || '';
-  const proj = ($('reservar-proj') as HTMLInputElement | null)?.value || '';
+  if (inicio.value) fim.min = inicio.value;
+  if (fim.value && inicio.value && fim.value < inicio.value) fim.value = inicio.value;
+}
 
-  if (!data || !qtd || !proj) {
-    window.showToast('Preencha todos os campos', 'error');
+export function confirmarReserva(): void {
+  if (!espacoDaReserva) return;
+  const estufa = ESTUFAS[espacoDaReserva];
+  if (!estufa) return;
+
+  const inicio = valor('reservar-data-inicio');
+  const fim = valor('reservar-data-fim');
+  const projeto = valor('reservar-projeto');
+  const finalidade = valor('reservar-finalidade');
+  const obs = valor('reservar-obs');
+
+  if (!inicio || !fim || !projeto || !finalidade) {
+    aviso('Preencha o período, o projeto e a finalidade.', 'error');
     return;
   }
 
-  const estufa = ESTUFAS[activeEstufaId];
-  if (+qtd > estufa.cap) {
-    window.showToast(`Limite máximo é ${estufa.cap} vasos/estantes`, 'error');
+  const campoFim = el<HTMLInputElement>('reservar-data-fim');
+  if (fim < inicio) {
+    campoFim?.setAttribute('aria-invalid', 'true');
+    campoFim?.focus();
+    aviso('O fim do período não pode ser antes do início.', 'error');
     return;
   }
+  campoFim?.removeAttribute('aria-invalid');
 
-  const newId = 'R' + String(reservas.length + 1).padStart(3, '0');
-  reservas.push({ id: newId, estufaId: activeEstufaId, data, qtd: +qtd, projeto: proj, status: 'pendente' });
+  reservas.push({
+    id: proximoIdReserva(),
+    estufaId: espacoDaReserva,
+    data: inicio,
+    dataFim: fim,
+    projeto,
+    finalidade,
+    obs,
+    // Quem está na sessão é o dono da reserva; com a API o back-end faz o
+    // mesmo a partir do token.
+    pesquisador: usuarioAtual()?.nome ?? '',
+    status: 'pendente',
+  });
 
   estufa.status = 'reservada';
-  updateEstufaOnMap(activeEstufaId);
-  saveState();
-  window.refreshDashboard?.();
+  salvarEstado();
+  dadosMudaram();
 
-  window.closeAll();
-  window.showToast('Reserva realizada com sucesso!', 'success');
+  fecharModal(el('modal-reservar'));
+  espacoDaReserva = null;
+  aviso(`${estufa.nome} reservada. A reserva entra como pendente de aprovação.`, 'success');
 }
 
-// ─── Modal: Ver Reserva ───────────────────────────────────
+/* ===========================================================================
+   Consultar
+   =========================================================================== */
 
-function verReserva(id: string): void {
-  activeReservaId = id;
+export function verReserva(id: string): void {
   const reserva = reservas.find((r) => r.id === id);
   if (!reserva) return;
 
   const estufa = ESTUFAS[reserva.estufaId];
-  const status = STATUS_MAP[reserva.status] || { label: reserva.status, cls: 'pill-muted', icon: 'fa-circle' };
-  const setHtml = (elId: string, html: string) => { const el = $(elId); if (el) el.innerHTML = html; };
-  const setText = (elId: string, text: string) => { const el = $(elId); if (el) el.textContent = text; };
+  reservaAberta = id;
 
-  setHtml('ver-img-icon', `<i class="fa-solid ${estufa.icon}"></i>`);
-  const badge = $('ver-badge');
-  if (badge) {
-    badge.innerHTML = `<i class="fa-solid ${status.icon}" style="font-size:8px"></i> ${status.label}`;
-    badge.className = `pill ${status.cls}`;
-  }
-  setText('ver-title', estufa.nome);
-  setText('ver-desc', estufa.desc);
-  setText('ver-data', _fmtDate(reserva.data));
-  setText('ver-qtd', `${reserva.qtd} vasos/estantes`);
-  setText('ver-proj', reserva.projeto);
+  setText('ver-reserva-titulo', estufa ? estufa.nome : reserva.estufaId);
+  setText('ver-reserva-descricao', estufa?.tipo ?? 'Espaço não encontrado');
+  setText('ver-reserva-codigo', reserva.id);
+  setText('ver-reserva-inicio', dataBR(reserva.data));
+  setText('ver-reserva-fim', dataBR(reserva.dataFim));
+  setText('ver-reserva-projeto', reserva.projeto);
+  setText('ver-reserva-finalidade', reserva.finalidade || '—');
+  setText('ver-reserva-pesquisador', reserva.pesquisador || '—');
 
-  $('overlay-ver-reserva')?.classList.add('open');
+  const status = el('ver-reserva-status');
+  if (status) status.innerHTML = html`${statusPill(reserva.status)}`;
+
+  // Reserva já cancelada não oferece o botão de cancelar.
+  show(el('ver-reserva-cancelar'), reserva.status !== 'cancelada');
+
+  fecharPainel();
+  abrirModal('modal-ver-reserva');
 }
 
-function cancelarReservaModal(): void {
-  const reserva = reservas.find((r) => r.id === activeReservaId);
-  if (reserva) {
-    reserva.status = 'cancelada';
-    ESTUFAS[reserva.estufaId].status = 'livre';
-    updateEstufaOnMap(reserva.estufaId);
-    saveState();
-  }
-  window.closeAll();
-  if (typeof window.refreshDashboard === 'function') window.refreshDashboard();
-  else renderReservasList();
-  window.showToast('Reserva cancelada', 'info');
-}
-
-// ─── Lista de Reservas ────────────────────────────────────
-
-function renderReservasList(): void {
-  const list = $('reservas-list');
-  if (!list) return;
-  const ativos = reservas.filter((r) => r.status !== 'cancelada');
-
-  if (!ativos.length) {
-    list.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon"><i class="fa-solid fa-calendar-check"></i></div>
-        <div class="empty-text">Nenhuma reserva encontrada.<br>
-          Clique em uma estufa no mapa para reservar.</div>
-      </div>`;
+export function cancelarReservaAberta(): void {
+  const reserva = reservas.find((r) => r.id === reservaAberta);
+  if (!reserva || reserva.status === 'cancelada') {
+    fecharTodosModais();
     return;
   }
 
-  const THUMB_BG: Record<string, string> = {
-    livre:      'var(--accent-lt)',
-    ocupada:    'var(--warn-lt)',
-    reservada:  'var(--info-lt)',
-    manutencao: 'var(--danger-lt)',
-  };
+  reserva.status = 'cancelada';
+  liberarEspacoSeVazio(reserva.estufaId, reserva.id);
 
-  list.innerHTML = ativos.map((r) => {
-    const estufa = ESTUFAS[r.estufaId];
-    return `
-      <div class="reserva-card" onclick="verReserva('${r.id}')">
-        <div class="reserva-thumb" style="background:${THUMB_BG[estufa.status] || 'var(--accent-lt)'}">
-          <i class="fa-solid ${estufa.icon}"></i>
-        </div>
-        <div class="reserva-info">
-          <div class="reserva-name">${estufa.nome}</div>
-          <div class="reserva-sub">
-            <i class="fa-solid fa-flask" style="margin-right:4px;color:var(--muted2)"></i>${r.projeto}
-          </div>
-          <div class="reserva-sub" style="margin-top:3px">
-            <i class="fa-solid fa-calendar" style="margin-right:4px;color:var(--muted2)"></i>${_fmtDate(r.data)} · ${r.qtd} vasos/estantes
-          </div>
-        </div>
-        <div class="reserva-right">
-          ${_pill(r.status)}
-          <span style="font-size:11px;color:var(--muted)">${r.id}</span>
-        </div>
-      </div>`;
-  }).join('');
+  salvarEstado();
+  dadosMudaram();
+  fecharTodosModais();
+  reservaAberta = null;
+  aviso(`Reserva ${reserva.id} cancelada.`, 'info');
 }
 
-// ─── Helpers ──────────────────────────────────────────────
+/**
+ * Devolve o espaço para livre, mas só quando não sobrou nenhuma outra reserva
+ * vigente nele.
+ */
+export function liberarEspacoSeVazio(estufaId: string, exceto: string): void {
+  const estufa = ESTUFAS[estufaId];
+  if (!estufa) return;
 
-function _fmtDate(d: string): string {
-  if (!d) return '—';
-  const [y, m, day] = d.split('-');
-  return `${day}/${m}/${y}`;
+  const outras = reservas.some(
+    (r) => r.estufaId === estufaId && r.id !== exceto && r.status !== 'cancelada',
+  );
+  if (!outras) estufa.status = 'livre';
 }
-
-// Expõe globalmente
-window.openReservarModal = openReservarModal;
-window.confirmarReserva = confirmarReserva;
-window.verReserva = verReserva;
-window.cancelarReservaModal = cancelarReservaModal;
-window.renderReservasList = renderReservasList;
-
-export { openReservarModal, confirmarReserva, verReserva, cancelarReservaModal, renderReservasList };

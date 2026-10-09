@@ -1,872 +1,867 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cenargen · Embrapa</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CVGWeb · Cenargen</title>
+  <meta name="description" content="Consulta e reserva das casas de vegetação e campos experimentais da Embrapa Cenargen." />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f1f5f0" />
 
-  <!-- Fontes e ícones -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"/>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <link rel="icon" type="image/jpeg" href="assets/favicon.jpg">
-  <!-- Base -->
-  <link rel="stylesheet" href="styles/base.css"/>
+  <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png" />
 
-  <!-- Componentes -->
-  <link rel="stylesheet" href="styles/components/login.css"/>
-  <link rel="stylesheet" href="styles/components/navbar.css"/>
-  <link rel="stylesheet" href="styles/components/map.css"/>
-  <link rel="stylesheet" href="styles/components/dashboard.css"/>
-  <link rel="stylesheet" href="styles/components/calendar.css"/>
-  <link rel="stylesheet" href="styles/components/reservas.css"/>
-  <link rel="stylesheet" href="styles/components/modal.css"/>
-  <link rel="stylesheet" href="styles/components/ui.css"/>
-  <link rel="stylesheet" href="styles/components/admin.css"/>
+  <!-- Tipografia local: só os dois pesos do primeiro paint vão em preload. -->
+  <link rel="preload" href="/assets/fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/assets/fonts/ibm-plex-sans-600.woff2" as="font" type="font/woff2" crossorigin />
+
+  <link rel="stylesheet" href="/styles/tokens.css" />
+  <link rel="stylesheet" href="/styles/base.css" />
+  <link rel="stylesheet" href="/styles/layout.css" />
+  <link rel="stylesheet" href="/styles/components.css" />
+  <link rel="stylesheet" href="/styles/login.css" />
+  <link rel="stylesheet" href="/styles/map.css" />
+  <link rel="stylesheet" href="/styles/admin.css" />
+  <link rel="stylesheet" href="/styles/chat.css" />
+
+  <script type="module" src="/src/main.ts"></script>
 </head>
+
 <body>
 
-<!-- ═══ TELA DE LOGIN ════════════════════════════════════════ -->
-<div id="login-screen" class="login-screen" style="display:none">
-  <div class="login-bg-pattern"></div>
-  <div class="login-card">
+<!-- Sprite de icones (Lucide, ISC). Gerado de assets/icons.svg por
+     `npm run icons` — não editar à mão. -->
+<!-- icons:start -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<!-- Icones: Lucide (lucide-static v1.50.0), licenca ISC. Apenas o subconjunto usado. -->
+<symbol id="i-sprout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3" /> <path d="M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4" /> <path d="M5 21h14" /></symbol>
+<symbol id="i-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0011 20" /> <path d="M2 21a5 5 0 012.911-4.544C7.613 15.212 8.351 15.24 11 13" /></symbol>
+<symbol id="i-fence" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3 2 5v15c0 .6.4 1 1 1h2c.6 0 1-.4 1-1V5Z" /> <path d="M6 8h4" /> <path d="M6 18h4" /> <path d="m12 3-2 2v15c0 .6.4 1 1 1h2c.6 0 1-.4 1-1V5Z" /> <path d="M14 8h4" /> <path d="M14 18h4" /> <path d="m20 3-2 2v15c0 .6.4 1 1 1h2c.6 0 1-.4 1-1V5Z" /></symbol>
+<symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z" /> <path d="M15 5.764v15" /> <path d="M9 3.236v15" /></symbol>
+<symbol id="i-shield-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /> <path d="m9 12 2 2 4-4" /></symbol>
+<symbol id="i-log-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 17 5-5-5-5" /> <path d="M15 12H3" /> <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /></symbol>
+<symbol id="i-log-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 17 5-5-5-5" /> <path d="M21 12H9" /> <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></symbol>
+<symbol id="i-book-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v16" /> <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" /></symbol>
+<symbol id="i-ellipsis-vertical" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1" /> <circle cx="12" cy="5" r="1" /> <circle cx="12" cy="19" r="1" /></symbol>
+<symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
+<symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /> <path d="m12 5 7 7-7 7" /></symbol>
+<symbol id="i-external-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6" /> <path d="M10 14 21 3" /> <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></symbol>
+<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol>
+<symbol id="i-circle-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="m16 9-5.5 5.5L8 12" /></symbol>
+<symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></symbol>
+<symbol id="i-calendar-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /> <path d="m9 15 2 2 4-4" /></symbol>
+<symbol id="i-wrench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" /></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" /></symbol>
+<symbol id="i-ban" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="M4.929 4.929 19.07 19.071" /></symbol>
+<symbol id="i-map-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></symbol>
+<symbol id="i-ruler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /> <path d="m14.5 12.5 2-2" /> <path d="m11.5 9.5 2-2" /> <path d="m8.5 6.5 2-2" /> <path d="m17.5 15.5 2-2" /></symbol>
+<symbol id="i-grid-3x3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /> <path d="M3 9h18" /> <path d="M3 15h18" /> <path d="M9 3v18" /> <path d="M15 3v18" /></symbol>
+<symbol id="i-thermometer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z" /></symbol>
+<symbol id="i-flask-conical" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2" /> <path d="M6.453 15h11.094" /> <path d="M8.5 2h7" /></symbol>
+<symbol id="i-user-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <line x1="19" x2="19" y1="8" y2="14" /> <line x1="22" x2="16" y1="11" y2="11" /></symbol>
+<symbol id="i-user-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <circle cx="9" cy="7" r="4" /> <line x1="17" x2="22" y1="8" y2="13" /> <line x1="22" x2="17" y1="8" y2="13" /></symbol>
+<symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></symbol>
+<symbol id="i-shield-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /> <path d="M6.376 18.91a6 6 0 0 1 11.249.003" /> <circle cx="12" cy="11" r="4" /></symbol>
+<symbol id="i-graduation-cap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /> <path d="M22 10v6" /> <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" /></symbol>
+<symbol id="i-trash-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol>
+<symbol id="i-calendar-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18h6" /> <path d="M16 2v3" /> <path d="M19 15v6" /> <path d="M21 11.5V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h8.3" /> <path d="M3 9h18" /> <path d="M8 2v3" /></symbol>
+<symbol id="i-calendar-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /> <path d="m14 13-4 4" /> <path d="m10 13 4 4" /></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></symbol>
+<symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /> <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /> <path d="M7 3v4a1 1 0 0 0 1 1h7" /></symbol>
+<symbol id="i-warehouse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21V10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v11" /> <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 1.132-1.803l7.95-3.974a2 2 0 0 1 1.837 0l7.948 3.974A2 2 0 0 1 22 8z" /> <path d="M6 13h12" /> <path d="M6 17h12" /></symbol>
+<symbol id="i-chart-pie" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" /> <path d="M21.21 15.89A10 10 0 1 1 8 2.83" /></symbol>
+<symbol id="i-calendar-days" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /> <path d="M8 13h.01" /> <path d="M12 13h.01" /> <path d="M16 13h.01" /> <path d="M8 17h.01" /> <path d="M12 17h.01" /> <path d="M16 17h.01" /></symbol>
+<symbol id="i-circle-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="m15 9-6 6" /> <path d="m9 9 6 6" /></symbol>
+<symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></symbol>
+<symbol id="i-circle-question-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /> <path d="M12 17h.01" /></symbol>
+<symbol id="i-image-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="22" y1="2" y2="22" /> <path d="M10.41 10.41a2 2 0 1 1-2.83-2.83" /> <line x1="13.5" x2="6" y1="13.5" y2="21" /> <line x1="18" x2="21" y1="12" y2="15" /> <path d="M3.59 3.59A1.99 1.99 0 0 0 3 5v14a2 2 0 0 0 2 2h14c.55 0 1.052-.22 1.41-.59" /> <path d="M21 15V5a2 2 0 0 0-2-2H9" /></symbol>
+<symbol id="i-message-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></symbol>
+<symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8" /> <rect width="16" height="12" x="4" y="8" rx="2" /> <path d="M2 14h2" /> <path d="M20 14h2" /> <path d="M15 13v2" /> <path d="M9 13v2" /></symbol>
+<symbol id="i-send-horizontal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z" /> <path d="M6 12h16" /></symbol>
+</svg>
+<!-- icons:end -->
 
-    <div class="login-logo">
-      <div class="login-logo-icon"><i class="fa-solid fa-seedling"></i></div>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+
+<!-- ===========================================================================
+     Entrada
+     =========================================================================== -->
+
+<div class="login" id="tela-entrada" hidden>
+  <div class="login__card">
+
+    <div class="login__brand">
+      <img class="login__logo" src="/assets/embrapa.png" alt="Embrapa"
+           width="360" height="137" />
       <div>
-        <div class="login-brand-name">Cenargen</div>
-        <div class="login-brand-sub">Embrapa · Brasília, DF</div>
+        <div class="login__brand-name">CVGWeb</div>
+        <div class="login__brand-org">Cenargen</div>
       </div>
     </div>
 
-    <div class="login-title">Bem-vindo</div>
-    <div class="login-subtitle">Acesse o sistema de gestão de espaços experimentais.</div>
+    <h1 class="login__title">Entrar</h1>
+    <p class="login__desc">
+      Gestão dos espaços experimentais e das casas de vegetação do Cenargen.
+    </p>
 
-    <!-- Seleção rápida de perfil -->
-    <div class="login-profiles">
-      <button class="login-profile-btn" data-role="pesquisador" onclick="selectProfile('pesquisador')">
-        <i class="fa-solid fa-user-graduate" style="color:var(--accent)"></i>
+    <div class="login__shortcuts" role="group" aria-label="Preencher com um perfil de demonstração">
+      <button type="button" class="login__shortcut" data-action="usar-perfil" data-role="pesquisador" aria-pressed="false">
+        <svg class="ic ic--lg" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
         Pesquisador
       </button>
-      <button class="login-profile-btn" data-role="admin" onclick="selectProfile('admin')">
-        <i class="fa-solid fa-user-shield" style="color:var(--info)"></i>
+      <button type="button" class="login__shortcut" data-action="usar-perfil" data-role="admin" aria-pressed="false">
+        <svg class="ic ic--lg" aria-hidden="true"><use href="#i-shield-user" /></svg>
         Administrador
       </button>
     </div>
 
-    <div class="login-divider"><span>ou entre com suas credenciais</span></div>
+    <p class="login__or">ou use suas credenciais</p>
 
-    <div id="login-error" class="login-error"></div>
+    <form id="form-entrada" novalidate>
+      <p class="login__error" id="entrada-erro" role="alert" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="entrada-erro-texto"></span>
+      </p>
 
-    <div class="form-group">
-      <label class="form-label"><i class="fa-solid fa-user" style="margin-right:4px"></i>Usuário</label>
-      <input type="text" class="form-control" id="login-user" placeholder="Ex: pesquisador"
-             onkeydown="loginKeydown(event)" autocomplete="username"/>
-    </div>
-    <div class="form-group">
-      <label class="form-label"><i class="fa-solid fa-lock" style="margin-right:4px"></i>Senha</label>
-      <input type="password" class="form-control" id="login-pass" placeholder="••••••••"
-             onkeydown="loginKeydown(event)" autocomplete="current-password"/>
-    </div>
+      <div class="field">
+        <label class="field__label" for="entrada-usuario">Usuário</label>
+        <input class="input" type="text" id="entrada-usuario" name="usuario"
+               autocomplete="username" autocapitalize="none" spellcheck="false" required />
+      </div>
 
-    <button class="btn btn-primary btn-login" onclick="doLogin()">
-      <i class="fa-solid fa-right-to-bracket"></i> Entrar
-    </button>
+      <div class="field">
+        <label class="field__label" for="entrada-senha">Senha</label>
+        <input class="input" type="password" id="entrada-senha" name="senha"
+               autocomplete="current-password" required />
+      </div>
+
+      <button class="btn btn--primary login__submit" type="submit" id="entrada-enviar">
+        <svg class="ic" aria-hidden="true"><use href="#i-log-in" /></svg>
+        Entrar
+      </button>
+    </form>
 
   </div>
 </div>
 
-<!-- ═══ APP (oculto até login) ═══════════════════════════════ -->
-<div id="app-wrap" class="app-wrap" style="display:none">
 
-  <!-- ─── SIDEBAR ──────────────────────────────────────────── -->
-  <aside class="sidebar">
+<!-- ===========================================================================
+     Aplicacao
+     =========================================================================== -->
 
-    <div class="sidebar-brand">
-      <div class="nav-logo-icon"><i class="fa-solid fa-seedling"></i></div>
-      <div class="sidebar-brand-text">
-        <div class="sidebar-brand-name">Cenargen</div>
-        <div class="sidebar-brand-sub">Embrapa · Brasília, DF</div>
+<div class="app" id="app" hidden>
+
+  <header class="sidebar">
+
+    <div class="brand">
+      <img class="brand__logo" src="/assets/embrapa.png" alt="Embrapa"
+           width="360" height="137" />
+      <div class="brand__text">
+        <div class="brand__name">CVGWeb</div>
+        <div class="brand__org">Cenargen</div>
       </div>
     </div>
 
-    <nav class="sidebar-nav">
-      <div class="sidebar-section-label">Navegação</div>
-      <button class="nav-btn active" id="btn-nav-mapa"       onclick="showView('mapa')">
-        <i class="fa-solid fa-map-location-dot"></i> <span>Mapa</span>
+    <nav class="nav" aria-label="Seções do sistema">
+      <button type="button" class="nav__item" id="nav-mapa" data-action="ver" data-view="mapa" aria-current="page">
+        <svg class="ic" aria-hidden="true"><use href="#i-map" /></svg>
+        <span>Mapa</span>
       </button>
-      <button class="nav-btn"        id="btn-nav-admin"      onclick="showView('admin')"
-              style="display:none">
-        <i class="fa-solid fa-shield-halved"></i> <span>Admin</span>
+      <button type="button" class="nav__item" id="nav-admin" data-action="ver" data-view="admin" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-shield-check" /></svg>
+        <span>Administração</span>
       </button>
     </nav>
 
-    <div class="sidebar-footer">
-      <div class="sidebar-user" id="user-btn" onclick="toggleDropdown()">
-        <div class="sidebar-user-avatar"><i class="fa-solid fa-user fa-sm"></i></div>
-        <div class="sidebar-user-info">
-          <div class="sidebar-user-name" id="user-name-display">—</div>
-          <div class="sidebar-user-role" id="user-role-display">—</div>
-        </div>
-        <i class="fa-solid fa-ellipsis-vertical sidebar-user-caret"></i>
-      </div>
-      <div class="user-dropdown" id="user-dropdown">
-        <div class="dropdown-item" onclick="openDocs()">
-          <i class="fa-solid fa-book"></i> Documentação do projeto
-        </div>
-        <div class="dropdown-item" onclick="doLogoff()">
-          <i class="fa-solid fa-right-from-bracket"></i> Sair
-        </div>
+    <div class="sidebar__footer">
+      <button type="button" class="account" id="conta-btn"
+              data-action="alternar-menu" aria-expanded="false" aria-controls="conta-menu">
+        <span class="account__avatar"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg></span>
+        <span class="account__text">
+          <span class="account__name" id="conta-nome">&mdash;</span>
+          <span class="account__role" id="conta-perfil">&mdash;</span>
+        </span>
+        <svg class="ic ic--sm account__caret" aria-hidden="true"><use href="#i-ellipsis-vertical" /></svg>
+      </button>
+
+      <div class="menu" id="conta-menu" hidden>
+        <button type="button" class="menu__item" data-action="abrir" data-modal="modal-docs">
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-book-open" /></svg>
+          Sobre o projeto
+        </button>
+        <button type="button" class="menu__item menu__item--danger" data-action="sair">
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-log-out" /></svg>
+          Sair
+        </button>
       </div>
     </div>
 
-  </aside>
+  </header>
 
-  <!-- ─── ÁREA PRINCIPAL ───────────────────────────────────── -->
-  <div class="app-main">
-  <div class="app-body">
+  <main class="main" id="conteudo">
 
-    <!-- ── MAPA ──────────────────────────────────────────── -->
-    <div class="view map-view active" id="view-mapa">
+    <!-- ===== Mapa ========================================================= -->
+    <section class="view is-active" id="view-mapa" aria-labelledby="titulo-mapa">
+      <h1 class="sr-only" id="titulo-mapa">Mapa dos espaços experimentais</h1>
 
-      <div class="map-container" id="map-container">
+      <div class="map">
+        <picture>
+          <source srcset="/assets/MapEstufa.webp" type="image/webp" />
+          <img class="map__photo" id="map-foto" src="/assets/MapEstufa.jpg"
+               width="1296" height="1162" fetchpriority="high" decoding="async"
+               alt="Vista aérea do campus do Cenargen. Os espaços aparecem como marcadores sobre a foto e também estão listados na tabela da área de administração." />
+        </picture>
 
-        <!-- Foto aérea do campus -->
-        <img id="map-photo" src="assets/MapEstufa.png" alt="Vista aérea Embrapa Cenargen" class="map-photo"
-             onload="window.syncHotspots && syncHotspots()" onerror="this.style.display='none';document.getElementById('map-photo-fallback').style.display='flex'"/>
-
-        <!-- Fallback -->
-        <div id="map-photo-fallback" class="map-photo-fallback">
-          <i class="fa-solid fa-image-slash"></i>
-          <p>Imagem aérea não encontrada.<br>Salve o arquivo como <code>assets/MapEstufa.png</code></p>
-        </div>
-
-        <!-- ══ HOTSPOTS — layer redimensionada via JS ══ -->
-        <div id="map-hotspots">
-
-        <!-- 50 estufas numeradas (1 a 50) -->
-        <div class="estufa-hotspot" data-id="E01" onclick="openPopup('E01')"
-             style="left:3.7%;top:10.9%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 01</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E02" onclick="openPopup('E02')"
-             style="left:7.8%;top:14.6%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 02</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E03" onclick="openPopup('E03')"
-             style="left:11.2%;top:15.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 03</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E04" onclick="openPopup('E04')"
-             style="left:14.5%;top:17.0%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 04</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E05" onclick="openPopup('E05')"
-             style="left:16.7%;top:17.0%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 05</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E06" onclick="openPopup('E06')"
-             style="left:23.5%;top:17.4%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 06</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E07" onclick="openPopup('E07')"
-             style="left:25.7%;top:17.0%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 07</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E08" onclick="openPopup('E08')"
-             style="left:29%;top:19.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 08</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E09" onclick="openPopup('E09')"
-             style="left:32.5%;top:19.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 09</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E10" onclick="openPopup('E10')"
-             style="left:35.8%;top:19.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 10</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E11" onclick="openPopup('E11')"
-             style="left:39.2%;top:19.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 11</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E12" onclick="openPopup('E12')"
-             style="left:42.8%;top:19.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 12</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E13" onclick="openPopup('E13')"
-             style="left:46.5%;top:19.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 13</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E14" onclick="openPopup('E14')"
-             style="left:48.7%;top:19.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 14</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E15" onclick="openPopup('E15')"
-             style="left:55.8%;top:19.0%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 15</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E16" onclick="openPopup('E16')"
-             style="left:58.1%;top:18.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 16</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E17" onclick="openPopup('E17')"
-             style="left:78.8%;top:29.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 17</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E18" onclick="openPopup('E18')"
-             style="left:82%;top:29.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 18</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E19" onclick="openPopup('E19')"
-             style="left:85.8%;top:29.8%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 19</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E20" onclick="openPopup('E20')"
-             style="left:89.3%;top:29.9%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 20</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E21" onclick="openPopup('E21')"
-             style="left:92.5%;top:31.9%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 21</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E22" onclick="openPopup('E22')"
-             style="left:24.8%;top:72.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 22</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E23" onclick="openPopup('E23')"
-             style="left:28.2%;top:72.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 23</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E24" onclick="openPopup('E24')"
-             style="left:31.6%;top:72.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 24</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E25" onclick="openPopup('E25')"
-             style="left:35.0%;top:72.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 25</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E26" onclick="openPopup('E26')"
-             style="left:38.5%;top:72.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 26</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E27" onclick="openPopup('E27')"
-             style="left:41.9%;top:72.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 27</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E28" onclick="openPopup('E28')"
-             style="left:45.3%;top:72.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 28</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E29" onclick="openPopup('E29')"
-             style="left:48.7%;top:72.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 29</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E30" onclick="openPopup('E30')"
-             style="left:52.7%;top:74.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 30</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E31" onclick="openPopup('E31')"
-             style="left:56.3%;top:74.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 31</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E32" onclick="openPopup('E32')"
-             style="left:60.1%;top:74.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 32</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E33" onclick="openPopup('E33')"
-             style="left:64.1%;top:74.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 33</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E34" onclick="openPopup('E34')"
-             style="left:69.9%;top:73.9%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 34</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E35" onclick="openPopup('E35')"
-             style="left:75.5%;top:73.9%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 35</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E36" onclick="openPopup('E36')"
-             style="left:17.9%;top:86.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 36</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E37" onclick="openPopup('E37')"
-             style="left:23.1%;top:86.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 37</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E38" onclick="openPopup('E38')"
-             style="left:28.5%;top:86.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 38</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E39" onclick="openPopup('E39')"
-             style="left:33.9%;top:86.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 39</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E40" onclick="openPopup('E40')"
-             style="left:39.1%;top:86.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 40</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E41" onclick="openPopup('E41')"
-             style="left:44.1%;top:88.7%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 41</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E42" onclick="openPopup('E42')"
-             style="left:47.6%;top:88.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 42</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E43" onclick="openPopup('E43')"
-             style="left:49.7%;top:86.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 43</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E44" onclick="openPopup('E44')"
-             style="left:53.7%;top:87.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 44</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E45" onclick="openPopup('E45')"
-             style="left:58.8%;top:87.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 45</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E46" onclick="openPopup('E46')"
-             style="left:60.9%;top:88.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 46</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E47" onclick="openPopup('E47')"
-             style="left:64.4%;top:88.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 47</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E48" onclick="openPopup('E48')"
-             style="left:68.0%;top:88.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 48</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E49" onclick="openPopup('E49')"
-             style="left:71.2%;top:89.9%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 49</div>
-          <div class="hs-dot"></div>
-        </div>
-        <div class="estufa-hotspot" data-id="E50" onclick="openPopup('E50')"
-             style="left:74.9%;top:84.5%;width:2.6%;height:3.0%">
-          <div class="hs-name">Estufa 50</div>
-          <div class="hs-dot"></div>
+        <div class="map__fallback" id="map-fallback" hidden>
+          <svg class="ic ic--xl" aria-hidden="true"><use href="#i-image-off" /></svg>
+          <p>A foto aérea não carregou. Os marcadores continuam clicáveis nas posições salvas.</p>
         </div>
 
+        <div class="map__markers" id="map-marcadores"></div>
 
-        </div><!-- /map-hotspots -->
-
-        <!-- Legenda -->
-        <div class="map-legend-float">
-          <div class="legend-float-title">Disponibilidade</div>
-          <div class="legend-row"><span class="legend-ic st-livre"><i class="fa-solid fa-check"></i></span> Livre</div>
-          <div class="legend-row"><span class="legend-ic st-ocupada"><i class="fa-solid fa-user"></i></span> Ocupada</div>
-          <div class="legend-row"><span class="legend-ic st-reservada"><i class="fa-solid fa-calendar-check"></i></span> Reservada</div>
-          <div class="legend-row"><span class="legend-ic st-manutencao"><i class="fa-solid fa-wrench"></i></span> Manutenção</div>
+        <div class="legend">
+          <h2 class="legend__title">Disponibilidade</h2>
+          <ul class="legend__list">
+            <li class="legend__item" data-status="livre">
+              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-check" /></svg></span>
+              Livre
+            </li>
+            <li class="legend__item" data-status="ocupada">
+              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg></span>
+              Ocupada
+            </li>
+            <li class="legend__item" data-status="reservada">
+              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-check" /></svg></span>
+              Reservada
+            </li>
+            <li class="legend__item" data-status="manutencao">
+              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-wrench" /></svg></span>
+              Manutenção
+            </li>
+          </ul>
         </div>
 
-        <!-- Painel de detalhes (desliza da direita) -->
-        <aside class="estufa-panel" id="estufa-panel" aria-hidden="true">
-          <button class="panel-close" onclick="closePanel()" aria-label="Fechar detalhes">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-
-          <div class="panel-banner">
-            <div class="panel-banner-glow"></div>
-            <div class="panel-banner-icon"><i class="fa-solid fa-leaf" id="panel-icon"></i></div>
-            <span class="panel-code" id="panel-code">E01</span>
-            <span class="panel-status" id="panel-status"></span>
-          </div>
-
-          <div class="panel-body">
-            <h2 class="panel-name" id="panel-name">&mdash;</h2>
-            <div class="panel-type" id="panel-type">&mdash;</div>
-            <p class="panel-desc" id="panel-desc">&mdash;</p>
-
-            <div class="panel-info">
-              <div class="panel-info-row">
-                <span class="panel-info-ic"><i class="fa-solid fa-location-dot"></i></span>
-                <span class="panel-info-txt"><span class="panel-info-label">Localização</span><span class="panel-info-value" id="panel-loc">&mdash;</span></span>
-              </div>
-              <div class="panel-info-row">
-                <span class="panel-info-ic"><i class="fa-solid fa-ruler-combined"></i></span>
-                <span class="panel-info-txt"><span class="panel-info-label">Área</span><span class="panel-info-value" id="panel-area">&mdash;</span></span>
-              </div>
-              <div class="panel-info-row">
-                <span class="panel-info-ic"><i class="fa-solid fa-table-cells-large"></i></span>
-                <span class="panel-info-txt"><span class="panel-info-label">Capacidade</span><span class="panel-info-value" id="panel-cap">&mdash;</span></span>
-              </div>
-              <div class="panel-info-row">
-                <span class="panel-info-ic"><i class="fa-solid fa-seedling"></i></span>
-                <span class="panel-info-txt"><span class="panel-info-label">Tipo de cultivo</span><span class="panel-info-value" id="panel-cult">&mdash;</span></span>
-              </div>
-              <div class="panel-info-row">
-                <span class="panel-info-ic"><i class="fa-solid fa-temperature-half"></i></span>
-                <span class="panel-info-txt"><span class="panel-info-label">Condições médias</span><span class="panel-info-value" id="panel-cond">&mdash;</span></span>
-              </div>
-              <div class="panel-info-row">
-                <span class="panel-info-ic"><i class="fa-solid fa-clock"></i></span>
-                <span class="panel-info-txt"><span class="panel-info-label">Disponibilidade</span><span class="panel-info-value" id="panel-disp">&mdash;</span></span>
-              </div>
+        <!-- Ficha do espaço. Fica fora da ordem de tabulação enquanto fechada. -->
+        <aside class="panel" id="painel" hidden aria-labelledby="painel-nome" tabindex="-1">
+          <div class="panel__head">
+            <div class="panel__heading">
+              <div class="panel__code" id="painel-codigo">&mdash;</div>
+              <h2 class="panel__name" id="painel-nome">&mdash;</h2>
+              <div class="panel__type" id="painel-tipo">&mdash;</div>
+              <div class="panel__status" id="painel-status"></div>
             </div>
-
-            <div class="panel-vasos" id="panel-vasos">
-              <div class="panel-vasos-title"><i class="fa-solid fa-flask"></i> Capacidade de vasos <span class="panel-vasos-hint">aprox.</span></div>
-              <div class="panel-vasos-grid">
-                <div class="panel-vaso"><span class="panel-vaso-num" id="panel-vaso3">&mdash;</span><span class="panel-vaso-lbl">3 cm</span></div>
-                <div class="panel-vaso"><span class="panel-vaso-num" id="panel-vaso5">&mdash;</span><span class="panel-vaso-lbl">5 cm</span></div>
-                <div class="panel-vaso"><span class="panel-vaso-num" id="panel-vaso10">&mdash;</span><span class="panel-vaso-lbl">10 cm</span></div>
-              </div>
-            </div>
-
-            <div class="panel-reserva" id="panel-reserva" style="display:none">
-              <div class="panel-reserva-head"><i class="fa-solid fa-calendar-check"></i> Reserva vinculada</div>
-              <div class="panel-reserva-proj" id="panel-reserva-proj">&mdash;</div>
-              <div class="panel-reserva-meta" id="panel-reserva-meta">&mdash;</div>
-            </div>
-          </div>
-
-          <div class="panel-footer">
-            <button class="btn btn-primary" id="panel-action-btn" style="width:100%;justify-content:center">
-              <i class="fa-solid fa-calendar-plus"></i> Reservar esta estufa
+            <button type="button" class="close-btn" data-action="fechar-painel" aria-label="Fechar ficha do espaço">
+              <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
             </button>
           </div>
+
+          <div class="panel__body">
+            <p class="panel__desc" id="painel-descricao">&mdash;</p>
+
+            <dl class="specs">
+              <div class="specs__row">
+                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-map-pin" /></svg>
+                <dt class="specs__term">Setor</dt>
+                <dd class="specs__value" id="painel-setor">&mdash;</dd>
+              </div>
+              <div class="specs__row">
+                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-ruler" /></svg>
+                <dt class="specs__term">Área</dt>
+                <dd class="specs__value" id="painel-area">&mdash;</dd>
+              </div>
+              <div class="specs__row">
+                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-grid-3x3" /></svg>
+                <dt class="specs__term">Bancadas</dt>
+                <dd class="specs__value" id="painel-bancadas">&mdash;</dd>
+              </div>
+              <div class="specs__row">
+                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-thermometer" /></svg>
+                <dt class="specs__term">Condições médias</dt>
+                <dd class="specs__value" id="painel-condicoes">&mdash;</dd>
+              </div>
+              <div class="specs__row">
+                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-clock" /></svg>
+                <dt class="specs__term">Disponibilidade</dt>
+                <dd class="specs__value" id="painel-disponibilidade">&mdash;</dd>
+              </div>
+            </dl>
+
+            <div class="pots" id="painel-vasos" hidden>
+              <h3 class="pots__title">
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-flask-conical" /></svg>
+                Cabe cerca de
+              </h3>
+              <div class="pots__grid">
+                <div class="pots__cell">
+                  <div class="pots__num" id="painel-vaso-3">&mdash;</div>
+                  <div class="pots__unit">vasos 3 cm</div>
+                </div>
+                <div class="pots__cell">
+                  <div class="pots__num" id="painel-vaso-5">&mdash;</div>
+                  <div class="pots__unit">vasos 5 cm</div>
+                </div>
+                <div class="pots__cell">
+                  <div class="pots__num" id="painel-vaso-10">&mdash;</div>
+                  <div class="pots__unit">vasos 10 cm</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="linked" id="painel-reserva" hidden>
+              <h3 class="linked__title">
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-check" /></svg>
+                Reserva vinculada
+              </h3>
+              <p class="linked__project" id="painel-reserva-projeto">&mdash;</p>
+              <p class="linked__meta" id="painel-reserva-meta">&mdash;</p>
+            </div>
+          </div>
+
+          <div class="panel__foot">
+            <button type="button" class="btn btn--primary btn--block" id="painel-acao"></button>
+          </div>
         </aside>
+      </div>
+    </section>
+
+    <!-- ===== Administracao =============================================== -->
+    <section class="view" id="view-admin" aria-labelledby="titulo-admin">
+      <div class="admin">
+
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-admin">Administração</h1>
+            <p class="page-head__desc">Espaços, reservas e usuários do Cenargen</p>
+          </div>
+
+          <div class="page-head__actions">
+            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-painel-metricas">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chart-pie" /></svg>
+              Painel
+            </button>
+            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-reservas">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-days" /></svg>
+              Reservas
+              <span class="chip__badge" id="badge-pendentes-topo" hidden>0</span>
+            </button>
+            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-usuarios">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-users" /></svg>
+              Usuários
+            </button>
+            <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
+              Cadastrar usuário
+            </button>
+          </div>
+        </div>
+
+        <div class="section" id="sec-espacos">
+          <div class="section__head">
+            <h2 class="section__title">
+              <svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg>
+              Espaços
+              <span class="count" id="conta-espacos">0</span>
+            </h2>
+            <div class="section__tools">
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="busca-espacos"
+                       placeholder="Buscar por código, nome, tipo ou responsável" aria-label="Buscar espaço" />
+                <button type="button" class="search__clear" id="limpar-espacos"
+                        data-action="limpar-busca" data-target="espacos" aria-label="Limpar busca de espaços" hidden>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Espaços experimentais, com área, capacidade, quem reservou e status editável</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Código</th>
+                  <th scope="col">Nome</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Área</th>
+                  <th scope="col">Bancadas</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Reservado por</th>
+                  <th scope="col">Alterar status</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-espacos"></tbody>
+            </table>
+          </div>
+        </div>
 
       </div>
-    </div><!-- /view-mapa -->
+    </section>
 
-    <!-- ── DASHBOARD (KPIs + Calendário + Reservas) ───────── -->
-    <div class="view dashboard-view" id="view-dashboard">
-      <div class="dashboard-container">
+  </main>
+</div>
 
-        <div class="dashboard-header dash-head-row">
-          <div>
-            <div class="dashboard-title"><i class="fa-solid fa-chart-line"></i> Visão Geral</div>
-            <div class="dashboard-subtitle">Espaços, agenda e reservas do Cenargen — tudo em um só lugar</div>
+
+<!-- ===========================================================================
+     Modais
+     =========================================================================== -->
+
+<!-- Painel de metricas -->
+<div class="scrim" id="modal-metricas" hidden>
+  <div class="dialog dialog--wide" role="dialog" aria-modal="true" aria-labelledby="metricas-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-chart-pie" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="metricas-titulo">Painel</h2>
+        <p class="dialog__desc">Situação dos espaços agora</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar painel">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+    <div class="dialog__body">
+      <div class="metrics">
+        <button type="button" class="metric" data-action="ir-para" data-target="espacos">
+          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg></span>
+          <span class="metric__body">
+            <span class="metric__value" id="m-total">&mdash;</span>
+            <span class="metric__label">Espaços no total</span>
+          </span>
+          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        </button>
+
+        <button type="button" class="metric" data-tone="ok" data-action="ir-para" data-target="espacos">
+          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-circle-check" /></svg></span>
+          <span class="metric__body">
+            <span class="metric__value" id="m-livres">&mdash;</span>
+            <span class="metric__label">Livres</span>
+          </span>
+          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        </button>
+
+        <button type="button" class="metric" data-tone="booked" data-action="ir-para" data-target="reservas-ativa">
+          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-calendar-check" /></svg></span>
+          <span class="metric__body">
+            <span class="metric__value" id="m-reservas">&mdash;</span>
+            <span class="metric__label">Reservas em aberto</span>
+          </span>
+          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        </button>
+
+        <button type="button" class="metric" data-tone="down" data-action="ir-para" data-target="espacos">
+          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-wrench" /></svg></span>
+          <span class="metric__body">
+            <span class="metric__value" id="m-manutencao">&mdash;</span>
+            <span class="metric__label">Em manutenção</span>
+          </span>
+          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        </button>
+
+        <div class="metric" data-tone="busy">
+          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-grid-3x3" /></svg></span>
+          <span class="metric__body">
+            <span class="metric__value" id="m-taxa">&mdash;</span>
+            <span class="metric__label">Ocupação</span>
+            <div class="meter" id="m-taxa-barra-wrap" role="progressbar"
+                 aria-valuemin="0" aria-valuemax="100" aria-label="Taxa de ocupação dos espaços">
+              <div class="meter__fill" id="m-taxa-barra"></div>
+            </div>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Todas as reservas -->
+<div class="scrim" id="modal-reservas" hidden>
+  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="reservas-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="reservas-titulo">Reservas</h2>
+        <p class="dialog__desc">Aprovar, acompanhar e cancelar</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar reservas">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body dialog__body--flush">
+      <div class="section" id="sec-reservas">
+        <div class="section__head">
+          <h3 class="section__title">
+            Todas
+            <span class="count" id="conta-reservas">0</span>
+          </h3>
+          <div class="section__tools">
+            <div class="chips" role="tablist" aria-label="Filtrar reservas por status">
+              <button type="button" class="chip" role="tab" aria-selected="true"
+                      data-action="filtrar-reservas" data-status="todas">Todas</button>
+              <button type="button" class="chip" role="tab" aria-selected="false"
+                      data-action="filtrar-reservas" data-status="pendente">
+                Pendentes
+                <span class="chip__badge" id="badge-pendentes" hidden>0</span>
+              </button>
+              <button type="button" class="chip" role="tab" aria-selected="false"
+                      data-action="filtrar-reservas" data-status="ativa">Ativas</button>
+            </div>
+            <div class="search">
+              <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+              <input class="input" type="search" id="busca-reservas"
+                     placeholder="Buscar por código, espaço, projeto ou responsável" aria-label="Buscar reserva" />
+              <button type="button" class="search__clear" id="limpar-reservas"
+                      data-action="limpar-busca" data-target="reservas" aria-label="Limpar busca de reservas" hidden>
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+              </button>
+            </div>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="showView('mapa')">
-            <i class="fa-solid fa-plus"></i> Nova Reserva
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <caption class="sr-only">Reservas dos espaços experimentais</caption>
+            <thead>
+              <tr>
+                <th scope="col">Código</th>
+                <th scope="col">Espaço</th>
+                <th scope="col">Responsável</th>
+                <th scope="col">Projeto</th>
+                <th scope="col">Período</th>
+                <th scope="col">Status</th>
+                <th scope="col">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-reservas"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Usuarios -->
+<div class="scrim" id="modal-usuarios" hidden>
+  <div class="dialog dialog--wide" role="dialog" aria-modal="true" aria-labelledby="usuarios-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-users" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="usuarios-titulo">
+          Usuários <span class="count" id="conta-usuarios">0</span>
+        </h2>
+        <p class="dialog__desc">Quem tem acesso ao sistema</p>
+      </div>
+      <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
+        Cadastrar
+      </button>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar usuários">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+    <div class="dialog__body">
+      <div class="users-grid" id="grid-usuarios"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Cadastrar usuario -->
+<div class="scrim" id="modal-novo-usuario" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="novo-usuario-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-user-plus" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="novo-usuario-titulo">Cadastrar usuário</h2>
+        <p class="dialog__desc">
+          O sistema é restrito e não tem tela de cadastro aberta. Informe o e-mail
+          para liberar o acesso; a entrada é feita com esse e-mail e a senha padrão.
+        </p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar cadastro">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-novo-usuario" novalidate>
+      <div class="field">
+        <label class="field__label" for="novo-usuario-email">E-mail</label>
+        <input class="input" type="email" id="novo-usuario-email" name="email"
+               placeholder="nome@embrapa.br" autocomplete="off" autocapitalize="none"
+               spellcheck="false" aria-describedby="novo-usuario-erro" required />
+        <p class="field__error" id="novo-usuario-erro" role="alert" hidden>
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+          <span id="novo-usuario-erro-texto"></span>
+        </p>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="novo-usuario-perfil-titulo">Perfil de acesso</span>
+        <div class="segmented" role="radiogroup" aria-labelledby="novo-usuario-perfil-titulo" id="novo-usuario-perfil">
+          <button type="button" class="segmented__option" role="radio" aria-checked="true" data-role="pesquisador">
+            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg>
+            Pesquisador
+          </button>
+          <button type="button" class="segmented__option" role="radio" aria-checked="false" data-role="admin">
+            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-user" /></svg>
+            Administrador
           </button>
         </div>
-
-        <!-- KPIs -->
-        <div id="dashboard-cards"></div>
-
-        <!-- Calendário + Reservas lado a lado (altura total) -->
-        <div class="dash-columns">
-
-          <div class="dashboard-widget dash-cal-widget">
-            <div class="widget-header">
-              <h3 class="widget-title"><i class="fa-solid fa-calendar-days"></i> Calendário</h3>
-            </div>
-            <div class="widget-content" style="padding:0">
-              <div id="calendar-container"></div>
-            </div>
-            <div class="dash-events" id="calendar-events">
-              Selecione uma data para ver os eventos
-            </div>
-          </div>
-
-          <div class="dashboard-widget dash-reservas-widget">
-            <div class="widget-header">
-              <h3 class="widget-title"><i class="fa-solid fa-calendar-check"></i> Minhas Reservas</h3>
-              <button class="widget-action" onclick="showView('mapa')"><i class="fa-solid fa-plus"></i> Nova</button>
-            </div>
-            <div class="widget-content" style="padding:0;overflow-y:auto">
-              <div class="reservas-list" id="reservas-list"></div>
-            </div>
-          </div>
-
-        </div>
       </div>
-    </div><!-- /view-dashboard -->
+    </form>
 
-    <!-- ── ADMIN ─────────────────────────────────────────── -->
-    <div class="view admin-view" id="view-admin">
-      <div class="admin-container">
-
-        <div class="admin-page-header">
-          <div class="admin-head-left">
-            <div class="admin-head-badge"><i class="fa-solid fa-shield-halved"></i></div>
-            <div>
-              <div class="admin-page-title">Administração</div>
-              <div class="admin-page-subtitle">Gestão completa de espaços, reservas e usuários</div>
-            </div>
-          </div>
-          <div class="admin-head-actions">
-            <button class="btn btn-ghost btn-sm" onclick="adminOpenMetrics()"><i class="fa-solid fa-chart-pie"></i> Painel</button>
-            <button class="btn btn-ghost btn-sm" onclick="adminOpenUsers()"><i class="fa-solid fa-users"></i> Usuários</button>
-            <button class="btn btn-primary btn-sm" onclick="adminOpenNewUser()"><i class="fa-solid fa-user-plus"></i> Cadastrar usuário</button>
-            <span class="pill pill-info"><i class="fa-solid fa-lock" style="font-size:8px"></i> Acesso Restrito</span>
-          </div>
-        </div>
-
-        <!-- Duas colunas: Espaços | Reservas -->
-        <div class="admin-cols">
-
-          <!-- Gestão de Espaços -->
-          <div class="admin-section" id="adm-sec-estufas">
-            <div class="admin-section-header">
-              <div class="admin-section-title">
-                <i class="fa-solid fa-warehouse"></i> Gestão de Espaços
-                <span class="adm-count" id="adm-estufas-count">0</span>
-              </div>
-              <div class="admin-section-tools">
-                <label class="adm-search">
-                  <i class="fa-solid fa-magnifying-glass"></i>
-                  <input type="text" id="adm-estufas-search" placeholder="Buscar espaço…" oninput="adminBuscarEstufas(this.value)" aria-label="Buscar espaço"/>
-                  <button type="button" class="adm-search-clear is-hidden" id="adm-estufas-clear" aria-label="Limpar busca" onclick="adminLimparEstufas()"><i class="fa-solid fa-xmark"></i></button>
-                </label>
-              </div>
-            </div>
-            <div class="admin-table-wrap">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>ID</th><th>Nome</th><th>Tipo</th><th>Área</th><th>Cap.</th>
-                    <th>Status</th><th style="text-align:right">Alterar Status</th>
-                  </tr>
-                </thead>
-                <tbody id="adm-estufas-tbody"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Todas as Reservas -->
-          <div class="admin-section" id="adm-sec-reservas">
-            <div class="admin-section-header">
-              <div class="admin-section-title">
-                <i class="fa-solid fa-calendar-check"></i> Todas as Reservas
-                <span class="adm-count" id="adm-reservas-count">0</span>
-              </div>
-              <div class="admin-section-tools">
-                <div class="adm-chips" role="tablist" aria-label="Filtrar reservas por status">
-                  <button class="adm-chip active" role="tab" aria-selected="true" data-status="todas" onclick="adminFiltrarReservas('todas', this)">Todas</button>
-                  <button class="adm-chip" role="tab" aria-selected="false" data-status="pendente" onclick="adminFiltrarReservas('pendente', this)">Pendentes<span class="adm-chip-badge is-hidden" id="adm-pend-badge">0</span></button>
-                  <button class="adm-chip" role="tab" aria-selected="false" data-status="ativa" onclick="adminFiltrarReservas('ativa', this)">Ativas</button>
-                </div>
-                <label class="adm-search">
-                  <i class="fa-solid fa-magnifying-glass"></i>
-                  <input type="text" id="adm-reservas-search" placeholder="Buscar reserva…" oninput="adminBuscarReservas(this.value)" aria-label="Buscar reserva"/>
-                  <button type="button" class="adm-search-clear is-hidden" id="adm-reservas-clear" aria-label="Limpar busca" onclick="adminLimparReservas()"><i class="fa-solid fa-xmark"></i></button>
-                </label>
-              </div>
-            </div>
-            <div class="admin-table-wrap">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>ID</th><th>Espaço</th><th>Projeto</th><th>Data</th><th>Qtd</th>
-                    <th>Status</th><th style="text-align:right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="adm-reservas-tbody"></tbody>
-              </table>
-            </div>
-          </div>
-
-        </div><!-- /admin-cols -->
-
-      </div>
-    </div><!-- /view-admin -->
-
-  </div><!-- /app-body -->
-  </div><!-- /app-main -->
-
-</div><!-- /app-wrap -->
-
-<!-- ═══ MODAL: PAINEL / MÉTRICAS ═════════════════════════════ -->
-<div class="overlay" id="overlay-metrics">
-  <div class="modal modal-metrics">
-    <div class="modal-body">
-      <div class="modal-title"><i class="fa-solid fa-chart-pie" style="color:var(--accent);margin-right:6px"></i>Painel</div>
-      <div class="adm-metrics">
-        <div class="adm-metric is-total is-clickable" role="button" tabindex="0" title="Ver espaços" onclick="closeAll();adminGoto('estufas')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeAll();adminGoto('estufas')}">
-          <div class="adm-metric-icon"><i class="fa-solid fa-warehouse"></i></div>
-          <div class="adm-metric-info">
-            <div class="adm-metric-value" id="adm-total">—</div>
-            <div class="adm-metric-label">Espaços Totais</div>
-          </div>
-          <i class="fa-solid fa-arrow-right adm-metric-go"></i>
-        </div>
-        <div class="adm-metric is-free is-clickable" role="button" tabindex="0" title="Ver espaços" onclick="closeAll();adminGoto('estufas')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeAll();adminGoto('estufas')}">
-          <div class="adm-metric-icon"><i class="fa-solid fa-circle-check"></i></div>
-          <div class="adm-metric-info">
-            <div class="adm-metric-value" id="adm-livres">—</div>
-            <div class="adm-metric-label">Espaços Livres</div>
-          </div>
-          <i class="fa-solid fa-arrow-right adm-metric-go"></i>
-        </div>
-        <div class="adm-metric is-res is-clickable" role="button" tabindex="0" title="Ver reservas ativas" onclick="closeAll();adminGoto('reservas-ativa')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeAll();adminGoto('reservas-ativa')}">
-          <div class="adm-metric-icon"><i class="fa-solid fa-calendar"></i></div>
-          <div class="adm-metric-info">
-            <div class="adm-metric-value" id="adm-reservas">—</div>
-            <div class="adm-metric-label">Reservas Ativas</div>
-          </div>
-          <i class="fa-solid fa-arrow-right adm-metric-go"></i>
-        </div>
-        <div class="adm-metric is-rate">
-          <div class="adm-metric-icon"><i class="fa-solid fa-chart-pie"></i></div>
-          <div class="adm-metric-info">
-            <div class="adm-metric-value" id="adm-taxa">—</div>
-            <div class="adm-metric-label">Taxa de Ocupação</div>
-            <div class="adm-gauge"><div class="adm-gauge-fill" id="adm-taxa-bar"></div></div>
-          </div>
-        </div>
-        <div class="adm-metric is-maint is-clickable" role="button" tabindex="0" title="Ver espaços" onclick="closeAll();adminGoto('estufas')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeAll();adminGoto('estufas')}">
-          <div class="adm-metric-icon"><i class="fa-solid fa-wrench"></i></div>
-          <div class="adm-metric-info">
-            <div class="adm-metric-value" id="adm-manut">—</div>
-            <div class="adm-metric-label">Em Manutenção</div>
-          </div>
-          <i class="fa-solid fa-arrow-right adm-metric-go"></i>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeAll()">Fechar</button>
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" form="form-novo-usuario">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-check" /></svg>
+        Cadastrar
+      </button>
     </div>
   </div>
 </div>
 
-<!-- ═══ MODAL: USUÁRIOS DO SISTEMA ═══════════════════════════ -->
-<div class="overlay" id="overlay-users">
-  <div class="modal modal-users">
-    <div class="modal-body">
-      <div class="modal-users-head">
-        <div class="modal-title" style="margin:0">
-          <i class="fa-solid fa-users" style="color:var(--accent);margin-right:6px"></i>Usuários do Sistema
-          <span class="adm-count" id="adm-users-count">0</span>
-        </div>
-        <button class="btn btn-primary btn-sm btn-xs" onclick="adminOpenNewUser()"><i class="fa-solid fa-user-plus"></i> Novo</button>
+<!-- Reservar espaço -->
+<div class="scrim" id="modal-reservar" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="reservar-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark" id="reservar-marca"><svg class="ic" aria-hidden="true"><use href="#i-calendar-plus" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="reservar-titulo">&mdash;</h2>
+        <p class="dialog__desc" id="reservar-descricao">&mdash;</p>
       </div>
-      <div class="admin-users-grid" id="adm-users-grid"></div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar reserva">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeAll()">Fechar</button>
-    </div>
-  </div>
-</div>
 
-<!-- ═══ MODAL: CADASTRAR USUÁRIO ═════════════════════════════ -->
-<div class="overlay" id="overlay-new-user">
-  <div class="modal modal-new-user">
-    <div class="modal-body">
-      <div class="modal-title"><i class="fa-solid fa-user-plus" style="color:var(--accent);margin-right:6px"></i>Cadastrar usuário</div>
-      <div class="modal-desc">O sistema é restrito e não possui tela de cadastro. Informe o e-mail para liberar o acesso — o usuário entra com esse e-mail e a senha padrão.</div>
-
-      <div class="form-group">
-        <label class="form-label" for="new-user-email">E-mail do usuário</label>
-        <input class="form-control" type="email" id="new-user-email" placeholder="nome@embrapa.br" autocomplete="off"
-               oninput="document.getElementById('new-user-error').style.display='none'"
-               onkeydown="if(event.key==='Enter')adminCadastrarUsuario()"/>
-        <div class="form-hint" id="new-user-error" style="color:var(--danger);display:none"></div>
-      </div>
-
-      <div class="form-group" style="margin-bottom:0">
-        <label class="form-label">Perfil de acesso</label>
-        <div class="seg" role="radiogroup" aria-label="Perfil de acesso">
-          <button type="button" class="seg-btn active" data-role="pesquisador" role="radio" aria-checked="true" onclick="adminSetNewRole('pesquisador', this)"><i class="fa-solid fa-user"></i> Pesquisador</button>
-          <button type="button" class="seg-btn" data-role="admin" role="radio" aria-checked="false" onclick="adminSetNewRole('admin', this)"><i class="fa-solid fa-user-shield"></i> Administrador</button>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeAll()">Cancelar</button>
-      <button class="btn btn-primary" onclick="adminCadastrarUsuario()"><i class="fa-solid fa-check"></i> Cadastrar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ MODAL: RESERVAR ══════════════════════════════════════ -->
-<div class="overlay" id="overlay-reservar">
-  <div class="modal">
-    <div class="modal-img">
-      <div class="modal-img-inner" id="reservar-img-icon"><i class="fa-solid fa-seedling"></i></div>
-    </div>
-    <div class="modal-body">
-      <div class="modal-badge"><span class="pill" id="reservar-badge">Livre</span></div>
-      <div class="modal-title" id="reservar-title">—</div>
-      <div class="modal-desc"  id="reservar-desc">—</div>
-      <div class="modal-meta-grid">
+    <form class="dialog__body" id="form-reservar" novalidate>
+      <div class="datagrid">
         <div>
-          <div class="meta-label"><i class="fa-solid fa-ruler-combined" style="margin-right:3px"></i>Área</div>
-          <div class="meta-value" id="reservar-area">—</div>
+          <div class="datagrid__label">Área</div>
+          <div class="datagrid__value" id="reservar-area">&mdash;</div>
         </div>
         <div>
-          <div class="meta-label"><i class="fa-solid fa-table-cells" style="margin-right:3px"></i>Bancadas</div>
-          <div class="meta-value" id="reservar-cap">—</div>
+          <div class="datagrid__label">Bancadas</div>
+          <div class="datagrid__value" id="reservar-bancadas">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Status</div>
+          <div class="datagrid__value" id="reservar-status">&mdash;</div>
         </div>
       </div>
-      <div class="form-row" style="margin-bottom:14px">
-        <div class="form-group" style="margin:0">
-          <label class="form-label">Data de Reserva</label>
-          <input type="date" class="form-control" id="reservar-data"/>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="reservar-data-inicio">Início</label>
+          <input class="input" type="date" id="reservar-data-inicio" name="data_inicio" required />
         </div>
-        <div class="form-group" style="margin:0">
-          <label class="form-label">Qtd. de Vasos/Estantes</label>
-          <input type="number" class="form-control" id="reservar-qtd" placeholder="Ex: 5" min="1"/>
-          <div class="form-hint" id="reservar-limite">Limite: —</div>
+        <div class="field">
+          <label class="field__label" for="reservar-data-fim">Fim</label>
+          <input class="input" type="date" id="reservar-data-fim" name="data_fim" required />
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Projeto vinculado</label>
-        <select class="form-control" id="reservar-proj">
-          <option value="">Selecionar projeto…</option>
-          <option>CRISPR-Soja: Resistência a Nematódeos</option>
-          <option>Biofortificação em Feijão</option>
-          <option>Resistência Fúngica em Arroz</option>
+
+      <div class="field">
+        <label class="field__label" for="reservar-projeto">Projeto</label>
+        <select class="select" id="reservar-projeto" name="projeto_id" required>
+          <option value="">Selecione o projeto</option>
+          <option>CRISPR-Soja: resistência a nematódeos</option>
+          <option>Biofortificação em feijão</option>
+          <option>Resistência fúngica em arroz</option>
+          <option>Melhoramento de milho tropical</option>
         </select>
       </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost"   onclick="closeAll()">Cancelar</button>
-      <button class="btn btn-primary" onclick="confirmarReserva()">
-        <i class="fa-solid fa-floppy-disk"></i> Confirmar Reserva
-      </button>
-    </div>
-  </div>
-</div>
 
-<!-- ═══ MODAL: VER RESERVA ═══════════════════════════════════ -->
-<div class="overlay" id="overlay-ver-reserva">
-  <div class="modal">
-    <div class="modal-img">
-      <div class="modal-img-inner" id="ver-img-icon"><i class="fa-solid fa-seedling"></i></div>
-    </div>
-    <div class="modal-body">
-      <div class="modal-badge"><span class="pill" id="ver-badge">Ativa</span></div>
-      <div class="modal-title" id="ver-title">—</div>
-      <div class="modal-desc"  id="ver-desc">—</div>
-      <div class="modal-meta-grid">
-        <div>
-          <div class="meta-label">Data de Reserva</div>
-          <div class="meta-value" id="ver-data">—</div>
-        </div>
-        <div>
-          <div class="meta-label">Qtd. Vasos/Estantes</div>
-          <div class="meta-value" id="ver-qtd">—</div>
-        </div>
-        <div>
-          <div class="meta-label">Projeto</div>
-          <div class="meta-value" id="ver-proj" style="font-size:11.5px">—</div>
-        </div>
-        <div>
-          <div class="meta-label">Pesquisador</div>
-          <div class="meta-value" id="ver-researcher" style="font-size:11.5px">Dr. Rafael Lima</div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost"  onclick="closeAll()">Fechar</button>
-      <button class="btn btn-danger" onclick="cancelarReservaModal()">
-        <i class="fa-solid fa-calendar-xmark"></i> Cancelar Reserva
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ MODAL: DOCUMENTAÇÃO DO PROJETO ═══════════════════════ -->
-<div class="overlay" id="overlay-docs">
-  <div class="modal">
-    <div class="modal-img">
-      <div class="modal-img-inner"><i class="fa-solid fa-book"></i></div>
-    </div>
-    <div class="modal-body">
-      <div class="modal-title">Documentação do projeto</div>
-      <div class="modal-desc">
-        Sistema de gerenciamento de estufas e reservas da Embrapa Cenargen.
-        Aqui você encontra a equipe de desenvolvimento e o acesso aos
-        repositórios no GitHub.
+      <div class="field">
+        <label class="field__label" for="reservar-finalidade">Finalidade</label>
+        <input class="input" type="text" id="reservar-finalidade" name="finalidade"
+               placeholder="Ensaio de resistência a nematódeos" required />
       </div>
 
-      <div class="form-group" style="margin-top:18px">
-        <label class="form-label">
-          <i class="fa-solid fa-users" style="margin-right:5px"></i>Grupo de desenvolvimento
+      <div class="field">
+        <label class="field__label" for="reservar-obs">
+          Observações <span class="field__opcional">opcional</span>
         </label>
-        <div class="docs-team">
-          <a class="docs-dev" href="https://github.com/lucas19fonseca" target="_blank" rel="noopener noreferrer">
-            <span><i class="fa-brands fa-github"></i> lucas19fonseca</span>
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </a>
-          <a class="docs-dev" href="https://github.com/MiguelCastro0" target="_blank" rel="noopener noreferrer">
-            <span><i class="fa-brands fa-github"></i> MiguelCastro0</span>
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </a>
-          <a class="docs-dev" href="https://github.com/lucasdpsa01" target="_blank" rel="noopener noreferrer">
-            <span><i class="fa-brands fa-github"></i> lucasdpsa01</span>
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </a>
-          <a class="docs-dev" href="https://github.com/LuisGuilherme345" target="_blank" rel="noopener noreferrer">
-            <span><i class="fa-brands fa-github"></i> LuisGuilherme345</span>
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </a>
-          <a class="docs-dev" href="https://github.com/FelipeTolentino21" target="_blank" rel="noopener noreferrer">
-            <span><i class="fa-brands fa-github"></i> FelipeTolentino21</span>
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </a>
+        <input class="input" type="text" id="reservar-obs" name="obs"
+               placeholder="Precisa de irrigação automática" />
+      </div>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" form="form-reservar">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        Reservar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Ver reserva -->
+<div class="scrim" id="modal-ver-reserva" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ver-reserva-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-calendar-check" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="ver-reserva-titulo">&mdash;</h2>
+        <p class="dialog__desc" id="ver-reserva-descricao">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar reserva">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body">
+      <div class="datagrid">
+        <div>
+          <div class="datagrid__label">Código</div>
+          <div class="datagrid__value" id="ver-reserva-codigo">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Status</div>
+          <div class="datagrid__value" id="ver-reserva-status">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Início</div>
+          <div class="datagrid__value" id="ver-reserva-inicio">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Fim</div>
+          <div class="datagrid__value" id="ver-reserva-fim">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Projeto</div>
+          <div class="datagrid__value" id="ver-reserva-projeto">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Finalidade</div>
+          <div class="datagrid__value" id="ver-reserva-finalidade">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Pesquisador</div>
+          <div class="datagrid__value" id="ver-reserva-pesquisador">&mdash;</div>
         </div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeAll()">Fechar</button>
-      <a class="btn btn-primary" href="https://github.com/Embrapa-Cenargem-Dashboard-Interativo" target="_blank" rel="noopener noreferrer">
-        <i class="fa-brands fa-github"></i> Ver organização no GitHub
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
+      <button type="button" class="btn btn--danger" id="ver-reserva-cancelar"
+              data-action="cancelar-reserva-atual">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-x" /></svg>
+        Cancelar reserva
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Sobre o projeto -->
+<div class="scrim" id="modal-docs" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="docs-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-book-open" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="docs-titulo">Sobre o projeto</h2>
+        <p class="dialog__desc">
+          CVGWeb, o sistema de gestão dos campos experimentais e casas de
+          vegetação da Embrapa Cenargen.
+        </p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body">
+      <h3 class="field__label">Quem desenvolve</h3>
+      <div class="linklist">
+        <a class="linklist__item" href="https://github.com/lucas19fonseca" target="_blank" rel="noopener noreferrer">
+          lucas19fonseca
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
+        </a>
+        <a class="linklist__item" href="https://github.com/MiguelCastro0" target="_blank" rel="noopener noreferrer">
+          MiguelCastro0
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
+        </a>
+        <a class="linklist__item" href="https://github.com/lucasdpsa01" target="_blank" rel="noopener noreferrer">
+          lucasdpsa01
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
+        </a>
+        <a class="linklist__item" href="https://github.com/LuisGuilherme345" target="_blank" rel="noopener noreferrer">
+          LuisGuilherme345
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
+        </a>
+        <a class="linklist__item" href="https://github.com/FelipeTolentino21" target="_blank" rel="noopener noreferrer">
+          FelipeTolentino21
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
+      <a class="btn btn--primary" href="https://github.com/Embrapa-Cenargem-Dashboard-Interativo"
+         target="_blank" rel="noopener noreferrer">
+        Repositórios
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
       </a>
     </div>
   </div>
 </div>
 
-<!-- ═══ TOASTS ════════════════════════════════════════════════ -->
-<div class="toast-wrap" id="toast-wrap"></div>
 
-<!-- ═══ SCRIPTS ══════════════════════════════════════════════ -->
-<script type="module" src="/src/main.ts"></script>
+<!-- Assistente. Fica fora de .app de propósito: é fixo na viewport e aparece
+     só com a sessão aberta (src/views/chat.ts). -->
+<div class="chat" id="chat" hidden>
+
+  <section class="chat__janela" id="chat-janela" hidden aria-labelledby="chat-titulo">
+    <header class="chat__head">
+      <span class="chat__avatar">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-bot" /></svg>
+      </span>
+      <div class="chat__heading">
+        <h2 class="chat__title" id="chat-titulo">Assistente do CVGWeb</h2>
+        <p class="chat__sub">Ocupação, períodos e projetos</p>
+      </div>
+      <button type="button" class="close-btn" id="chat-limpar" data-action="chat-limpar"
+              aria-label="Limpar conversa" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-trash-2" /></svg>
+      </button>
+      <button type="button" class="close-btn" data-action="chat-fechar"
+              aria-label="Fechar assistente">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </header>
+
+    <div class="chat__log" id="chat-log" role="log" aria-live="polite"></div>
+
+    <div class="chat__sugestoes" id="chat-sugestoes" hidden></div>
+
+    <form class="chat__form" id="chat-form" autocomplete="off">
+      <label class="sr-only" for="chat-entrada">Pergunta para o assistente</label>
+      <textarea class="chat__input" id="chat-entrada" rows="1"
+                placeholder="Quem está usando a Estufa 03?"></textarea>
+      <button type="submit" class="chat__enviar" id="chat-enviar" aria-label="Enviar pergunta">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-send-horizontal" /></svg>
+      </button>
+    </form>
+
+    <p class="chat__rodape">
+      Respostas geradas por IA a partir dos dados do sistema. Confira antes de decidir.
+    </p>
+  </section>
+
+  <button type="button" class="chat__fab" id="chat-fab" data-action="chat-alternar"
+          aria-expanded="false" aria-controls="chat-janela">
+    <svg class="ic" aria-hidden="true"><use href="#i-message-circle" /></svg>
+    <span class="chat__fab-label">Assistente</span>
+  </button>
+
+</div>
+
+
+<!-- Avisos. Região viva: o leitor de tela anuncia sem roubar o foco. -->
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
 </body>
 </html>
