@@ -5,11 +5,11 @@
  * nome acessível completo ("Estufa 03, ocupada"), alcançável por teclado. Clicar
  * ou acionar abre a ficha lateral.
  */
-import { ESTUFAS, reservaDoEspaco } from '../data/estufas';
+import { ESTUFAS, aceitaReserva, reservasDoEspaco } from '../data/estufas';
 import { HOTSPOTS } from '../data/hotspots';
 import { el, qs, qsa, setText, show } from '../lib/dom';
 import { html, icone } from '../lib/html';
-import { dataBR, plural, statusInfo, statusPill } from '../lib/format';
+import { capacidade, dataBR, ocupacaoResumo, plural, statusInfo, statusPill } from '../lib/format';
 import { modalAberto } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import type { Estufa } from '../types';
@@ -38,13 +38,16 @@ function setor(estufa: Estufa): string {
   return letra ? `Setor ${letra}` : estufa.tipo;
 }
 
-function disponibilidade(status: Estufa['status']): string {
-  switch (status) {
-    case 'livre': return 'Disponível agora';
-    case 'manutencao': return 'Em manutenção';
-    case 'ocupada': return 'Em uso';
-    default: return 'Sob reserva';
+/** Frase da ficha: o que dá para reservar agora, em numeros. */
+function disponibilidade(estufa: Estufa): string {
+  if (estufa.situacao === 'MANUTENCAO') return 'Em manutenção — não aceita reservas';
+  if (estufa.situacao === 'INATIVA') return 'Inativa no cadastro';
+  if (estufa.capacidadeTotal <= 0) return 'Capacidade ainda não cadastrada';
+  if (estufa.disponivel <= 0) {
+    return `Capacidade cheia hoje (${capacidade(estufa.capacidadeTotal, estufa.unidade)})`;
   }
+  const resumo = ocupacaoResumo(estufa.disponivel, estufa.capacidadeTotal, estufa.unidade);
+  return estufa.ocupado > 0 ? `Parcialmente ocupada — ${resumo}` : `Disponível agora — ${resumo}`;
 }
 
 function nomeAcessivel(id: string): string {
@@ -126,7 +129,7 @@ function preencherPainel(id: string): void {
 
   painel.dataset.status = estufa.status;
 
-  setText('painel-codigo', id);
+  setText('painel-codigo', estufa.codigo);
   setText('painel-nome', estufa.nome);
   setText('painel-tipo', estufa.tipo);
 
@@ -140,7 +143,7 @@ function preencherPainel(id: string): void {
 
   const { temp, umidade } = condicoes(id);
   setText('painel-condicoes', `${temp} °C, ${umidade}% de umidade`);
-  setText('painel-disponibilidade', disponibilidade(estufa.status));
+  setText('painel-disponibilidade', disponibilidade(estufa));
 
   // Capacidade de vasos
   const vasos = el('painel-vasos');
@@ -151,18 +154,28 @@ function preencherPainel(id: string): void {
     setText('painel-vaso-10', String(estufa.vasos.c10));
   }
 
-  // Reserva vinculada
-  const reserva = reservaDoEspaco(id);
+  // Reservas vinculadas. Com a reserva parcial, varias convivem no mesmo
+  // periodo: a ficha mostra a maior e conta as outras.
+  const atuais = reservasDoEspaco(id);
+  const reserva = atuais[0];
   const bloco = el('painel-reserva');
   show(bloco, Boolean(reserva));
   if (reserva) {
-    setText('painel-reserva-projeto', reserva.projeto);
+    const outras = atuais.length - 1;
+    setText(
+      'painel-reserva-projeto',
+      reserva.projeto
+        ? `Projeto ${reserva.projeto}`
+        : (reserva.finalidade || 'Reserva sem projeto vinculado'),
+    );
     const responsavel = reserva.pesquisador?.trim();
     setText(
       'painel-reserva-meta',
       `${responsavel ? `${responsavel} · ` : ''}`
+      + `${capacidade(reserva.quantidade, estufa.unidade)} · `
       + `${statusInfo(reserva.status).label}, de ${dataBR(reserva.data)} `
-      + `a ${dataBR(reserva.dataFim)}.`,
+      + `a ${dataBR(reserva.dataFim)}.`
+      + (outras > 0 ? ` E mais ${outras} ${outras === 1 ? 'reserva' : 'reservas'} no periodo.` : ''),
     );
   }
 
@@ -177,7 +190,7 @@ function configurarAcao(estufa: Estufa, id: string, reservaId?: string): void {
   botao.className = 'btn btn--primary btn--block';
   delete botao.dataset.id;
 
-  if (estufa.status === 'livre') {
+  if (aceitaReserva(estufa)) {
     botao.dataset.action = 'abrir-reservar';
     botao.dataset.id = id;
     botao.innerHTML = html`${icone('calendar-plus', 'ic ic--sm')}Reservar este espaço`;

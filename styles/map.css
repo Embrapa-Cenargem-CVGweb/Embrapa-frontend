@@ -371,18 +371,25 @@
   color: var(--fg-muted);
 }
 
+/*
+ * O rotulo nao estica e o valor fica com o resto da linha: antes os dois
+ * disputavam o mesmo espaco e "Disponivel agora - 11 de 11 vasos livres"
+ * escrevia por cima de "Disponibilidade".
+ */
 .specs__term {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 auto;
   font-size: var(--text-xs);
   color: var(--fg-muted);
 }
 
 .specs__value {
+  flex: 1;
+  min-width: 0;
   font-size: var(--text-sm);
   font-weight: var(--fw-medium);
   color: var(--fg);
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 /* --- Capacidade de vasos ------------------------------------------------- */

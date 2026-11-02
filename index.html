@@ -105,19 +105,6 @@
       Gestão dos espaços experimentais e das casas de vegetação do Cenargen.
     </p>
 
-    <div class="login__shortcuts" role="group" aria-label="Preencher com um perfil de demonstração">
-      <button type="button" class="login__shortcut" data-action="usar-perfil" data-role="pesquisador" aria-pressed="false">
-        <svg class="ic ic--lg" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
-        Pesquisador
-      </button>
-      <button type="button" class="login__shortcut" data-action="usar-perfil" data-role="admin" aria-pressed="false">
-        <svg class="ic ic--lg" aria-hidden="true"><use href="#i-shield-user" /></svg>
-        Administrador
-      </button>
-    </div>
-
-    <p class="login__or">ou use suas credenciais</p>
-
     <form id="form-entrada" novalidate>
       <p class="login__error" id="entrada-erro" role="alert" hidden>
         <svg class="ic" aria-hidden="true"><use href="#i-circle-x" /></svg>
@@ -364,6 +351,10 @@
               <span class="count" id="conta-espacos">0</span>
             </h2>
             <div class="section__tools">
+              <button type="button" class="btn btn--primary btn--sm" data-action="abrir-alterar-espaco">
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-ruler" /></svg>
+                Alterar estufa
+              </button>
               <div class="search">
                 <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
                 <input class="input" type="search" id="busca-espacos"
@@ -378,17 +369,18 @@
 
           <div class="table-wrap">
             <table class="table">
-              <caption class="sr-only">Espaços experimentais, com área, capacidade, quem reservou e status editável</caption>
+              <caption class="sr-only">Espaços experimentais, com área, capacidade disponível, quem reservou e a situação editável</caption>
               <thead>
                 <tr>
                   <th scope="col">Código</th>
                   <th scope="col">Nome</th>
                   <th scope="col">Tipo</th>
                   <th scope="col">Área</th>
-                  <th scope="col">Bancadas</th>
+                  <th scope="col">Capacidade</th>
                   <th scope="col">Status</th>
                   <th scope="col">Reservado por</th>
-                  <th scope="col">Alterar status</th>
+                  <th scope="col">Situação</th>
+                  <th scope="col">Editar</th>
                 </tr>
               </thead>
               <tbody id="tbody-espacos"></tbody>
@@ -527,6 +519,7 @@
                 <th scope="col">Código</th>
                 <th scope="col">Espaço</th>
                 <th scope="col">Responsável</th>
+                <th scope="col">Quantidade</th>
                 <th scope="col">Projeto</th>
                 <th scope="col">Período</th>
                 <th scope="col">Status</th>
@@ -595,6 +588,12 @@
         </p>
       </div>
 
+      <p class="field__hint">
+        O usuário é cadastrado sem senha: ele recebe neste e-mail um link para
+        criar a própria senha, válido por 48 horas. Nem a administração conhece
+        a senha de ninguém.
+      </p>
+
       <div class="field">
         <span class="field__label" id="novo-usuario-perfil-titulo">Perfil de acesso</span>
         <div class="segmented" role="radiogroup" aria-labelledby="novo-usuario-perfil-titulo" id="novo-usuario-perfil">
@@ -612,9 +611,165 @@
 
     <div class="dialog__foot">
       <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
-      <button type="submit" class="btn btn--primary" form="form-novo-usuario">
+      <button type="submit" class="btn btn--primary" id="novo-usuario-enviar" form="form-novo-usuario">
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-check" /></svg>
         Cadastrar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Alterar / cadastrar espaço -->
+<div class="scrim" id="modal-espaco" hidden>
+  <div class="dialog dialog--wide" role="dialog" aria-modal="true" aria-labelledby="espaco-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="espaco-titulo">Alterar estufa</h2>
+        <p class="dialog__desc" id="espaco-descricao">
+          Escolha a estufa pelo código e corrija o que mudou no cadastro.
+        </p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar cadastro de espaço">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-espaco" novalidate>
+      <!--
+        As estufas do Cenargen são 50, nem mais nem menos: o caminho normal
+        aqui é ESCOLHER uma e alterar o cadastro dela, não inventar a 51ª.
+        Por isso o próprio campo de código sugere o que já existe: digitar
+        "CVG0" lista as estufas e escolher uma traz o cadastro inteiro.
+      -->
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="espaco-codigo">Código da estufa</label>
+          <div class="combo">
+            <svg class="ic ic--sm combo__icone" aria-hidden="true"><use href="#i-search" /></svg>
+            <input class="input combo__campo" type="text" id="espaco-codigo" name="codigo"
+                   maxlength="20" placeholder="CVG01" autocapitalize="characters"
+                   autocomplete="off" spellcheck="false" required
+                   role="combobox" aria-expanded="false" aria-controls="espaco-sugestoes"
+                   aria-autocomplete="list" aria-describedby="espaco-codigo-ajuda" />
+            <ul class="combo__lista combo__lista--larga" id="espaco-sugestoes" role="listbox"
+                aria-label="Estufas que casam com o código digitado" hidden></ul>
+          </div>
+          <p class="field__hint" id="espaco-codigo-ajuda">
+            Digite <strong>CVG0</strong> e escolha na lista: os campos abaixo vêm
+            com o cadastro atual. O número define a posição no mapa.
+          </p>
+        </div>
+        <div class="field">
+          <label class="field__label" for="espaco-descricao-campo">Nome da estufa</label>
+          <input class="input" type="text" id="espaco-descricao-campo" name="descricao"
+                 maxlength="150" placeholder="Estufa 01" required />
+        </div>
+      </div>
+
+      <p class="combo__alvo" id="espaco-alvo" aria-live="polite"></p>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="espaco-tipo">Tipo</label>
+          <!--
+            Texto livre de propósito: a administração escreve o tipo que o
+            espaço tem, não o que uma lista nossa previu. O datalist só sugere
+            o que já existe no cadastro — não limita o que se pode digitar.
+          -->
+          <input class="input" type="text" id="espaco-tipo" name="tipo" maxlength="60"
+                 list="lista-tipos-espaco" autocomplete="off"
+                 placeholder="Casa de vegetação" aria-describedby="espaco-tipo-ajuda" />
+          <datalist id="lista-tipos-espaco"></datalist>
+          <p class="field__hint" id="espaco-tipo-ajuda">
+            Escreva como quiser; as sugestões são só os tipos já usados.
+          </p>
+        </div>
+        <div class="field">
+          <label class="field__label" for="espaco-localizacao">
+            Setor <span class="field__opcional">opcional</span>
+          </label>
+          <input class="input" type="text" id="espaco-localizacao" name="localizacao"
+                 maxlength="60" list="lista-setores-espaco" autocomplete="off"
+                 placeholder="Setor Norte" />
+          <datalist id="lista-setores-espaco"></datalist>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="espaco-capacidade-total">Capacidade reservável</label>
+          <div class="field__inline">
+            <input class="input input--numero" type="number" id="espaco-capacidade-total"
+                   name="capacidade_total" min="0" step="1" value="0" required
+                   aria-describedby="espaco-capacidade-ajuda" />
+            <select class="select" id="espaco-unidade" name="unidade_capacidade"
+                    aria-label="Unidade da capacidade">
+              <option value="VASO">vasos</option>
+              <option value="BANCADA">bancadas</option>
+            </select>
+          </div>
+          <p class="field__hint" id="espaco-capacidade-ajuda">
+            É esta quantidade que as reservas consomem. Reduzir abaixo do que já
+            está reservado é recusado pelo sistema.
+          </p>
+        </div>
+        <div class="field">
+          <label class="field__label" for="espaco-area">
+            Área em m² <span class="field__opcional">opcional</span>
+          </label>
+          <input class="input input--numero" type="number" id="espaco-area" name="area_m2"
+                 min="0" step="1" placeholder="204" />
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="espaco-bancadas">
+            Bancadas <span class="field__opcional">opcional</span>
+          </label>
+          <input class="input input--numero" type="number" id="espaco-bancadas" name="capacidade"
+                 min="0" step="1" placeholder="4" aria-describedby="espaco-bancadas-ajuda" />
+          <p class="field__hint" id="espaco-bancadas-ajuda">
+            Só informativo, quando a capacidade é contada em vasos.
+          </p>
+        </div>
+        <div class="field">
+          <label class="field__label" for="espaco-situacao">Situação</label>
+          <select class="select" id="espaco-situacao" name="status"
+                  aria-describedby="espaco-situacao-ajuda">
+            <option value="ATIVA">Disponível para reserva</option>
+            <option value="RESERVADA">Reservada</option>
+            <option value="OCUPADA">Ocupada</option>
+            <option value="MANUTENCAO">Em manutenção</option>
+            <option value="INATIVA">Inativa</option>
+          </select>
+          <p class="field__hint" id="espaco-situacao-ajuda">
+            Reservada e ocupada seguram a estufa sem precisar criar reserva.
+            Só “disponível para reserva” aceita pedido novo.
+          </p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="espaco-obs">
+          Observações <span class="field__opcional">opcional</span>
+        </label>
+        <input class="input" type="text" id="espaco-obs" name="obs"
+               placeholder="Estrutura, irrigação, controle de temperatura" />
+      </div>
+
+      <p class="field__error" id="espaco-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="espaco-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" id="espaco-enviar" form="form-espaco">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        <span id="espaco-enviar-texto">Salvar</span>
       </button>
     </div>
   </div>
@@ -645,6 +800,10 @@
           <div class="datagrid__value" id="reservar-bancadas">&mdash;</div>
         </div>
         <div>
+          <div class="datagrid__label">Disponível</div>
+          <div class="datagrid__value" id="reservar-capacidade">&mdash;</div>
+        </div>
+        <div>
           <div class="datagrid__label">Status</div>
           <div class="datagrid__value" id="reservar-status">&mdash;</div>
         </div>
@@ -662,20 +821,43 @@
       </div>
 
       <div class="field">
-        <label class="field__label" for="reservar-projeto">Projeto</label>
-        <select class="select" id="reservar-projeto" name="projeto_id" required>
-          <option value="">Selecione o projeto</option>
-          <option>CRISPR-Soja: resistência a nematódeos</option>
-          <option>Biofortificação em feijão</option>
-          <option>Resistência fúngica em arroz</option>
-          <option>Melhoramento de milho tropical</option>
-        </select>
+        <label class="field__label" for="reservar-quantidade">
+          Quantas unidades você precisa
+        </label>
+        <div class="field__inline">
+          <input class="input input--numero" type="number" id="reservar-quantidade"
+                 name="quantidade" min="1" step="1" value="1" required
+                 aria-describedby="reservar-quantidade-ajuda" />
+          <span class="field__sufixo" id="reservar-unidade">vasos</span>
+        </div>
+        <p class="field__hint" id="reservar-quantidade-ajuda">
+          Você reserva só o que vai usar; o resto da estufa continua disponível
+          para outro pesquisador no mesmo período.
+        </p>
+      </div>
+
+      <!-- Resposta do back-end sobre o período escolhido: quanto sobra e com
+           quem está o resto. Preenchido por consultarDisponibilidade(). -->
+      <p class="field__aviso" id="reservar-aviso" data-tom="ok" role="status" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        <span id="reservar-aviso-texto"></span>
+      </p>
+
+      <div class="field">
+        <label class="field__label" for="reservar-projeto">
+          Projeto <span class="field__opcional">opcional</span>
+        </label>
+        <input class="input" type="text" id="reservar-projeto" name="projeto_id"
+               list="lista-projetos" placeholder="Código ou id do projeto"
+               autocomplete="off" />
+        <!-- Preenchida a partir de GET /projetos quando a API estiver ligada. -->
+        <datalist id="lista-projetos"></datalist>
       </div>
 
       <div class="field">
         <label class="field__label" for="reservar-finalidade">Finalidade</label>
         <input class="input" type="text" id="reservar-finalidade" name="finalidade"
-               placeholder="Ensaio de resistência a nematódeos" required />
+               placeholder="Para que o espaço será usado" required />
       </div>
 
       <div class="field">
@@ -683,13 +865,14 @@
           Observações <span class="field__opcional">opcional</span>
         </label>
         <input class="input" type="text" id="reservar-obs" name="obs"
-               placeholder="Precisa de irrigação automática" />
+               placeholder="Alguma condição especial do espaço" />
       </div>
     </form>
 
     <div class="dialog__foot">
-      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
-      <button type="submit" class="btn btn--primary" form="form-reservar">
+      <!-- Cancelar descarta o rascunho de propósito; clicar fora ou Esc, não. -->
+      <button type="button" class="btn btn--quiet" data-action="descartar-reserva">Cancelar</button>
+      <button type="submit" class="btn btn--primary" id="reservar-enviar" form="form-reservar">
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
         Reservar
       </button>
@@ -728,6 +911,10 @@
         <div>
           <div class="datagrid__label">Fim</div>
           <div class="datagrid__value" id="ver-reserva-fim">&mdash;</div>
+        </div>
+        <div>
+          <div class="datagrid__label">Quantidade</div>
+          <div class="datagrid__value" id="ver-reserva-quantidade">&mdash;</div>
         </div>
         <div>
           <div class="datagrid__label">Projeto</div>

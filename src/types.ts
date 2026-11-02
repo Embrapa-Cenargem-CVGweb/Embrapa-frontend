@@ -1,11 +1,29 @@
 /**
  * Tipos de domínio do CVGWeb.
  *
- * O formato de reserva acompanha o da API Laravel: período (início e fim),
- * projeto e finalidade.
+ * O formato acompanha o da API Laravel. Duas noções diferentes de "status" de
+ * espaço convivem aqui, e misturá-las foi fonte de bug:
+ *
+ * - `EstufaSituacao` é o que está gravado no banco e o administrador controla:
+ *   ATIVA, RESERVADA, OCUPADA, MANUTENCAO ou INATIVA. RESERVADA e OCUPADA são
+ *   bloqueios manuais — a administração segura o espaço sem precisar criar uma
+ *   reserva no sistema.
+ * - `EstufaStatus` é **derivado** da ocupação do dia e ninguém define à mão:
+ *   livre, parcial (parte da capacidade tomada) ou ocupada (capacidade cheia).
+ *   Espaço com situação diferente de ATIVA mostra a própria situação.
  */
 
-export type EstufaStatus = 'livre' | 'ocupada' | 'reservada' | 'manutencao';
+/** Situação cadastral do espaço — é isto que grava no banco. */
+export type EstufaSituacao = 'ATIVA' | 'RESERVADA' | 'OCUPADA' | 'MANUTENCAO' | 'INATIVA';
+
+/** Situação visível do espaço, calculada a partir da ocupação. */
+export type EstufaStatus =
+  | 'livre'
+  | 'parcial'
+  | 'ocupada'
+  | 'reservada'
+  | 'manutencao'
+  | 'inativa';
 
 export type ReservaStatus = 'ativa' | 'pendente' | 'cancelada';
 
@@ -17,7 +35,10 @@ export type Tom = 'ok' | 'busy' | 'booked' | 'down' | 'neutral';
 
 export type PerfilUsuario = 'admin' | 'pesquisador';
 
-/** Capacidade aproximada de vasos, por diâmetro. */
+/** Unidade em que a capacidade do espaço é contada. */
+export type UnidadeCapacidade = 'VASO' | 'BANCADA';
+
+/** Capacidade aproximada de vasos, por diâmetro. Informativo. */
 export interface VasosCapacidade {
   c3: number;
   c5: number;
@@ -25,20 +46,33 @@ export interface VasosCapacidade {
 }
 
 export interface Estufa {
+  /** Código real do cadastro (CVG01). A chave do mapa é a posição (E01). */
+  codigo: string;
   nome: string;
   tipo: string;
   setor?: string;
+  /** Derivado da ocupação — não é o que se grava. */
   status: EstufaStatus;
+  /** O que está no banco e o administrador altera. */
+  situacao: EstufaSituacao;
   area: string;
-  /** Número de bancadas disponíveis. */
+  /** Número de bancadas do espaço. Informativo. */
   cap: number;
+  /** Unidade da capacidade reservável. */
+  unidade: UnidadeCapacidade;
+  /** Capacidade reservável total. */
+  capacidadeTotal: number;
+  /** Quanto está tomado hoje. */
+  ocupado: number;
+  /** Quanto sobra hoje. */
+  disponivel: number;
   /** Nome do símbolo no sprite, sem o prefixo `i-`. */
   icon: string;
   desc: string;
   vasos?: VasosCapacidade;
 }
 
-/** Espaços indexados pelo código (E01, E02, ...). */
+/** Espaços indexados pela posição no mapa (E01, E02, ...). */
 export type Estufas = Record<string, Estufa>;
 
 export interface Reserva {
@@ -48,6 +82,8 @@ export interface Reserva {
   data: string;
   /** Fim do período, AAAA-MM-DD (data_fim na API). */
   dataFim: string;
+  /** Quantas unidades (vasos ou bancadas) esta reserva toma. */
+  quantidade: number;
   /** Código do projeto vinculado. */
   projeto: string;
   /** Para que o espaço será usado. */
@@ -58,6 +94,9 @@ export interface Reserva {
   pesquisador?: string;
   status: ReservaStatus;
 }
+
+/** Situação do acesso de um usuário, como a API devolve. */
+export type SituacaoUsuario = 'ATIVO' | 'CONVITE_PENDENTE' | 'INATIVO';
 
 /**
  * Usuário da sessão. Mesmo formato nos dois modos: em demonstração vem da
@@ -72,6 +111,10 @@ export interface Usuario {
   cargo: string;
   /** Identificação usada para entrar. */
   login: string;
+  /** E-mail institucional, quando a API o devolve. */
+  email?: string;
+  /** Situação do acesso; sem senha criada fica CONVITE_PENDENTE. */
+  situacao?: SituacaoUsuario;
   /** Só no modo demonstração; a API nunca devolve senha. */
   senha?: string;
 }
@@ -80,4 +123,27 @@ export interface StatusInfo {
   label: string;
   tom: Tom;
   icon: string;
+}
+
+/**
+ * Disponibilidade de um espaço num período, como a API responde em
+ * `/casas-vegetacao/{id}/disponibilidade`.
+ */
+export interface Disponibilidade {
+  capacidade_total: number;
+  ocupado: number;
+  disponivel: number;
+  unidade: UnidadeCapacidade;
+  aceita_reserva: boolean;
+  mensagem: string;
+  cabe?: boolean;
+  faltam?: number;
+  ocupantes: {
+    funcionario?: string;
+    projeto?: string;
+    quantidade: number;
+    data_inicio: string;
+    data_fim: string;
+    status: string;
+  }[];
 }

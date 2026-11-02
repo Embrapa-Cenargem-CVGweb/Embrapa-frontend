@@ -8,7 +8,7 @@
   position: fixed;
   right: var(--s-4);
   bottom: var(--s-4);
-  z-index: 150;            /* acima do painel do mapa (40), abaixo do modal (200) */
+  z-index: 170;            /* acima de tudo na pagina; so o modal (200) passa por cima */
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -29,24 +29,42 @@
 /* ---------------------------------------------------------------------------
    Convivência com a ficha do espaço
 
-   A ficha desliza da direita ocupando --panel-w e vai até o rodapé, onde ficam
-   "Reservar" e "Ver a reserva". O assistente sai da frente dela em vez de
-   flutuar por cima: com espaço, desloca-se para a esquerda da ficha; sem
-   espaço (a ficha toma a tela toda), some enquanto ela estiver aberta.
+   A ficha desliza da direita ocupando --panel-w. O assistente nunca fica atrás
+   dela: sobe para z-index 190 (só o modal, em 200, passa por cima) e, onde há
+   largura, encosta à esquerda da ficha em vez de ficar em cima do conteúdo.
+
+   Em tela estreita a ficha ocupa a largura toda, então ele continua no canto,
+   por cima, só um pouco mais alto para não tapar "Reservar este espaço".
+
+   Enquanto a ficha está aberta ele encolhe para só o ícone; o rótulo
+   "Assistente" volta quando a ficha fecha.
    --------------------------------------------------------------------------- */
 
-@media (width >= 60rem) {
+body:has(.panel.is-open) .chat {
+  /* Acima de tudo que nao e modal: ficha (40), legenda, barra lateral. O
+     modal (200) e o unico que ainda passa por cima. */
+  z-index: 190;
+  /* Sobe um pouco para nao tapar "Reservar este espaco", no rodape da ficha. */
+  bottom: calc(var(--s-4) + 3.5rem);
+}
+
+/* Onde sobra largura, o assistente sai de cima da ficha e fica ao lado dela:
+   nao tapa nada e continua visivel. Em tela estreita a ficha ocupa tudo, entao
+   ele permanece no canto, por cima. */
+@media (width > 60rem) {
   body:has(.panel.is-open) .chat {
     right: calc(var(--panel-w) + var(--s-4));
+    bottom: var(--s-4);
   }
 }
 
-@media (width < 60rem) {
-  body:has(.panel.is-open) .chat {
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-  }
+body:has(.panel.is-open) .chat__fab-label {
+  display: none;
+}
+
+body:has(.panel.is-open) .chat__fab {
+  padding: var(--s-3);
+  border-radius: var(--r-pill);
 }
 
 /* --- Botão flutuante ------------------------------------------------------ */

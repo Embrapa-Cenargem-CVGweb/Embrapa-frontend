@@ -1,21 +1,34 @@
 /**
  * Reservar um espaço e consultar uma reserva.
  *
- * A reserva é um período (início e fim) vinculado a um projeto, no mesmo
- * formato que a API Laravel espera.
+ * A reserva é um período (início e fim) + uma QUANTIDADE de vasos ou bancadas.
+ * O que não for reservado continua disponível para outro pesquisador no mesmo
+ * período, e é o back-end que decide se cabe — este arquivo só pergunta antes
+ * (para avisar na hora) e manda a reserva depois.
+ *
+ * Com a API configurada, nada mais morre no localStorage: criar e cancelar
+ * gravam no banco e a tela recarrega do que o banco respondeu.
  */
 import {
   ESTUFAS,
+  ID_REAL_ESPACO,
+  ID_REAL_RESERVA,
+  aceitaReserva,
+  carregarEstado,
+  invalidarEstado,
   proximoIdReserva,
+  recalcularOcupacao,
   reservas,
   salvarEstado,
 } from '../data/estufas';
 import { dadosMudaram } from '../lib/bus';
 import { el, setText, show } from '../lib/dom';
 import { html, icone } from '../lib/html';
-import { dataBR, hojeISO, plural, statusPill } from '../lib/format';
+import { capacidade, dataBR, hojeISO, ocupacaoResumo, plural, statusPill } from '../lib/format';
 import { abrirModal, fecharModal, fecharTodosModais } from '../lib/modal';
 import { aviso } from '../lib/toast';
+import { MODO_DEMO } from '../lib/ambiente';
+import { cancelarReserva as apiCancelar, criarReserva, getDisponibilidade } from '../services/api';
 import { fecharPainel } from './mapa';
 import { usuarioAtual } from './login';
 
@@ -23,9 +36,133 @@ import { usuarioAtual } from './login';
 let espacoDaReserva: string | null = null;
 /** Reserva aberta no modal de consulta. */
 let reservaAberta: string | null = null;
+/** Evita que duas confirmações saiam juntas no clique repetido. */
+let enviando = false;
+
+/* ---------------------------------------------------------------------------
+   Rascunho da reserva
+
+   Fechar o modal sem querer — um clique fora, um Esc — apagava período,
+   quantidade, projeto e finalidade. Agora o que está preenchido fica guardado
+   por espaço e volta ao reabrir. Só some quando a reserva é enviada ou quando
+   a pessoa diz, no botão, que está descartando.
+
+   Fica no localStorage: é rascunho do navegador de quem está preenchendo, não
+   dado do sistema — não tem por que ocupar o banco.
+   --------------------------------------------------------------------------- */
+
+const CHAVE_RASCUNHO = 'cvgweb:rascunho-reserva:v1';
+
+/** Rascunho velho não serve: o período que ele guarda já passou. */
+const VALIDADE_RASCUNHO_MS = 24 * 60 * 60 * 1000;
+
+const CAMPOS_RASCUNHO = [
+  'reservar-data-inicio',
+  'reservar-data-fim',
+  'reservar-quantidade',
+  'reservar-projeto',
+  'reservar-finalidade',
+  'reservar-obs',
+] as const;
+
+interface Rascunho {
+  em: number;
+  campos: Record<string, string>;
+}
+
+function lerRascunhos(): Record<string, Rascunho> {
+  try {
+    const bruto = localStorage.getItem(CHAVE_RASCUNHO);
+    return bruto ? (JSON.parse(bruto) as Record<string, Rascunho>) : {};
+  } catch (erro) {
+    console.warn('[CVGWeb] rascunho de reserva inválido, ignorando:', erro);
+    return {};
+  }
+}
+
+function gravarRascunhos(mapa: Record<string, Rascunho>): void {
+  try {
+    localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(mapa));
+  } catch (erro) {
+    // Sem espaço ou em aba anônima: perder o rascunho não pode quebrar a tela.
+    console.warn('[CVGWeb] não foi possível guardar o rascunho:', erro);
+  }
+}
+
+/** Guarda o que está na tela. Chamado a cada digitação no formulário. */
+export function guardarRascunhoDaReserva(): void {
+  if (!espacoDaReserva) return;
+
+  const campos: Record<string, string> = {};
+  for (const id of CAMPOS_RASCUNHO) campos[id] = valor(id);
+
+  // Formulário vazio não vira rascunho: senão abrir e fechar já deixava lixo.
+  const temAlgo = CAMPOS_RASCUNHO.some((id) => {
+    const v = campos[id] ?? '';
+    return id === 'reservar-quantidade' ? v !== '' && v !== '1' : v !== '';
+  });
+
+  const mapa = lerRascunhos();
+  if (temAlgo) mapa[espacoDaReserva] = { em: Date.now(), campos };
+  else delete mapa[espacoDaReserva];
+
+  gravarRascunhos(mapa);
+}
+
+/** Põe de volta o que estava preenchido. Devolve true se restaurou algo. */
+function restaurarRascunho(estufaId: string): boolean {
+  const mapa = lerRascunhos();
+  const rascunho = mapa[estufaId];
+  if (!rascunho) return false;
+
+  if (Date.now() - rascunho.em > VALIDADE_RASCUNHO_MS) {
+    delete mapa[estufaId];
+    gravarRascunhos(mapa);
+    return false;
+  }
+
+  const hoje = hojeISO();
+  let restaurou = false;
+
+  for (const id of CAMPOS_RASCUNHO) {
+    const guardado = rascunho.campos[id] ?? '';
+    if (!guardado) continue;
+
+    // Data que já passou não volta: o campo tem min = hoje e ficaria inválida.
+    if ((id === 'reservar-data-inicio' || id === 'reservar-data-fim') && guardado < hoje) continue;
+
+    const campo = el<HTMLInputElement>(id);
+    if (!campo) continue;
+    campo.value = guardado;
+    restaurou = true;
+  }
+
+  return restaurou;
+}
+
+/** Joga fora o rascunho de um espaço. */
+export function descartarRascunhoDaReserva(estufaId = espacoDaReserva): void {
+  if (!estufaId) return;
+  const mapa = lerRascunhos();
+  if (!(estufaId in mapa)) return;
+  delete mapa[estufaId];
+  gravarRascunhos(mapa);
+}
+
+/** Botão "Cancelar" do modal: aí sim a pessoa está desistindo de propósito. */
+export function cancelarPreenchimentoDaReserva(): void {
+  descartarRascunhoDaReserva();
+  espacoDaReserva = null;
+  fecharTodosModais();
+}
 
 function valor(id: string): string {
   return (el<HTMLInputElement>(id)?.value ?? '').trim();
+}
+
+function numero(id: string): number {
+  const bruto = Number.parseInt(valor(id), 10);
+  return Number.isNaN(bruto) ? 0 : bruto;
 }
 
 /* ===========================================================================
@@ -36,17 +173,26 @@ export function abrirModalReservar(estufaId: string): void {
   const estufa = ESTUFAS[estufaId];
   if (!estufa) return;
 
-  if (estufa.status !== 'livre') {
-    aviso('Este espaço não está disponível.', 'error');
+  if (!aceitaReserva(estufa)) {
+    aviso(
+      estufa.situacao === 'ATIVA'
+        ? `${estufa.nome} está com a capacidade cheia hoje.`
+        : `${estufa.nome} não está disponível (${estufa.situacao.toLowerCase()}).`,
+      'error',
+    );
     return;
   }
 
   espacoDaReserva = estufaId;
 
   setText('reservar-titulo', `Reservar ${estufa.nome}`);
-  setText('reservar-descricao', estufa.desc || estufa.tipo);
+  setText('reservar-descricao', `${estufa.codigo} · ${estufa.desc || estufa.tipo}`);
   setText('reservar-area', estufa.area);
   setText('reservar-bancadas', plural(estufa.cap, 'bancada', 'bancadas'));
+  setText(
+    'reservar-capacidade',
+    ocupacaoResumo(estufa.disponivel, estufa.capacidadeTotal, estufa.unidade),
+  );
 
   const status = el('reservar-status');
   if (status) status.innerHTML = html`${statusPill(estufa.status)}`;
@@ -56,17 +202,32 @@ export function abrirModalReservar(estufaId: string): void {
 
   el<HTMLFormElement>('form-reservar')?.reset();
 
+  // A quantidade nasce em 1 e não passa do que está livre hoje.
+  const quantidade = el<HTMLInputElement>('reservar-quantidade');
+  if (quantidade) {
+    quantidade.min = '1';
+    quantidade.max = String(Math.max(1, estufa.disponivel));
+    quantidade.value = '1';
+    quantidade.removeAttribute('aria-invalid');
+  }
+  setText('reservar-unidade', estufa.unidade === 'VASO' ? 'vasos' : 'bancadas');
+
   // O período não pode começar no passado.
   const hoje = hojeISO();
   const inicio = el<HTMLInputElement>('reservar-data-inicio');
   const fim = el<HTMLInputElement>('reservar-data-fim');
-  if (inicio) {
-    inicio.min = hoje;
-    inicio.removeAttribute('aria-invalid');
+  for (const campo of [inicio, fim]) {
+    if (!campo) continue;
+    campo.min = hoje;
+    campo.removeAttribute('aria-invalid');
   }
-  if (fim) {
-    fim.min = hoje;
-    fim.removeAttribute('aria-invalid');
+
+  mostrarAviso(null);
+
+  // O que a pessoa já tinha preenchido antes de fechar sem querer.
+  if (restaurarRascunho(estufaId)) {
+    aviso('Recuperei o que você já tinha preenchido nesta reserva.', 'info');
+    ajustarFimDoPeriodo();
   }
 
   fecharPainel();
@@ -81,10 +242,54 @@ export function ajustarFimDoPeriodo(): void {
 
   if (inicio.value) fim.min = inicio.value;
   if (fim.value && inicio.value && fim.value < inicio.value) fim.value = inicio.value;
+
+  void consultarDisponibilidade();
 }
 
-export function confirmarReserva(): void {
-  if (!espacoDaReserva) return;
+function mostrarAviso(mensagem: string | null, tom: 'ok' | 'erro' = 'ok'): void {
+  const caixa = el('reservar-aviso');
+  show(caixa, Boolean(mensagem));
+  if (caixa) caixa.dataset.tom = tom;
+  if (mensagem) setText('reservar-aviso-texto', mensagem);
+}
+
+/**
+ * Pergunta ao back-end quanto sobra no período escolhido e mostra a resposta
+ * antes de a pessoa enviar — é a mesma frase que viria no erro, só que a
+ * tempo de corrigir ("só 10 de 20 vasos disponíveis; os outros estão com...").
+ */
+export async function consultarDisponibilidade(): Promise<void> {
+  if (!espacoDaReserva || MODO_DEMO) return;
+
+  const estufa = ESTUFAS[espacoDaReserva];
+  const casaId = ID_REAL_ESPACO[espacoDaReserva];
+  const inicio = valor('reservar-data-inicio');
+  const fim = valor('reservar-data-fim');
+
+  if (!estufa || !casaId || !inicio || !fim || fim < inicio) return;
+
+  const pedido = numero('reservar-quantidade');
+
+  try {
+    const resposta = await getDisponibilidade(casaId, {
+      de: inicio,
+      ate: fim,
+      quantidade: pedido || undefined,
+    });
+
+    const campo = el<HTMLInputElement>('reservar-quantidade');
+    if (campo) campo.max = String(Math.max(1, resposta.disponivel));
+
+    mostrarAviso(resposta.mensagem, resposta.cabe === false ? 'erro' : 'ok');
+  } catch (erro) {
+    // Falha de rede aqui não impede reservar: o back-end confere de novo.
+    console.warn('[CVGWeb] não foi possível consultar a disponibilidade:', erro);
+  }
+}
+
+export async function confirmarReserva(): Promise<void> {
+  if (!espacoDaReserva || enviando) return;
+
   const estufa = ESTUFAS[espacoDaReserva];
   if (!estufa) return;
 
@@ -93,11 +298,21 @@ export function confirmarReserva(): void {
   const projeto = valor('reservar-projeto');
   const finalidade = valor('reservar-finalidade');
   const obs = valor('reservar-obs');
+  const quantidade = numero('reservar-quantidade');
 
-  if (!inicio || !fim || !projeto || !finalidade) {
-    aviso('Preencha o período, o projeto e a finalidade.', 'error');
+  if (!inicio || !fim || !finalidade) {
+    aviso('Preencha o período e a finalidade.', 'error');
     return;
   }
+
+  const campoQuantidade = el<HTMLInputElement>('reservar-quantidade');
+  if (quantidade < 1) {
+    campoQuantidade?.setAttribute('aria-invalid', 'true');
+    campoQuantidade?.focus();
+    aviso(`Informe quantos ${estufa.unidade === 'VASO' ? 'vasos' : 'bancadas'} você precisa.`, 'error');
+    return;
+  }
+  campoQuantidade?.removeAttribute('aria-invalid');
 
   const campoFim = el<HTMLInputElement>('reservar-data-fim');
   if (fim < inicio) {
@@ -108,27 +323,102 @@ export function confirmarReserva(): void {
   }
   campoFim?.removeAttribute('aria-invalid');
 
+  const botao = el<HTMLButtonElement>('reservar-enviar');
+  enviando = true;
+  if (botao) botao.disabled = true;
+
+  try {
+    if (MODO_DEMO) {
+      reservarLocal(espacoDaReserva, { inicio, fim, projeto, finalidade, obs, quantidade });
+      aviso(
+        `${estufa.nome} reservada: ${capacidade(quantidade, estufa.unidade)}. `
+        + 'A reserva entra como pendente de aprovação.',
+        'success',
+      );
+    } else {
+      const mensagem = await reservarNaApi(espacoDaReserva, {
+        inicio, fim, projeto, finalidade, obs, quantidade,
+      });
+      aviso(mensagem, 'success');
+    }
+  } catch (erro) {
+    // A mensagem do back-end é a boa: diz quanto sobrou e com quem está.
+    const mensagem = erro instanceof Error ? erro.message : 'Não foi possível reservar.';
+    mostrarAviso(mensagem, 'erro');
+    aviso(mensagem, 'error');
+    return;
+  } finally {
+    enviando = false;
+    if (botao) botao.disabled = false;
+  }
+
+  // Reserva enviada: o rascunho cumpriu o papel dele. Soltar `espacoDaReserva`
+  // ANTES de fechar e de propósito: fechar o modal grava o rascunho do espaço
+  // aberto, e sem isto a reserva recém-enviada voltaria como rascunho.
+  descartarRascunhoDaReserva();
+  espacoDaReserva = null;
+
+  dadosMudaram();
+  fecharModal(el('modal-reservar'));
+}
+
+interface DadosReserva {
+  inicio: string;
+  fim: string;
+  projeto: string;
+  finalidade: string;
+  obs: string;
+  quantidade: number;
+}
+
+/** Modo demonstração: a reserva vive na memória e no localStorage. */
+function reservarLocal(estufaId: string, dados: DadosReserva): void {
+  const estufa = ESTUFAS[estufaId];
+
+  if (dados.quantidade > estufa.disponivel) {
+    throw new Error(
+      `${estufa.nome}: só ${ocupacaoResumo(estufa.disponivel, estufa.capacidadeTotal, estufa.unidade)} `
+      + `no momento. Você pediu ${capacidade(dados.quantidade, estufa.unidade)}.`,
+    );
+  }
+
   reservas.push({
     id: proximoIdReserva(),
-    estufaId: espacoDaReserva,
-    data: inicio,
-    dataFim: fim,
-    projeto,
-    finalidade,
-    obs,
-    // Quem está na sessão é o dono da reserva; com a API o back-end faz o
-    // mesmo a partir do token.
+    estufaId,
+    data: dados.inicio,
+    dataFim: dados.fim,
+    quantidade: dados.quantidade,
+    projeto: dados.projeto,
+    finalidade: dados.finalidade,
+    obs: dados.obs,
     pesquisador: usuarioAtual()?.nome ?? '',
     status: 'pendente',
   });
 
-  estufa.status = 'reservada';
+  recalcularOcupacao();
   salvarEstado();
-  dadosMudaram();
+}
 
-  fecharModal(el('modal-reservar'));
-  espacoDaReserva = null;
-  aviso(`${estufa.nome} reservada. A reserva entra como pendente de aprovação.`, 'success');
+/** Grava a reserva no banco e recarrega o estado do que a API respondeu. */
+async function reservarNaApi(estufaId: string, dados: DadosReserva): Promise<string> {
+  const casaId = ID_REAL_ESPACO[estufaId];
+  if (!casaId) throw new Error('Espaço sem vínculo com o cadastro; recarregue a página.');
+
+  const resposta = await criarReserva({
+    casa_vegetacao_id: casaId,
+    quantidade: dados.quantidade,
+    data_inicio: dados.inicio,
+    data_fim: dados.fim,
+    finalidade: dados.finalidade,
+    obs: dados.obs || undefined,
+    // O campo de projeto aceita o id numérico do projeto; em branco, sem vínculo.
+    projeto_id: /^\d+$/.test(dados.projeto) ? Number(dados.projeto) : null,
+  });
+
+  invalidarEstado();
+  await carregarEstado('manter');
+
+  return resposta?.message ?? 'Reserva registrada.';
 }
 
 /* ===========================================================================
@@ -143,11 +433,15 @@ export function verReserva(id: string): void {
   reservaAberta = id;
 
   setText('ver-reserva-titulo', estufa ? estufa.nome : reserva.estufaId);
-  setText('ver-reserva-descricao', estufa?.tipo ?? 'Espaço não encontrado');
+  setText('ver-reserva-descricao', estufa ? `${estufa.codigo} · ${estufa.tipo}` : 'Espaço não encontrado');
   setText('ver-reserva-codigo', reserva.id);
   setText('ver-reserva-inicio', dataBR(reserva.data));
   setText('ver-reserva-fim', dataBR(reserva.dataFim));
-  setText('ver-reserva-projeto', reserva.projeto);
+  setText(
+    'ver-reserva-quantidade',
+    capacidade(reserva.quantidade, estufa?.unidade ?? 'VASO'),
+  );
+  setText('ver-reserva-projeto', reserva.projeto || '—');
   setText('ver-reserva-finalidade', reserva.finalidade || '—');
   setText('ver-reserva-pesquisador', reserva.pesquisador || '—');
 
@@ -161,33 +455,45 @@ export function verReserva(id: string): void {
   abrirModal('modal-ver-reserva');
 }
 
-export function cancelarReservaAberta(): void {
+export async function cancelarReservaAberta(): Promise<void> {
   const reserva = reservas.find((r) => r.id === reservaAberta);
   if (!reserva || reserva.status === 'cancelada') {
     fecharTodosModais();
     return;
   }
 
-  reserva.status = 'cancelada';
-  liberarEspacoSeVazio(reserva.estufaId, reserva.id);
+  try {
+    await cancelarNoDestino(reserva.id);
+  } catch (erro) {
+    aviso(erro instanceof Error ? erro.message : 'Não foi possível cancelar.', 'error');
+    return;
+  }
 
-  salvarEstado();
   dadosMudaram();
   fecharTodosModais();
   reservaAberta = null;
-  aviso(`Reserva ${reserva.id} cancelada.`, 'info');
+  aviso(`Reserva ${reserva.id} cancelada; a capacidade voltou a ficar disponível.`, 'info');
 }
 
 /**
- * Devolve o espaço para livre, mas só quando não sobrou nenhuma outra reserva
- * vigente nele.
+ * Cancela onde for o caso: no banco, com a API; na memória, no modo
+ * demonstração. Usado também pela administração.
  */
-export function liberarEspacoSeVazio(estufaId: string, exceto: string): void {
-  const estufa = ESTUFAS[estufaId];
-  if (!estufa) return;
+export async function cancelarNoDestino(codigo: string, motivo?: string): Promise<void> {
+  const reserva = reservas.find((r) => r.id === codigo);
+  if (!reserva) return;
 
-  const outras = reservas.some(
-    (r) => r.estufaId === estufaId && r.id !== exceto && r.status !== 'cancelada',
-  );
-  if (!outras) estufa.status = 'livre';
+  if (MODO_DEMO) {
+    reserva.status = 'cancelada';
+    recalcularOcupacao();
+    salvarEstado();
+    return;
+  }
+
+  const id = ID_REAL_RESERVA[codigo];
+  if (!id) throw new Error('Reserva sem vínculo com o cadastro; recarregue a página.');
+
+  await apiCancelar(id, motivo);
+  invalidarEstado();
+  await carregarEstado('manter');
 }

@@ -136,10 +136,174 @@
   color: var(--down-soft-fg);
 }
 
+/* Campo numerico com a unidade ao lado: "10  vasos". */
+.field__inline {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+/*
+ * Dois nomes de classe de proposito: `.input` aparece DEPOIS neste arquivo e
+ * define width:100%. Com a mesma especificidade, quem vinha depois ganhava e
+ * o campo numerico ocupava a linha inteira, espremendo o seletor de unidade
+ * ("vasos" / "bancadas") ate sobrar so a setinha.
+ */
+.input.input--numero {
+  width: 7rem;
+  flex: none;
+}
+
+.field__sufixo {
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+}
+
+/*
+ * Resposta do servidor sobre a disponibilidade do periodo escolhido. Tom "ok"
+ * informa; tom "erro" avisa que a quantidade pedida nao cabe. O icone mais a
+ * palavra carregam o recado — nunca a cor sozinha.
+ */
+.field__aviso {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+  margin: calc(var(--s-2) * -1) 0 var(--s-4);
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  border-radius: var(--r-md);
+  color: var(--accent-soft-fg);
+  background: var(--accent-soft);
+}
+
+.field__aviso .ic {
+  flex: none;
+  margin-top: 0.1em;
+}
+
+.field__aviso[data-tom="erro"] {
+  color: var(--down-soft-fg);
+  background: var(--down-soft);
+}
+
 .field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--s-3);
+}
+
+/* ---------------------------------------------------------------------------
+   Combobox: campo de texto com sugestões do que já existe no cadastro.
+
+   Não é um <select>: as 50 estufas não cabem numa lista rolante e a pessoa
+   sabe o código de cor. Ela digita "CVG0" e escolhe entre as que casam, pelo
+   mouse ou pelas setas do teclado.
+   --------------------------------------------------------------------------- */
+
+.combo {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.combo__icone {
+  position: absolute;
+  left: var(--s-3);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+
+/* Mesmo caso de `.input--numero`: `.input` vem depois e zeraria este recuo,
+   fazendo o texto comecar em cima da lupa. */
+.input.combo__campo {
+  padding-left: var(--s-7);
+}
+
+.combo__lista {
+  position: absolute;
+  top: calc(100% + var(--s-1));
+  right: 0;
+  left: 0;
+  z-index: 5;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+}
+
+.combo__lista[hidden] {
+  display: none;
+}
+
+/*
+ * O codigo mora numa coluna de meia largura, mas a sugestao traz nome, tipo,
+ * setor e capacidade. A lista passa do campo em vez de truncar tudo.
+ */
+.combo__lista--larga {
+  right: auto;
+  width: max-content;
+  min-width: 100%;
+  max-width: min(32rem, 80vw);
+}
+
+.combo__opcao {
+  display: flex;
+  gap: var(--s-2);
+  align-items: baseline;
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.combo__opcao + .combo__opcao {
+  border-top: 1px solid var(--line);
+}
+
+.combo__opcao:hover,
+.combo__opcao[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+
+.combo__opcao strong {
+  font-weight: var(--fw-semibold);
+}
+
+.combo__sub {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+
+.combo__vazio {
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  cursor: default;
+}
+
+/* Qual espaço o formulário está alterando — ou que vai cadastrar um novo. */
+.combo__alvo {
+  display: flex;
+  gap: var(--s-1);
+  align-items: center;
+  margin-top: var(--s-2);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  color: var(--accent-soft-fg);
+}
+
+.combo__alvo:empty {
+  display: none;
+}
+
+.combo__alvo[data-tom="novo"] {
+  color: var(--busy-soft-fg);
 }
 
 .input,
@@ -469,10 +633,16 @@
   border-left-width: 3px;
 }
 
-.status-select[data-status="livre"] { border-left-color: var(--ok); }
-.status-select[data-status="ocupada"] { border-left-color: var(--busy); }
+/*
+ * A faixa segue a SITUAÇÃO gravada, em minúsculas: ativa, reservada, ocupada,
+ * manutencao, inativa. Antes o atributo vinha em maiúsculas e nenhuma regra
+ * casava — a faixa ficava sempre cinza.
+ */
+.status-select[data-status="ativa"] { border-left-color: var(--ok); }
 .status-select[data-status="reservada"] { border-left-color: var(--booked); }
+.status-select[data-status="ocupada"] { border-left-color: var(--busy); }
 .status-select[data-status="manutencao"] { border-left-color: var(--down); }
+.status-select[data-status="inativa"] { border-left-color: var(--line-strong); }
 
 /* ===========================================================================
    Card de métrica
@@ -800,6 +970,16 @@ button.metric:focus-visible .metric__go {
 .user-card__meta .code {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Convite, desativar e excluir ficam juntos no canto do cartao. */
+.user-card__actions {
+  display: flex;
+  flex: none;
+  gap: var(--s-1);
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .user-card__del {

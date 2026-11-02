@@ -17,19 +17,21 @@ npm run typecheck  # só a checagem de tipos
 npm run icons      # regenera o sprite de ícones dentro do index.html
 ```
 
-## Modo demonstração
+## Modo local (sem back-end)
 
-Sem `VITE_API_URL` no `.env`, ou com `VITE_USE_MOCK=true`, o app roda com 50
-espaços de exemplo (`src/data/mock.ts`) e guarda reservas e status no
-localStorage do navegador. Para voltar ao estado original antes de uma
-apresentação, limpe os dados do site ou rode no console:
+Sem `VITE_API_URL` no `.env`, ou com `VITE_USE_MOCK=true`, o app sobe com o
+inventário dos 50 espaços (`src/data/mock.ts`) — só a estrutura física, todos
+livres e sem nenhuma reserva. O que for reservado na tela fica no localStorage
+do navegador. Para voltar ao estado inicial, limpe os dados do site ou rode no
+console:
 
 ```js
 localStorage.clear(); location.reload();
 ```
 
-Credenciais de demonstração: `pesquisador` / `embrapa123` e `admin` /
-`admin123`. Os dois botões no topo da tela de entrada preenchem o formulário.
+Acesso local: `admin` / `admin123`. Os demais usuários são cadastrados dentro
+da área de administração. Com `VITE_API_URL` configurada, a autenticação passa
+a ser a da API Laravel.
 
 ## Estrutura
 
@@ -126,11 +128,70 @@ Sem a chave o widget abre e explica o que falta, sem chamar a rede.
 
 ## Integração com a API
 
-O front é independente do back-end. Com `VITE_API_URL` apontando para a API
-Laravel, `src/data/estufas.ts` consome `/casas-vegetacao` e `/reservas` e traduz
-a resposta para o modelo da interface. Se a API falhar, o app cai para os dados
-de exemplo e registra o motivo no console.
+Com `VITE_API_URL` apontando para a API Laravel, `src/data/estufas.ts` consome
+`/casas-vegetacao` e `/reservas` e traduz a resposta para o modelo da
+interface. Se a API falhar no primeiro carregamento, o app cai para os dados de
+exemplo e registra o motivo no console; numa releitura no meio da sessão ele
+mantém o que já estava na tela, para não trocar dado real por exemplo.
 
-O token de autenticação é lido de `localStorage` em `cvgweb:token`. Enquanto a
-autenticação real não estiver ligada, a tela de entrada valida apenas no
-cliente e não protege nada.
+**Toda escrita também vai para a API** (`src/services/api.ts`): reservar,
+aprovar, cancelar, mudar a situação do espaço, cadastrar espaço e cadastrar,
+desativar ou excluir usuário. Depois de gravar, o estado é relido do banco — a
+tela nunca fica adiantada em relação ao que foi salvo. Em modo demonstração
+(`VITE_USE_MOCK=true`) nada disso vai para a rede: as alterações ficam na
+memória e no `localStorage`.
+
+A autenticação é real: `/login` devolve um token Sanctum, guardado em
+`localStorage` em `cvgweb:token` e enviado em toda requisição. Quem foi
+cadastrado pela administração e ainda não criou a senha pelo link do convite
+recebe uma mensagem explicando isso, em vez do erro genérico.
+
+## Testes de ponta a ponta (Playwright)
+
+A suíte usa o sistema como uma pessoa usa: entra com usuário e senha, cadastra
+espaço, reserva quantidade, aprova, cancela — e recarrega a página para
+conferir que o que foi feito sobreviveu, ou seja, está no banco e não na
+memória do navegador.
+
+```bash
+# uma vez
+npm install
+
+# o sistema precisa estar no ar: API + banco + front
+docker compose -f ../docker-compose.yml up -d     # API em :8000 e MySQL
+npm run dev                                       # front em :5173
+
+# em outro terminal
+npm run test:e2e           # roda tudo
+npm run test:e2e:ui        # modo interativo, para ver passo a passo
+npm run test:e2e:report    # abre o relatório da última execução
+```
+
+O front precisa estar apontando para a API (`VITE_API_URL` preenchida e
+`VITE_USE_MOCK=false` no `.env`); em modo demonstração não há o que testar
+contra o banco.
+
+Variáveis que a suíte aceita:
+
+| Variável | Para que serve | Padrão |
+| --- | --- | --- |
+| `CVG_URL` | endereço do front | `http://localhost:5173` |
+| `CVG_API` | endereço da API | `http://localhost:8000/api` |
+| `CVG_NICK` / `CVG_SENHA` | usuário do teste | `SU` / `super123` |
+| `CVG_RUN` | sufixo dos dados criados, para rodar várias vezes | `T1` |
+| `CVG_ESTUFA` | estufa real usada no teste de reserva pela tela | `CVG50` |
+
+### Ela é segura para rodar contra banco com dado de verdade
+
+- Toda estufa que a suíte cria tem o código com prefixo `E2E`, e os auxiliares
+  **recusam** apagar ou alterar qualquer código sem esse prefixo. O cadastro
+  das 50 estufas do Cenargen nunca é alterado — nem nome, nem capacidade.
+- A limpeza só cancela reservas cuja finalidade traz a marca `E2E`; reserva de
+  pesquisador nenhum é tocada.
+- Um único teste usa uma estufa real (a reserva pela tela só existe no mapa).
+  Mesmo esse só cria reserva marcada, afere a diferença e cancela no fim.
+- Espaço de teste que não pode ser excluído (porque já teve reserva, e o
+  histórico não pode ficar órfão) é marcado como `INATIVA`, para não contar no
+  painel.
+
+Ainda assim, rodar contra um banco de desenvolvimento é o certo.

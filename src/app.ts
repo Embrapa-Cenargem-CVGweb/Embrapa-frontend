@@ -8,26 +8,34 @@ import { carregarEstado } from './data/estufas';
 import { iniciarAcoes, registrarAcoes } from './lib/actions';
 import { aoMudar } from './lib/bus';
 import { debounce, el, qsa, setText, show } from './lib/dom';
-import { abrirModal, fecharTodosModais, iniciarModais } from './lib/modal';
+import { abrirModal, aoFecharModal, fecharTodosModais, iniciarModais } from './lib/modal';
 import { aviso } from './lib/toast';
 import type { Usuario } from './types';
 
 import {
+  abrirEditarEspaco,
+  buscarEstufaNoFormulario,
+  escolherEstufa,
+  navegarSugestoesDeEspaco,
   abrirModalReservas,
   abrirModalUsuarios,
+  abrirEspaco,
   abrirNovoUsuario,
   abrirPainelMetricas,
-  alterarStatusEspaco,
+  alterarSituacaoEspaco,
+  alternarAcesso,
   aprovarReserva,
   buscarEspacos,
   buscarReservas,
   cancelarReserva,
+  confirmarEspaco,
   confirmarNovoUsuario,
   definirPerfilNovoUsuario,
   filtrarReservas,
   irPara,
   limparBusca,
   pedirExclusaoUsuario,
+  reenviarConviteDoUsuario,
   renderizarAdmin,
 } from './views/admin';
 import {
@@ -41,7 +49,6 @@ import {
 import {
   entrar,
   iniciarAutenticacao,
-  preencherPerfilDemo,
   sair,
   usuarioAtual,
 } from './views/login';
@@ -55,8 +62,11 @@ import {
 import {
   abrirModalReservar,
   ajustarFimDoPeriodo,
+  cancelarPreenchimentoDaReserva,
   cancelarReservaAberta,
   confirmarReserva,
+  consultarDisponibilidade,
+  guardarRascunhoDaReserva,
   verReserva,
 } from './views/reservas';
 import type { PerfilUsuario } from './types';
@@ -154,9 +164,6 @@ function registrarTodasAsAcoes(): void {
     },
     fechar: () => fecharTodosModais(),
 
-    // entrada
-    'usar-perfil': (elemento) => preencherPerfilDemo(elemento.dataset.role ?? ''),
-
     // mapa
     'abrir-espaco': (elemento) => {
       const id = elemento.dataset.id;
@@ -166,6 +173,7 @@ function registrarTodasAsAcoes(): void {
     'sem-acao': () => {},
 
     // reservas
+    'descartar-reserva': () => cancelarPreenchimentoDaReserva(),
     'abrir-reservar': (elemento) => {
       const id = elemento.dataset.id;
       if (id) abrirModalReservar(id);
@@ -174,7 +182,7 @@ function registrarTodasAsAcoes(): void {
       const id = elemento.dataset.id;
       if (id) verReserva(id);
     },
-    'cancelar-reserva-atual': () => cancelarReservaAberta(),
+    'cancelar-reserva-atual': () => void cancelarReservaAberta(),
 
     // assistente
     'chat-alternar': () => alternarChat(),
@@ -187,6 +195,17 @@ function registrarTodasAsAcoes(): void {
     'abrir-reservas': () => abrirModalReservas(),
     'abrir-usuarios': () => abrirModalUsuarios(),
     'abrir-novo-usuario': () => abrirNovoUsuario(),
+    // O formulario de espaco comeca perguntando qual estufa; sem id, abre na
+    // busca. 'abrir-espaco' e do mapa (painel da estufa) e nao se confunde.
+    'abrir-alterar-espaco': () => abrirEspaco(),
+    'editar-espaco': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirEditarEspaco(id);
+    },
+    'escolher-estufa': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) escolherEstufa(id);
+    },
     'ir-para': (elemento) => irPara(elemento.dataset.target ?? 'espacos'),
     'filtrar-reservas': (elemento) => {
       const status = elemento.dataset.status as 'todas' | 'pendente' | 'ativa';
@@ -198,7 +217,7 @@ function registrarTodasAsAcoes(): void {
     },
     'aprovar-reserva': (elemento) => {
       const id = elemento.dataset.id;
-      if (id) aprovarReserva(id);
+      if (id) void aprovarReserva(id);
     },
     'cancelar-reserva': (elemento) => {
       const id = elemento.dataset.id;
@@ -207,6 +226,14 @@ function registrarTodasAsAcoes(): void {
     'excluir-usuario': (elemento) => {
       const id = elemento.dataset.id;
       if (id) void pedirExclusaoUsuario(id, sair);
+    },
+    'reenviar-convite': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void reenviarConviteDoUsuario(id);
+    },
+    'alternar-acesso': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void alternarAcesso(id, elemento.dataset.ativo === 'true');
     },
   });
 }
@@ -223,14 +250,57 @@ function ligarFormularios(): void {
 
   el<HTMLFormElement>('form-reservar')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
-    confirmarReserva();
+    void confirmarReserva();
   });
 
+  // Cada tecla no formulario de reserva vira rascunho: fechar sem querer deixou
+  // de apagar o que a pessoa ja tinha preenchido.
+  const guardarRascunho = debounce(() => guardarRascunhoDaReserva(), 250);
+
+  // Fechar o modal grava na hora: o debounce acima ainda estaria esperando se
+  // a pessoa fechasse e recarregasse a pagina em seguida.
+  aoFecharModal((scrim) => {
+    if (scrim.id === 'modal-reservar') guardarRascunhoDaReserva();
+  });
+  for (const evento of ['input', 'change'] as const) {
+    el<HTMLFormElement>('form-reservar')?.addEventListener(evento, () => guardarRascunho());
+  }
+
   el<HTMLInputElement>('reservar-data-inicio')?.addEventListener('change', ajustarFimDoPeriodo);
+  el<HTMLInputElement>('reservar-data-fim')?.addEventListener('change', () => {
+    void consultarDisponibilidade();
+  });
+
+  // Mudar a quantidade reconsulta quanto sobra no periodo, sem enxurrada de
+  // requisicoes enquanto a pessoa digita.
+  const reconsultar = debounce(() => void consultarDisponibilidade(), 400);
+  el<HTMLInputElement>('reservar-quantidade')?.addEventListener('input', () => reconsultar());
 
   el<HTMLFormElement>('form-novo-usuario')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
-    confirmarNovoUsuario();
+    void confirmarNovoUsuario();
+  });
+
+  el<HTMLFormElement>('form-espaco')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    void confirmarEspaco();
+  });
+
+  // O campo de codigo e tambem a busca da estufa: digitar filtra, as setas
+  // andam na lista e Enter escolhe. Com a lista fechada, Enter volta a ser
+  // Enter e envia o formulario.
+  const codigoEstufa = el<HTMLInputElement>('espaco-codigo');
+  codigoEstufa?.addEventListener('input', () => {
+    buscarEstufaNoFormulario(codigoEstufa.value);
+  });
+
+  codigoEstufa?.addEventListener('keydown', (ev) => {
+    if (!['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(ev.key)) return;
+    const tratou = navegarSugestoesDeEspaco(ev.key);
+    if (!tratou) return;
+    ev.preventDefault();
+    // Esc com a lista aberta fecha so a lista; com ela fechada, o modal.
+    if (ev.key === 'Escape') ev.stopPropagation();
   });
 }
 
@@ -251,12 +321,12 @@ function ligarSelects(): void {
   document.addEventListener('change', (ev) => {
     const alvo = ev.target;
     if (!(alvo instanceof HTMLSelectElement)) return;
-    if (alvo.dataset.change !== 'status-espaco') return;
+    if (alvo.dataset.change !== 'situacao-espaco') return;
 
     const id = alvo.dataset.id;
     if (!id) return;
     alvo.dataset.status = alvo.value;
-    alterarStatusEspaco(id, alvo.value);
+    void alterarSituacaoEspaco(id, alvo.value);
   });
 }
 

@@ -51,12 +51,37 @@ export function abrirModal(id: string): void {
   (primeiroFocavel(dialog) ?? dialog).focus();
 }
 
+/**
+ * Avisa que um modal vai fechar, ANTES de ele sumir.
+ *
+ * Existe por causa do rascunho da reserva: salvar no `input` é debounced, e
+ * quem fechava o modal e recarregava a página na sequência perdia os últimos
+ * caracteres. O ouvinte roda de forma síncrona no fechamento, então o que está
+ * na tela já está guardado quando a página sai.
+ */
+type AoFechar = (scrim: HTMLElement) => void;
+
+const aoFechar = new Set<AoFechar>();
+
+export function aoFecharModal(ouvinte: AoFechar): void {
+  aoFechar.add(ouvinte);
+}
+
 export function fecharModal(scrim?: HTMLElement | null): void {
   const alvo = scrim ?? pilha.at(-1);
   if (!alvo) return;
 
   const indice = pilha.indexOf(alvo);
   if (indice === -1) return;
+
+  for (const ouvinte of aoFechar) {
+    try {
+      ouvinte(alvo);
+    } catch (erro) {
+      console.error('[CVGWeb] falha ao reagir ao fechamento do modal:', erro);
+    }
+  }
+
   pilha.splice(indice, 1);
 
   show(alvo, false);

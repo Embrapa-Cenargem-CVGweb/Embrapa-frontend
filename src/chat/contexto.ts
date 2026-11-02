@@ -9,7 +9,7 @@
 import BASE from './base-conhecimento.md?raw';
 import { ESTUFAS, garantirEstadoFresco, reservasVigentes, ultimaLeitura } from '../data/estufas';
 import { MODO_DEMO } from '../lib/ambiente';
-import { dataBR, hojeISO } from '../lib/format';
+import { capacidade, dataBR, hojeISO, ocupacaoResumo } from '../lib/format';
 import { usuarioAtual } from '../views/login';
 import type { Estufa, Reserva } from '../types';
 
@@ -46,14 +46,23 @@ function periodo(reserva: Reserva, hoje: string): string {
   return `${faixa} — período encerrado há ${plural(-restam, 'dia', 'dias')}`;
 }
 
-/** "E03 (Estufa 03)" ou só o código, quando o espaço não existe mais. */
+/** "CVG03 (Estufa 03)" ou só o código, quando o espaço não existe mais. */
 function titulo(id: string, estufa: Estufa | undefined): string {
-  return estufa ? `${id} (${estufa.nome})` : id;
+  return estufa ? `${estufa.codigo} (${estufa.nome})` : id;
 }
 
 function ficha(estufa: Estufa | undefined): string {
   if (!estufa) return 'espaço não encontrado no cadastro';
-  const partes = [estufa.tipo, estufa.setor ?? '—', estufa.area, plural(estufa.cap, 'bancada', 'bancadas')];
+
+  const partes = [
+    estufa.tipo,
+    estufa.setor ?? '—',
+    estufa.area,
+    plural(estufa.cap, 'bancada', 'bancadas'),
+    `capacidade ${capacidade(estufa.capacidadeTotal, estufa.unidade)}`,
+    ocupacaoResumo(estufa.disponivel, estufa.capacidadeTotal, estufa.unidade),
+  ];
+
   return partes.filter(Boolean).join(', ');
 }
 
@@ -65,12 +74,18 @@ function resumo(): string {
   const todos = Object.values(ESTUFAS);
   const conta = (s: Estufa['status']): number => todos.filter((e) => e.status === s).length;
 
+  const total = todos.reduce((soma, e) => soma + e.capacidadeTotal, 0);
+  const ocupada = todos.reduce((soma, e) => soma + Math.min(e.ocupado, e.capacidadeTotal), 0);
+  const taxa = total ? Math.round((ocupada / total) * 100) : 0;
+
   return [
     `- Total de espaços cadastrados: ${todos.length}`,
-    `- Livres: ${conta('livre')}`,
-    `- Ocupados: ${conta('ocupada')}`,
-    `- Reservados: ${conta('reservada')}`,
+    `- Totalmente livres: ${conta('livre')}`,
+    `- Parcialmente ocupados (ainda cabe reserva): ${conta('parcial')}`,
+    `- Com a capacidade cheia: ${conta('ocupada')}`,
     `- Em manutenção: ${conta('manutencao')}`,
+    `- Inativos: ${conta('inativa')}`,
+    `- Capacidade somada: ${ocupada} de ${total} unidades ocupadas (${taxa}%)`,
     `- Reservas vigentes (ativas ou pendentes): ${reservasVigentes().length}`,
   ].join('\n');
 }
@@ -90,6 +105,7 @@ function ocupacao(hoje: string): string {
         `  - Responsável: ${r.pesquisador || 'não informado'}`,
         `  - Projeto: ${r.projeto || 'não informado'}`,
         `  - Finalidade (o que está sendo cultivado): ${r.finalidade || 'não informada'}`,
+        `  - Quantidade reservada: ${capacidade(r.quantidade, estufa?.unidade ?? 'VASO')}`,
         `  - Período: ${periodo(r, hoje)}`,
         `  - Situação da reserva: ${r.status === 'pendente' ? 'pendente (aguardando aprovação do administrador)' : 'ativa'}`,
         `  - Código da reserva: ${r.id}`,
@@ -100,14 +116,15 @@ function ocupacao(hoje: string): string {
     .join('\n');
 }
 
-/** Livres agrupados por setor, com área e bancadas para filtrar por capacidade. */
+/** Espaços agrupados por setor, com a capacidade que sobra em cada um. */
 function porStatus(status: Estufa['status'], vazio: string): string {
   const setores = new Map<string, string[]>();
 
-  for (const [id, estufa] of Object.entries(ESTUFAS)) {
+  for (const estufa of Object.values(ESTUFAS)) {
     if (estufa.status !== status) continue;
     const setor = estufa.setor ?? 'Sem setor';
-    const item = `${id} (${estufa.nome}, ${estufa.tipo}, ${estufa.area}, ${plural(estufa.cap, 'bancada', 'bancadas')})`;
+    const item = `${estufa.codigo} (${estufa.nome}, ${estufa.tipo}, ${estufa.area}, `
+      + `${ocupacaoResumo(estufa.disponivel, estufa.capacidadeTotal, estufa.unidade)})`;
     const atual = setores.get(setor);
     if (atual) atual.push(item);
     else setores.set(setor, [item]);
@@ -159,12 +176,13 @@ export async function montarPrompt(): Promise<string> {
     HOJE: dataBR(hoje),
     USUARIO: quemEsta(),
     ORIGEM: MODO_DEMO
-      ? 'modo demonstração (dados locais de exemplo, sem back-end)'
+      ? 'dados locais do navegador (sem back-end conectado)'
       : 'API Laravel do CVGWeb',
     ATUALIZADO: frescor(),
     RESUMO: resumo(),
     OCUPACAO: ocupacao(hoje),
-    LIVRES: porStatus('livre', 'Nenhum espaço livre no momento.'),
+    LIVRES: porStatus('livre', 'Nenhum espaço totalmente livre no momento.'),
+    PARCIAIS: porStatus('parcial', 'Nenhum espaço parcialmente ocupado.'),
     MANUTENCAO: porStatus('manutencao', 'Nenhum espaço em manutenção.'),
   };
 
