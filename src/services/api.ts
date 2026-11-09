@@ -1,8 +1,8 @@
 /**
  * Acesso à API Laravel do CVGWeb.
  *
- * Só é usada quando VITE_API_URL está configurada; sem ela o app roda em modo
- * demonstração com dados locais.
+ * `VITE_API_URL` é obrigatória: sem ela não há de onde ler nem para onde
+ * gravar, e o app não tem fonte local nenhuma.
  *
  * Toda escrita passa por aqui — antes o front só sabia ler, e reserva,
  * aprovação, cancelamento e cadastro de usuário morriam no localStorage.
@@ -63,12 +63,67 @@ function mensagemDoErro(dados: unknown, padrao: string): string {
   return corpo.message || padrao;
 }
 
+/**
+ * Erro vindo da API, com o código HTTP à mão.
+ *
+ * Era um `Error` cru: a tela recebia a frase e não tinha como distinguir
+ * "sem permissão" de "servidor caiu" de "não encontrei", que pedem respostas
+ * diferentes. Quem só quer a mensagem continua usando `erro.message`.
+ */
+export class ErroApi extends Error {
+  constructor(
+    mensagem: string,
+    readonly status: number,
+    readonly corpo: unknown = null,
+  ) {
+    super(mensagem);
+    this.name = 'ErroApi';
+  }
+}
+
+/** Frase única para sessão morta, usada no erro e na tela de entrada. */
+const SESSAO_MORTA = 'Sua sessão expirou. Entre novamente.';
+
+type AoPerderSessao = (mensagem: string) => void;
+
+let aoPerderSessaoOuvinte: AoPerderSessao | null = null;
+
+/**
+ * Avisa quem precisa reagir a um token morto.
+ *
+ * Qualquer chamada pode receber 401 no meio da sessão — token expirado, acesso
+ * desativado pela administração, banco recriado. Antes a tela mostrava o aviso
+ * e seguia exibindo dados velhos com um token que não vale mais, e a próxima
+ * ação falhava de novo. Agora a sessão é descartada no mesmo instante e a
+ * casca da aplicação devolve a pessoa para a entrada.
+ */
+export function aoPerderSessao(ouvinte: AoPerderSessao): void {
+  aoPerderSessaoOuvinte = ouvinte;
+}
+
+/** 401/419: o token morreu. Descarta e avisa antes de o erro subir. */
+function conferirSessao(status: number): void {
+  if (status !== 401 && status !== 419) return;
+
+  descartarToken();
+  aoPerderSessaoOuvinte?.(SESSAO_MORTA);
+}
+
+function erroDaResposta(status: number, dados: unknown, padrao: string): ErroApi {
+  if (status === 401 || status === 419) {
+    return new ErroApi(SESSAO_MORTA, status, dados);
+  }
+
+  return new ErroApi(mensagemDoErro(dados, padrao), status, dados);
+}
+
 async function buscar<T>(caminho: string, oQue: string): Promise<T> {
   const resposta = await fetch(`${API_URL}${caminho}`, { headers: cabecalhos() });
 
   if (!resposta.ok) {
     const dados = await resposta.json().catch(() => null);
-    throw new Error(mensagemDoErro(dados, `Falha ao buscar ${oQue} (HTTP ${resposta.status})`));
+    conferirSessao(resposta.status);
+    throw erroDaResposta(resposta.status, dados, `Falha ao buscar ${oQue} (HTTP ${resposta.status})`);
   }
 
   return resposta.json() as Promise<T>;
@@ -89,7 +144,8 @@ async function enviar<T>(
   const dados = await resposta.json().catch(() => null);
 
   if (!resposta.ok) {
-    throw new Error(mensagemDoErro(dados, padrao));
+    conferirSessao(resposta.status);
+    throw erroDaResposta(resposta.status, dados, padrao);
   }
 
   return dados as T;
@@ -112,6 +168,16 @@ export function getReservas(): Promise<any> {
 /** Métricas do painel da administração, calculadas no back-end. */
 export function getPainel(): Promise<any> {
   return buscar('/painel', 'as métricas do painel');
+}
+
+export interface CargoApi {
+  id: number;
+  nome: string;
+}
+
+/** Cargos cadastrados, para o formulário de usuário. */
+export function getCargos(): Promise<CargoApi[]> {
+  return buscar('/cargos', 'os cargos');
 }
 
 export function getFuncionarios(): Promise<any> {
@@ -157,6 +223,29 @@ export function criarReserva(reserva: NovaReserva): Promise<any> {
 
 export function aprovarReserva(id: number): Promise<any> {
   return enviar('POST', `/reservas/${id}/aprovar`, undefined, 'Não foi possível aprovar a reserva.');
+}
+
+/**
+ * Campos editáveis de uma reserva.
+ *
+ * Mexer em período ou quantidade devolve a reserva para PENDENTE: o back-end
+ * decide isso e diz na mensagem da resposta.
+ */
+export interface EdicaoReserva {
+  data_inicio?: string;
+  data_fim?: string;
+  quantidade?: number;
+  projeto_id?: number;
+  finalidade?: string;
+  obs?: string | null;
+}
+
+export function atualizarReserva(id: number, dados: EdicaoReserva): Promise<any> {
+  return enviar('PUT', `/reservas/${id}`, dados, 'Não foi possível salvar a reserva.');
+}
+
+export function excluirReserva(id: number): Promise<any> {
+  return enviar('DELETE', `/reservas/${id}`, undefined, 'Não foi possível excluir a reserva.');
 }
 
 export function cancelarReserva(id: number, motivo?: string): Promise<any> {
@@ -230,7 +319,14 @@ export interface NovoFuncionario {
   nome: string;
   nick: string;
   email: string;
-  perfil?: string;
+  /**
+   * Quem é administrador. O back-end é que traduz isto no perfil legado
+   * (`/SU/`): mandar o perfil pronto daqui não funcionava — o controller lê
+   * `super_usuario`/`permissoes` e ignorava o campo, então todo cadastro saía
+   * como pesquisador.
+   */
+  super_usuario?: boolean;
+  matricula?: string;
   cargo_id?: number | null;
 }
 
@@ -240,6 +336,24 @@ export interface NovoFuncionario {
  */
 export function criarFuncionario(dados: NovoFuncionario): Promise<any> {
   return enviar('POST', '/funcionarios', dados, 'Não foi possível cadastrar o usuário.');
+}
+
+/**
+ * Campos editáveis de um funcionário. Todos opcionais: o back-end valida com
+ * `sometimes`, então o que não for enviado fica como está.
+ */
+export interface DadosFuncionario {
+  nome?: string;
+  nick?: string;
+  email?: string;
+  matricula?: string | null;
+  cargo_id?: number | null;
+  /** Só o adm consegue mexer nisto; o back-end ignora de quem não é. */
+  super_usuario?: boolean;
+}
+
+export function atualizarFuncionario(id: number, dados: DadosFuncionario): Promise<any> {
+  return enviar('PUT', `/funcionarios/${id}`, dados, 'Não foi possível salvar o usuário.');
 }
 
 export function excluirFuncionario(id: number): Promise<any> {
@@ -261,6 +375,284 @@ export function reenviarConvite(id: number): Promise<any> {
 }
 
 /* ===========================================================================
+   Projetos, equipe e permissões
+
+   Quem configura equipe e permissões é o administrador. Um membro só faz, no
+   próprio projeto, o que o adm concedeu — sem concessão, o CRUD é só do adm.
+   =========================================================================== */
+
+/** Chave de permissão concedida pelo adm dentro de um projeto. */
+export type PermissaoProjeto =
+  | 'projeto.editar'
+  | 'equipe.adicionar'
+  | 'equipe.editar'
+  | 'equipe.remover'
+  | 'funcionario.criar'
+  | 'funcionario.editar'
+  | 'reserva.criar'
+  | 'reserva.editar'
+  | 'reserva.cancelar'
+  | 'reserva.aprovar'
+  | 'reserva.excluir'
+  | 'casa.configurar'
+  | 'auditoria.ver';
+
+export type PapelEquipe = 'LIDER' | 'PESQUISADOR';
+
+export interface MembroEquipe {
+  id: number;
+  nome: string;
+  nick?: string;
+  email?: string;
+  cargo?: string;
+  ativo: boolean;
+  funcao?: string | null;
+  papel: PapelEquipe | null;
+  lider: boolean;
+  permissoes: PermissaoProjeto[];
+  permissoes_atualizadas_em?: string | null;
+}
+
+export interface CasaDoProjeto {
+  id: number;
+  codigo: string;
+  descricao: string;
+  localizacao?: string | null;
+  status: string;
+  unidade: string;
+  capacidade_total: number;
+  /** Quanto deste espaço o projeto já tomou no período. */
+  reservado_pelo_projeto: number;
+  pode_configurar: boolean;
+  reservas: {
+    id: number;
+    quantidade: number;
+    data_inicio: string | null;
+    data_fim: string | null;
+    status: string;
+    minha: boolean;
+  }[];
+}
+
+export interface ProjetoDoContexto {
+  id: number;
+  codigo: string;
+  titulo: string;
+  descricao?: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  status?: string | null;
+  /** Situação que não aceita novas reservas (suspenso, concluído, cancelado). */
+  encerrado: boolean;
+  responsavel?: { id: number; nome: string } | null;
+  sou_lider: boolean;
+  funcao?: string | null;
+  papel: PapelEquipe | 'ADM' | null;
+  permissoes: PermissaoProjeto[];
+  casas_vegetacao: CasaDoProjeto[];
+}
+
+/** Resposta de /me/contexto: o que o front precisa logo depois do login. */
+export interface Contexto {
+  funcionario: FuncionarioApi;
+  adm: boolean;
+  projetos: ProjetoDoContexto[];
+  casas_acessiveis: {
+    id: number;
+    codigo: string;
+    descricao: string;
+    localizacao?: string | null;
+    status: string;
+    unidade_capacidade: string;
+    capacidade_total: number;
+  }[];
+  pode: {
+    gerenciar_projetos: boolean;
+    gerenciar_permissoes: boolean;
+    ver_auditoria: boolean;
+    criar_reserva: boolean;
+    aprovar_reserva: boolean;
+    configurar_casa: boolean;
+    adicionar_membro: boolean;
+    cadastrar_funcionario: boolean;
+  };
+}
+
+export interface CatalogoPermissoes {
+  papeis: PapelEquipe[];
+  grupos: Record<
+    string,
+    { titulo: string; itens: { chave: PermissaoProjeto; rotulo: string; descricao: string }[] }
+  >;
+  sugestoes: Record<PapelEquipe, PermissaoProjeto[]>;
+}
+
+/** Projetos, casas e permissões do usuário logado. */
+export function getContexto(): Promise<Contexto> {
+  return buscar('/me/contexto', 'o seu contexto de acesso');
+}
+
+/** Catálogo de permissões — monta os checkboxes da tela do adm sem hardcode. */
+export function getCatalogoPermissoes(): Promise<CatalogoPermissoes> {
+  return buscar('/permissoes/catalogo', 'o catálogo de permissões');
+}
+
+export interface StatusProjetoApi {
+  id: number;
+  descricao: string;
+  /** Situação que não aceita novas reservas. */
+  encerrado: boolean;
+}
+
+/** Situações de projeto (em elaboração, em andamento, suspenso...). */
+export function getStatusProjeto(): Promise<StatusProjetoApi[]> {
+  return buscar('/status-projeto', 'os status de projeto');
+}
+
+export function getProjetos(): Promise<any> {
+  return buscar('/projetos?per_page=200', 'os projetos');
+}
+
+export interface DadosProjeto {
+  codigo: string;
+  titulo: string;
+  descricao?: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  status_projeto_id?: number | null;
+  /** Pesquisador responsável: entra na equipe como líder. */
+  funcionario_id?: number | null;
+}
+
+export function criarProjeto(dados: DadosProjeto): Promise<any> {
+  return enviar('POST', '/projetos', dados, 'Não foi possível criar o projeto.');
+}
+
+export function atualizarProjeto(id: number, dados: DadosProjeto): Promise<any> {
+  return enviar('PUT', `/projetos/${id}`, dados, 'Não foi possível salvar o projeto.');
+}
+
+export function excluirProjeto(id: number): Promise<any> {
+  return enviar('DELETE', `/projetos/${id}`, undefined, 'Não foi possível excluir o projeto.');
+}
+
+export function getEquipe(projetoId: number): Promise<{ projeto: any; equipe: MembroEquipe[] }> {
+  return buscar(`/projetos/${projetoId}/equipe`, 'a equipe do projeto');
+}
+
+export function adicionarMembro(
+  projetoId: number,
+  dados: {
+    funcionario_id: number;
+    papel?: PapelEquipe;
+    /** Função dentro do projeto, texto livre (ex.: "bolsista"). */
+    funcao?: string | null;
+    permissoes?: PermissaoProjeto[];
+  },
+): Promise<MembroEquipe> {
+  return enviar('POST', `/projetos/${projetoId}/equipe`, dados, 'Não foi possível incluir o membro.');
+}
+
+export function atualizarMembro(
+  projetoId: number,
+  funcionarioId: number,
+  dados: {
+    papel?: PapelEquipe;
+    funcao?: string | null;
+    permissoes?: PermissaoProjeto[];
+  },
+): Promise<MembroEquipe> {
+  return enviar(
+    'PUT',
+    `/projetos/${projetoId}/equipe/${funcionarioId}`,
+    dados,
+    'Não foi possível salvar o membro.',
+  );
+}
+
+/** Concede ou revoga permissões de um membro. Só o adm consegue. */
+export function definirPermissoes(
+  projetoId: number,
+  funcionarioId: number,
+  permissoes: PermissaoProjeto[],
+): Promise<MembroEquipe> {
+  return enviar(
+    'PUT',
+    `/projetos/${projetoId}/equipe/${funcionarioId}/permissoes`,
+    { permissoes },
+    'Não foi possível salvar as permissões.',
+  );
+}
+
+export function removerMembro(projetoId: number, funcionarioId: number): Promise<any> {
+  return enviar(
+    'DELETE',
+    `/projetos/${projetoId}/equipe/${funcionarioId}`,
+    undefined,
+    'Não foi possível remover o membro.',
+  );
+}
+
+/* ===========================================================================
+   Auditoria
+   =========================================================================== */
+
+export interface RegistroAuditoria {
+  id: number;
+  acao: 'CRIOU' | 'ALTEROU' | 'EXCLUIU' | 'RESTAUROU';
+  entidade: string;
+  entidade_id: number | null;
+  entidade_rotulo: string | null;
+  alteracoes: Record<string, { de?: unknown; para?: unknown }> | null;
+  ip?: string | null;
+  created_at: string;
+  funcionario?: { id: number; nome: string; nick?: string } | null;
+  projeto?: { id: number; codigo: string; descricao: string } | null;
+}
+
+/** Envelope do paginador do Laravel, como a trilha devolve. */
+export interface PaginaAuditoria {
+  data: RegistroAuditoria[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+/** Valores que realmente aparecem na trilha, para montar os filtros. */
+export interface FiltrosAuditoria {
+  acoes: string[];
+  entidades: string[];
+  funcionarios: { id: number; nome: string; nick?: string }[];
+  projetos: { id: number; codigo: string; titulo: string }[];
+}
+
+export function getFiltrosAuditoria(): Promise<FiltrosAuditoria> {
+  return buscar('/auditorias/filtros', 'os filtros do histórico');
+}
+
+/** Trilha de alterações: quem mexeu no que e quando. */
+export function getAuditoria(filtros: {
+  entidade?: string;
+  entidade_id?: number;
+  acao?: string;
+  funcionario_id?: number;
+  projeto_id?: number;
+  de?: string;
+  ate?: string;
+  per_page?: number;
+  page?: number;
+} = {}): Promise<PaginaAuditoria> {
+  const busca = new URLSearchParams();
+  Object.entries(filtros).forEach(([chave, valor]) => {
+    if (valor !== undefined && valor !== null && valor !== '') busca.set(chave, String(valor));
+  });
+  if (!busca.has('per_page')) busca.set('per_page', '30');
+
+  return buscar<PaginaAuditoria>(`/auditorias?${busca.toString()}`, 'o histórico de alterações');
+}
+
+/* ===========================================================================
    Sessão
    =========================================================================== */
 
@@ -269,11 +661,20 @@ export interface FuncionarioApi {
   id: number;
   nome: string;
   nick?: string;
+  matricula?: string | null;
   email?: string;
   tipo?: string;
-  cargo?: string;
+  /** Nome do cargo, já resolvido pelo back-end (não a relação inteira). */
+  cargo?: string | null;
+  /** Id do cargo, que o formulário de edição precisa para pré-selecionar. */
+  cargo_id?: number | null;
   super_usuario?: boolean;
+  ativo?: boolean;
+  /** ATIVO, CONVITE_PENDENTE (sem senha criada) ou INATIVO. */
   situacao?: string;
+  /** Em quantos projetos a pessoa está na equipe. */
+  projetos?: number;
+  ultimo_acesso_em?: string | null;
 }
 
 export interface RespostaLogin {

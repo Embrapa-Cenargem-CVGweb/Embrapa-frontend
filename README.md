@@ -17,22 +17,6 @@ npm run typecheck  # só a checagem de tipos
 npm run icons      # regenera o sprite de ícones dentro do index.html
 ```
 
-## Modo local (sem back-end)
-
-Sem `VITE_API_URL` no `.env`, ou com `VITE_USE_MOCK=true`, o app sobe com o
-inventário dos 50 espaços (`src/data/mock.ts`) — só a estrutura física, todos
-livres e sem nenhuma reserva. O que for reservado na tela fica no localStorage
-do navegador. Para voltar ao estado inicial, limpe os dados do site ou rode no
-console:
-
-```js
-localStorage.clear(); location.reload();
-```
-
-Acesso local: `admin` / `admin123`. Os demais usuários são cadastrados dentro
-da área de administração. Com `VITE_API_URL` configurada, a autenticação passa
-a ser a da API Laravel.
-
 ## Estrutura
 
 ```
@@ -137,9 +121,7 @@ mantém o que já estava na tela, para não trocar dado real por exemplo.
 **Toda escrita também vai para a API** (`src/services/api.ts`): reservar,
 aprovar, cancelar, mudar a situação do espaço, cadastrar espaço e cadastrar,
 desativar ou excluir usuário. Depois de gravar, o estado é relido do banco — a
-tela nunca fica adiantada em relação ao que foi salvo. Em modo demonstração
-(`VITE_USE_MOCK=true`) nada disso vai para a rede: as alterações ficam na
-memória e no `localStorage`.
+tela nunca fica adiantada em relação ao que foi salvo.
 
 A autenticação é real: `/login` devolve um token Sanctum, guardado em
 `localStorage` em `cvgweb:token` e enviado em toda requisição. Quem foi
@@ -167,9 +149,8 @@ npm run test:e2e:ui        # modo interativo, para ver passo a passo
 npm run test:e2e:report    # abre o relatório da última execução
 ```
 
-O front precisa estar apontando para a API (`VITE_API_URL` preenchida e
-`VITE_USE_MOCK=false` no `.env`); em modo demonstração não há o que testar
-contra o banco.
+O front precisa estar apontando para a API, com `VITE_API_URL` preenchida no
+`.env`.
 
 Variáveis que a suíte aceita:
 

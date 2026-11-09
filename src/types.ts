@@ -98,10 +98,7 @@ export interface Reserva {
 /** Situação do acesso de um usuário, como a API devolve. */
 export type SituacaoUsuario = 'ATIVO' | 'CONVITE_PENDENTE' | 'INATIVO';
 
-/**
- * Usuário da sessão. Mesmo formato nos dois modos: em demonstração vem da
- * lista local, com a API vem do funcionário devolvido em /login.
- */
+/** Usuário da sessão, montado a partir do funcionário devolvido em /login. */
 export interface Usuario {
   id: string;
   nome: string;
@@ -113,10 +110,16 @@ export interface Usuario {
   login: string;
   /** E-mail institucional, quando a API o devolve. */
   email?: string;
+  /** Matricula funcional, quando cadastrada. */
+  matricula?: string;
+  /** Id do cargo, para o formulário de edição pré-selecionar. */
+  cargoId?: number;
+  /** Em quantos projetos a pessoa esta na equipe. */
+  projetos?: number;
+  /** Ultimo acesso, como a API devolve (AAAA-MM-DD HH:MM:SS). */
+  ultimoAcesso?: string;
   /** Situação do acesso; sem senha criada fica CONVITE_PENDENTE. */
   situacao?: SituacaoUsuario;
-  /** Só no modo demonstração; a API nunca devolve senha. */
-  senha?: string;
 }
 
 export interface StatusInfo {

@@ -12,7 +12,7 @@ import { defineConfig, devices } from '@playwright/test';
  *
  *   docker compose up -d
  *   cd Embrapa-frontend
- *   npm run dev                     # em outro terminal, com VITE_USE_MOCK=false
+ *   npm run dev                     # em outro terminal
  *   npm run test:e2e
  *
  * A API precisa de folga no limite de espaços: a suíte cria estufas

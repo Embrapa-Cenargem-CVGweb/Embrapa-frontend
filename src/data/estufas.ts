@@ -4,9 +4,9 @@
  * `ESTUFAS` e `reservas` são mutados no lugar (nunca reatribuídos), para que
  * quem importou continue vendo a mesma referência.
  *
- * Em modo demonstração os dados vêm de `mock.ts` e as alterações ficam no
- * localStorage. Com `VITE_API_URL` configurada, vêm da API Laravel e toda
- * alteração é gravada lá.
+ * Os dados vêm da API Laravel (`VITE_API_URL`) e toda alteração é gravada lá.
+ * Não existe fonte local: se a API não responde, a tela diz isso em vez de
+ * mostrar um inventário de exemplo.
  *
  * A chave do mapa (E01, E02...) é a POSIÇÃO do espaço na foto aérea, definida
  * em `hotspots.ts`. O código real do cadastro (CVG01) fica em `estufa.codigo`
@@ -16,9 +16,7 @@
 import type { Estufa, Estufas, EstufaStatus, Reserva, UnidadeCapacidade } from '../types';
 import { dadosMudaram } from '../lib/bus';
 import { getCasasVegetacao, getReservas } from '../services/api';
-import { MOCK_ESTUFAS, MOCK_RESERVAS } from './mock';
 import { hojeISO } from '../lib/format';
-import { MODO_DEMO } from '../lib/ambiente';
 
 export const ESTUFAS: Estufas = {};
 export const reservas: Reserva[] = [];
@@ -35,65 +33,6 @@ let lidoEm = 0;
 
 export function ultimaLeitura(): number {
   return lidoEm;
-}
-
-// A versão no nome da chave aposenta o estado salvo quando o mock muda de
-// formato — sem isso o navegador seguiria mostrando as reservas antigas.
-const CHAVES = {
-  reservas: 'cvgweb:reservas:v4',
-  situacao: 'cvgweb:situacao:v4',
-} as const;
-
-/* ===========================================================================
-   Modo demonstração
-   =========================================================================== */
-
-function carregarMock(): void {
-  for (const chave of Object.keys(ESTUFAS)) delete ESTUFAS[chave];
-  reservas.length = 0;
-
-  for (const [chave, estufa] of Object.entries(MOCK_ESTUFAS)) {
-    ESTUFAS[chave] = { ...estufa, vasos: estufa.vasos ? { ...estufa.vasos } : undefined };
-  }
-  for (const reserva of MOCK_RESERVAS) reservas.push({ ...reserva });
-
-  restaurarLocal();
-  recalcularOcupacao();
-}
-
-function restaurarLocal(): void {
-  try {
-    const salvas = localStorage.getItem(CHAVES.reservas);
-    if (salvas) {
-      const lidas = JSON.parse(salvas) as Reserva[];
-      if (Array.isArray(lidas) && lidas.length) {
-        reservas.length = 0;
-        for (const reserva of lidas) reservas.push(reserva);
-      }
-    }
-
-    const situacoes = localStorage.getItem(CHAVES.situacao);
-    if (situacoes) {
-      const mapa = JSON.parse(situacoes) as Record<string, Estufa['situacao']>;
-      for (const [id, valor] of Object.entries(mapa)) {
-        if (ESTUFAS[id]) ESTUFAS[id].situacao = valor;
-      }
-    }
-  } catch (erro) {
-    console.warn('[CVGWeb] estado local inválido, ignorando:', erro);
-  }
-}
-
-export function salvarEstado(): void {
-  if (!MODO_DEMO) return;
-  try {
-    const situacoes: Record<string, Estufa['situacao']> = {};
-    for (const [id, estufa] of Object.entries(ESTUFAS)) situacoes[id] = estufa.situacao;
-    localStorage.setItem(CHAVES.reservas, JSON.stringify(reservas));
-    localStorage.setItem(CHAVES.situacao, JSON.stringify(situacoes));
-  } catch (erro) {
-    console.warn('[CVGWeb] não foi possível salvar o estado:', erro);
-  }
 }
 
 /* ===========================================================================
@@ -156,19 +95,11 @@ function iconeDoTipo(tipo: string): string {
 }
 
 /**
- * `aoFalhar` decide o que acontece quando a API não responde: no primeiro
- * carregamento vale cair no mock, para a tela não subir vazia; numa releitura
- * no meio da sessão não vale — trocar dados reais por dados de exemplo é pior
- * do que continuar com o que já estava na tela.
+ * `aoFalhar` decide o que acontece quando a API não responde: 'avisar' só
+ * registra e deixa a tela com o que já tinha (no primeiro carregamento, vazia);
+ * 'manter' propaga o erro, para quem gravou algo poder dizer que não deu.
  */
-export async function carregarEstado(aoFalhar: 'mock' | 'manter' = 'mock'): Promise<void> {
-  if (MODO_DEMO) {
-    console.info('[CVGWeb] modo demonstração: dados locais, sem API.');
-    carregarMock();
-    lidoEm = Date.now();
-    return;
-  }
-
+export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): Promise<void> {
   try {
     const [casasResposta, reservasResposta] = await Promise.all([
       getCasasVegetacao(),
@@ -253,9 +184,7 @@ export async function carregarEstado(aoFalhar: 'mock' | 'manter' = 'mock'): Prom
       console.warn('[CVGWeb] falha ao reler da API; mantendo o estado atual:', erro);
       throw erro;
     }
-    console.error('[CVGWeb] falha ao carregar da API; usando dados locais:', erro);
-    carregarMock();
-    lidoEm = Date.now();
+    console.error('[CVGWeb] falha ao carregar da API:', erro);
   }
 }
 
@@ -269,14 +198,12 @@ export function invalidarEstado(): void {
  *
  * O assistente chama isto antes de cada pergunta: as reservas mudam o tempo
  * todo e quem respondeu "a E03 está livre" dois minutos atrás pode estar
- * errado agora. Em modo demonstração não há o que buscar — a memória já é a
- * verdade, e muda junto com cada reserva feita na tela.
+ * errado agora.
  *
  * Releituras seguidas dentro da janela são ignoradas, para que uma sequência
  * de perguntas não vire uma sequência de chamadas à API.
  */
 export async function garantirEstadoFresco(janelaMs = 15_000): Promise<void> {
-  if (MODO_DEMO) return;
   if (lidoEm && Date.now() - lidoEm < janelaMs) return;
 
   try {
@@ -323,7 +250,7 @@ export function recalcularOcupacao(data = hojeISO()): void {
  * marcou como reservado ou ocupado não aparece livre só porque não há reserva
  * registrada nele. Com ATIVA, quem decide é a ocupação do dia.
  */
-export function situacaoVisivel(estufa: Estufa): EstufaStatus {
+function situacaoVisivel(estufa: Estufa): EstufaStatus {
   if (estufa.situacao === 'MANUTENCAO') return 'manutencao';
   if (estufa.situacao === 'INATIVA') return 'inativa';
   if (estufa.situacao === 'RESERVADA') return 'reservada';
@@ -366,11 +293,3 @@ export function proximasReservas(estufaId: string, data = hojeISO()): Reserva[] 
     .sort((a, b) => a.data.localeCompare(b.data));
 }
 
-/** Próximo código de reserva livre. Só o modo demonstração precisa disto. */
-export function proximoIdReserva(): string {
-  const maior = reservas.reduce((max, r) => {
-    const numero = Number.parseInt(r.id.replace(/\D/g, ''), 10);
-    return Number.isNaN(numero) ? max : Math.max(max, numero);
-  }, 0);
-  return `R${String(maior + 1).padStart(3, '0')}`;
-}

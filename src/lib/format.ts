@@ -47,6 +47,16 @@ export function dataBR(iso: string): string {
   return dia && mes && ano ? `${dia}/${mes}/${ano}` : iso;
 }
 
+/** "2026-11-06 13:11:02" (ou com T) para "06/11/2026 13:11". */
+export function dataHoraBR(iso: string): string {
+  if (!iso) return '—';
+
+  const [data = '', hora = ''] = iso.replace('T', ' ').split(' ');
+  const minutos = hora.slice(0, 5);
+
+  return minutos ? `${dataBR(data)} ${minutos}` : dataBR(data);
+}
+
 /** Data de hoje em AAAA-MM-DD, no fuso local. */
 export function hojeISO(): string {
   const agora = new Date();

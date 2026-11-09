@@ -5,7 +5,9 @@
  * é publicada em `window` e não existe `onclick` no HTML.
  */
 import { carregarEstado } from './data/estufas';
+import { aoPerderSessao } from './services/api';
 import { iniciarAcoes, registrarAcoes } from './lib/actions';
+import { alternarVisibilidadeSenha } from './lib/senha';
 import { aoMudar } from './lib/bus';
 import { debounce, el, qsa, setText, show } from './lib/dom';
 import { abrirModal, aoFecharModal, fecharTodosModais, iniciarModais } from './lib/modal';
@@ -14,6 +16,7 @@ import type { Usuario } from './types';
 
 import {
   abrirEditarEspaco,
+  abrirEditarUsuario,
   buscarEstufaNoFormulario,
   escolherEstufa,
   navegarSugestoesDeEspaco,
@@ -27,16 +30,21 @@ import {
   aprovarReserva,
   buscarEspacos,
   buscarReservas,
+  buscarUsuarios,
   cancelarReserva,
+  confirmarEdicaoUsuario,
   confirmarEspaco,
   confirmarNovoUsuario,
+  definirPerfilEdicao,
   definirPerfilNovoUsuario,
   filtrarReservas,
+  filtrarUsuarios,
   irPara,
   limparBusca,
   pedirExclusaoUsuario,
   reenviarConviteDoUsuario,
   renderizarAdmin,
+  type FiltroUsuario,
 } from './views/admin';
 import {
   alternarChat,
@@ -46,6 +54,37 @@ import {
   mostrarChat,
   sugerir,
 } from './views/chat';
+import { renderizarHistorico } from './views/auditoria';
+import {
+  aoRepetir,
+  esconderFalha,
+  mostrarFalha,
+  repetirDepoisDaFalha,
+  statusDoErro,
+} from './views/falha';
+import {
+  definirFiltroAuditoria,
+  limparFiltrosAuditoria,
+  paginarAuditoria,
+} from './views/auditoria';
+import {
+  abrirEditarProjeto,
+  abrirEquipe,
+  abrirModalProjetos,
+  abrirNovoProjeto,
+  abrirPermissoesMembro,
+  alterarPapelMembro,
+  buscarProjetos,
+  confirmarProjeto,
+  incluirMembro,
+  limparBuscaDeProjetos,
+  pedirExclusaoProjeto,
+  removerMembroDaEquipe,
+  salvarPermissoes,
+  sugerirPermissoesDoPapel,
+  voltarParaEquipe,
+  voltarParaProjetos,
+} from './views/projetos';
 import {
   entrar,
   iniciarAutenticacao,
@@ -60,26 +99,35 @@ import {
   sincronizarMarcadores,
 } from './views/mapa';
 import {
+  abrirEditarReserva,
   abrirModalReservar,
+  ajustarFimDaEdicao,
   ajustarFimDoPeriodo,
   cancelarPreenchimentoDaReserva,
   cancelarReservaAberta,
+  confirmarEdicaoReserva,
   confirmarReserva,
   consultarDisponibilidade,
+  consultarDisponibilidadeDaEdicao,
+  editarReservaAberta,
+  excluirReservaAberta,
   guardarRascunhoDaReserva,
   verReserva,
 } from './views/reservas';
 import type { PerfilUsuario } from './types';
 
-type Secao = 'mapa' | 'admin';
+type Secao = 'mapa' | 'admin' | 'historico';
+
+/** Seções restritas a quem administra. */
+const RESTRITAS: Secao[] = ['admin', 'historico'];
 
 /* ===========================================================================
    Navegação entre views
    =========================================================================== */
 
 function mostrarSecao(secao: Secao): void {
-  if (secao === 'admin' && !usuarioAtual()?.admin) {
-    aviso('A área de administração é restrita a administradores.', 'error');
+  if (RESTRITAS.includes(secao) && !usuarioAtual()?.admin) {
+    aviso('Esta área é restrita a administradores.', 'error');
     return;
   }
 
@@ -94,6 +142,7 @@ function mostrarSecao(secao: Secao): void {
 
   fecharPainel();
   if (secao === 'admin') renderizarAdmin();
+  if (secao === 'historico') renderizarHistorico();
 }
 
 /* ===========================================================================
@@ -126,17 +175,34 @@ function montarApp(usuario: Usuario): void {
   setText('conta-nome', usuario.nome);
   setText('conta-perfil', usuario.cargo);
   show(el('nav-admin'), usuario.admin);
+  show(el('nav-historico'), usuario.admin);
 
   mostrarSecao('mapa');
+  void carregarInventario(usuario);
+}
 
-  // Os marcadores só sobem depois que os dados chegam.
-  void carregarEstado().then(() => {
-    renderizarMarcadores();
-    if (usuario.admin) renderizarAdmin();
-  });
+/**
+ * Lê o inventário e só então desenha os marcadores.
+ *
+ * Quando a API não responde, isto mostra a tela de falha em vez de deixar o
+ * mapa vazio: antes, sem API, a tela subia sem nenhum marcador e sem dizer
+ * nada — parecia que o cadastro das 50 estufas havia desaparecido.
+ */
+async function carregarInventario(usuario: Usuario): Promise<void> {
+  try {
+    await carregarEstado('manter');
+  } catch (erro) {
+    mostrarFalha(statusDoErro(erro), erro instanceof Error ? erro.message : undefined);
+    return;
+  }
+
+  esconderFalha();
+  renderizarMarcadores();
+  if (usuario.admin) renderizarAdmin();
 }
 
 function desmontarApp(): void {
+  esconderFalha();
   fecharTodosModais();
   fecharMenu();
   mostrarChat(false);
@@ -163,6 +229,9 @@ function registrarTodasAsAcoes(): void {
       if (id) abrirModal(id);
     },
     fechar: () => fecharTodosModais(),
+    'alternar-senha': (elemento) => alternarVisibilidadeSenha(elemento),
+    'tentar-de-novo': () => repetirDepoisDaFalha(),
+
 
     // mapa
     'abrir-espaco': (elemento) => {
@@ -183,6 +252,7 @@ function registrarTodasAsAcoes(): void {
       if (id) verReserva(id);
     },
     'cancelar-reserva-atual': () => void cancelarReservaAberta(),
+    'editar-reserva-atual': () => editarReservaAberta(),
 
     // assistente
     'chat-alternar': () => alternarChat(),
@@ -211,9 +281,12 @@ function registrarTodasAsAcoes(): void {
       const status = elemento.dataset.status as 'todas' | 'pendente' | 'ativa';
       filtrarReservas(status ?? 'todas', elemento);
     },
+    'filtrar-usuarios': (elemento) => {
+      filtrarUsuarios((elemento.dataset.filtro as FiltroUsuario) ?? 'todos');
+    },
     'limpar-busca': (elemento) => {
-      const alvo = elemento.dataset.target === 'reservas' ? 'reservas' : 'espacos';
-      limparBusca(alvo);
+      const alvo = elemento.dataset.target;
+      limparBusca(alvo === 'reservas' || alvo === 'usuarios' ? alvo : 'espacos');
     },
     'aprovar-reserva': (elemento) => {
       const id = elemento.dataset.id;
@@ -235,6 +308,50 @@ function registrarTodasAsAcoes(): void {
       const id = elemento.dataset.id;
       if (id) void alternarAcesso(id, elemento.dataset.ativo === 'true');
     },
+
+    // projetos, equipe e permissões
+    'abrir-projetos': () => abrirModalProjetos(),
+    'abrir-novo-projeto': () => abrirNovoProjeto(),
+    'limpar-busca-projetos': () => limparBuscaDeProjetos(),
+    'editar-projeto': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirEditarProjeto(id);
+    },
+    'excluir-projeto': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void pedirExclusaoProjeto(id);
+    },
+    'abrir-equipe': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirEquipe(id);
+    },
+    'voltar-projetos': () => voltarParaProjetos(),
+    'remover-membro': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void removerMembroDaEquipe(id);
+    },
+    'abrir-permissoes': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirPermissoesMembro(id);
+    },
+    'sugerir-permissoes': () => sugerirPermissoesDoPapel(),
+
+    // histórico de alterações
+    'limpar-auditoria': () => limparFiltrosAuditoria(),
+    'paginar-auditoria': (elemento) => paginarAuditoria(elemento.dataset.direcao ?? 'proxima'),
+
+    // editar usuário e reserva
+    'editar-usuario': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirEditarUsuario(id);
+    },
+    'editar-reserva': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirEditarReserva(id);
+    },
+    'excluir-reserva-aberta': () => void excluirReservaAberta(),
+    'salvar-permissoes': () => void salvarPermissoes(),
+    'voltar-equipe': () => voltarParaEquipe(),
   });
 }
 
@@ -286,6 +403,43 @@ function ligarFormularios(): void {
     void confirmarEspaco();
   });
 
+  el<HTMLFormElement>('form-projeto')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    void confirmarProjeto();
+  });
+
+  el<HTMLFormElement>('form-equipe-membro')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    void incluirMembro();
+  });
+
+  el<HTMLFormElement>('form-editar-usuario')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    void confirmarEdicaoUsuario();
+  });
+
+  el<HTMLFormElement>('form-editar-reserva')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    void confirmarEdicaoReserva();
+  });
+
+  // Mesma dança do formulário de nova reserva: o fim acompanha o início e
+  // cada mudança reconsulta quanto sobra no período, sem enxurrada de
+  // requisições enquanto a pessoa digita a quantidade.
+  el<HTMLInputElement>('editar-reserva-inicio')?.addEventListener('change', () => {
+    ajustarFimDaEdicao();
+    void consultarDisponibilidadeDaEdicao();
+  });
+
+  el<HTMLInputElement>('editar-reserva-fim')?.addEventListener('change', () => {
+    void consultarDisponibilidadeDaEdicao();
+  });
+
+  const reconsultarEdicao = debounce(() => void consultarDisponibilidadeDaEdicao(), 400);
+  el<HTMLInputElement>('editar-reserva-quantidade')?.addEventListener('input', () => {
+    reconsultarEdicao();
+  });
+
   // O campo de codigo e tambem a busca da estufa: digitar filtra, as setas
   // andam na lista e Enter escolhe. Com a lista fechada, Enter volta a ser
   // Enter e envia o formulario.
@@ -314,17 +468,46 @@ function ligarBuscas(): void {
   el<HTMLInputElement>('busca-reservas')?.addEventListener('input', (ev) => {
     buscaReservas((ev.target as HTMLInputElement).value);
   });
+
+  const buscaUsuarios = debounce((valor: string) => buscarUsuarios(valor));
+  el<HTMLInputElement>('busca-usuarios')?.addEventListener('input', (ev) => {
+    buscaUsuarios((ev.target as HTMLInputElement).value);
+  });
+
+  const buscaProjetos = debounce((valor: string) => buscarProjetos(valor));
+  el<HTMLInputElement>('busca-projetos')?.addEventListener('input', (ev) => {
+    buscaProjetos((ev.target as HTMLInputElement).value);
+  });
 }
 
 /** Selects declaram o que fazem com `data-change`, como os cliques com `data-action`. */
 function ligarSelects(): void {
   document.addEventListener('change', (ev) => {
     const alvo = ev.target;
+
+    // Os filtros do histórico são selects E campos de data, por isso vêm antes
+    // da checagem de select.
+    if (
+      (alvo instanceof HTMLSelectElement || alvo instanceof HTMLInputElement)
+      && alvo.dataset.change === 'filtro-auditoria'
+    ) {
+      const campo = alvo.dataset.campo;
+      if (campo) definirFiltroAuditoria(campo, alvo.value);
+      return;
+    }
+
     if (!(alvo instanceof HTMLSelectElement)) return;
-    if (alvo.dataset.change !== 'situacao-espaco') return;
 
     const id = alvo.dataset.id;
     if (!id) return;
+
+    if (alvo.dataset.change === 'papel-membro') {
+      void alterarPapelMembro(id, alvo.value);
+      return;
+    }
+
+    if (alvo.dataset.change !== 'situacao-espaco') return;
+
     alvo.dataset.status = alvo.value;
     void alterarSituacaoEspaco(id, alvo.value);
   });
@@ -350,6 +533,27 @@ function ligarTeclado(): void {
   el('novo-usuario-perfil')?.addEventListener('click', (ev) => {
     const opcao = (ev.target as Element).closest<HTMLElement>('[data-role]');
     if (opcao) definirPerfilNovoUsuario(opcao.dataset.role as PerfilUsuario);
+  });
+
+  // Mesmo segmentado na edição. Usa `data-papel` para não disputar o alvo com
+  // o do cadastro, que já responde a `data-role`.
+  el('editar-usuario-perfil')?.addEventListener('click', (ev) => {
+    const opcao = (ev.target as Element).closest<HTMLElement>('[data-papel]');
+    if (opcao) definirPerfilEdicao(opcao.dataset.papel as PerfilUsuario);
+  });
+
+  el('editar-usuario-perfil')?.addEventListener('keydown', (ev) => {
+    if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(ev.key)) return;
+    ev.preventDefault();
+
+    const opcoes = qsa('#editar-usuario-perfil [data-papel]');
+    const atual = opcoes.findIndex((o) => o === ev.target);
+    if (atual === -1) return;
+
+    const passo = ev.key === 'ArrowRight' || ev.key === 'ArrowDown' ? 1 : -1;
+    const proximo = opcoes[(atual + passo + opcoes.length) % opcoes.length];
+    definirPerfilEdicao(proximo.dataset.papel as PerfilUsuario);
+    proximo.focus();
   });
 
   // Clique fora fecha o menu da conta.
@@ -388,6 +592,22 @@ export function iniciarApp(): void {
   aoMudar(() => {
     sincronizarMarcadores();
     if (usuarioAtual()?.admin) renderizarAdmin();
+  });
+
+  // "Tentar de novo" refaz exatamente o que falhou: reler o inventário.
+  aoRepetir(() => {
+    const usuario = usuarioAtual();
+    if (usuario) void carregarInventario(usuario);
+  });
+
+  // Token morto no meio da sessão: a pessoa volta para a entrada na hora, em
+  // vez de seguir vendo dados velhos com um token que não vale mais.
+  aoPerderSessao((mensagem) => {
+    esconderFalha();
+    if (usuarioAtual()) {
+      sair();
+      aviso(mensagem, 'info');
+    }
   });
 
   iniciarAutenticacao(montarApp, desmontarApp);

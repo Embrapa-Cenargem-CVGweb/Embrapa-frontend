@@ -136,6 +136,49 @@
   color: var(--down-soft-fg);
 }
 
+/* Campo de senha com o botao de revelar dentro da borda do input.
+   O recuo a direita abre espaco para o botao; `.input` vem depois neste
+   arquivo, por isso o seletor dobrado em `.input.senha__campo`. */
+.senha {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input.senha__campo {
+  padding-right: var(--s-8);
+}
+
+.senha__botao {
+  position: absolute;
+  right: var(--s-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  color: var(--fg-muted);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: var(--r-sm);
+  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+
+.senha__botao:hover {
+  color: var(--fg);
+  background: var(--surface-2);
+}
+
+.senha__botao[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.senha__botao:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* Campo numerico com a unidade ao lado: "10  vasos". */
 .field__inline {
   display: flex;
@@ -608,6 +651,7 @@
 
 .table__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--s-2);
   align-items: center;
   justify-content: flex-end;
@@ -906,96 +950,77 @@ button.metric:focus-visible .metric__go {
 }
 
 /* ===========================================================================
-   Card de usuário
+   Formulário em duas colunas de assunto
+
+   Campo curto ao lado de campo com texto de ajuda deixava um buraco do tamanho
+   da ajuda do vizinho — era o espaço vazio do formulário de estufa. Agrupar
+   por assunto resolve: cada bloco tem a própria altura e os dois ficam lado a
+   lado, da mesma altura.
    =========================================================================== */
 
-.users-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  gap: var(--s-3);
-  align-content: start;
+.dialog--form {
+  width: min(52rem, 100%);
 }
 
-.user-card {
-  display: flex;
-  gap: var(--s-3);
-  align-items: center;
-  padding: var(--s-3);
-  background: var(--surface);
+.form-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-4);
+  align-items: start;
+  margin-bottom: var(--s-4);
+}
+
+.fieldset {
+  min-width: 0;
+  padding: var(--s-3) var(--s-4) var(--s-4);
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
 }
 
-.user-card__avatar {
+.fieldset__legend {
+  padding: 0 var(--s-2);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---------------------------------------------------------------------------
+   Faixa de leitura: como está, hoje, o registro que o formulário vai alterar.
+   --------------------------------------------------------------------------- */
+
+.resumo {
   display: grid;
-  place-items: center;
-  flex: none;
-  width: 2.25rem;
-  height: 2.25rem;
-  color: var(--accent-soft-fg);
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+  padding: var(--s-3);
   background: var(--accent-soft);
-  border-radius: var(--r-pill);
+  border-radius: var(--r-lg);
 }
 
-.user-card[data-role="admin"] .user-card__avatar {
-  color: var(--booked-soft-fg);
-  background: var(--booked-soft);
+.resumo[hidden] {
+  display: none;
 }
 
-.user-card__body {
-  flex: 1;
-  min-width: 0;
+.resumo__rotulo {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--accent-soft-fg);
 }
 
-.user-card__name {
-  display: flex;
-  gap: var(--s-2);
-  align-items: center;
-  overflow: hidden;
+.resumo__valor {
+  display: block;
+  margin-top: 0.125rem;
   font-size: var(--text-sm);
   font-weight: var(--fw-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.user-card__meta {
-  display: flex;
-  gap: var(--s-2);
-  align-items: center;
-  overflow: hidden;
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
-
-.user-card__meta .code {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Convite, desativar e excluir ficam juntos no canto do cartao. */
-.user-card__actions {
-  display: flex;
-  flex: none;
-  gap: var(--s-1);
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.user-card__del {
-  flex: none;
-  width: 2rem;
-  height: 2rem;
-  color: var(--fg-muted);
-  border-radius: var(--r-md);
-  display: grid;
-  place-items: center;
-  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
-}
-
-.user-card__del:hover {
-  color: var(--down-soft-fg);
-  background: var(--down-soft);
+/* Linha de acesso desativado: continua legível, sem competir com os ativos. */
+.table tr.is-off td:not(:last-child) {
+  opacity: 0.65;
 }
 
 /* ===========================================================================
@@ -1079,7 +1104,8 @@ button.metric:focus-visible .metric__go {
    =========================================================================== */
 
 @media (width <= 48rem) {
-  .field-row {
+  .field-row,
+  .form-cols {
     grid-template-columns: 1fr;
   }
 
@@ -1156,5 +1182,218 @@ button.metric:focus-visible .metric__go {
     left: var(--s-3);
     bottom: var(--s-3);
     width: auto;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Projetos, equipe e permissões
+
+   A barra de inclusão fica acima da tabela da equipe: escolher a pessoa, o
+   papel e a função é um gesto só. A lista de permissões é uma coluna de
+   caixas com rótulo e explicação, porque "equipe.remover" sozinho não diz a
+   ninguém o que faz.
+   --------------------------------------------------------------------------- */
+
+.select--sm {
+  min-height: 2rem;
+  padding: 0 var(--s-6) 0 var(--s-2);
+  font-size: var(--text-sm);
+  background-position: right var(--s-3) center, right var(--s-2) center;
+}
+
+.barra-inclusao {
+  display: grid;
+  grid-template-columns: minmax(12rem, 2fr) minmax(8rem, 1fr) minmax(8rem, 1fr) auto;
+  gap: var(--s-3);
+  align-items: end;
+  padding: var(--s-3) var(--s-4);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.barra-inclusao .field {
+  margin-bottom: 0;
+}
+
+.perm-grupos {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  margin-bottom: 0;
+}
+
+.perm {
+  display: flex;
+  gap: var(--s-3);
+  align-items: start;
+  padding: var(--s-2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease);
+}
+
+.perm:hover {
+  background: var(--surface);
+}
+
+.perm__check {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.perm__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.perm__rotulo {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+}
+
+.perm__desc {
+  font-size: var(--text-xs);
+  line-height: var(--lh-snug);
+  color: var(--fg-muted);
+}
+
+@media (width <= 48rem) {
+  .barra-inclusao {
+    grid-template-columns: 1fr;
+  }
+
+  .barra-inclusao .btn {
+    justify-content: center;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Histórico de alterações
+
+   A barra de filtros é a mesma ideia da barra de inclusão da equipe: o recorte
+   fica acima da tabela, não escondido atrás de um botão. A célula de diff
+   mostra de→para em duas linhas; o valor antigo fica apagado e o novo em
+   destaque, e a seta carrega o sentido — nunca a cor sozinha.
+   --------------------------------------------------------------------------- */
+
+.barra-filtros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 9rem 9rem;
+  gap: var(--s-3);
+  align-items: end;
+  padding: var(--s-3) var(--s-4);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.barra-filtros .field {
+  margin-bottom: 0;
+}
+
+.diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.diff__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.diff__campo {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.diff__valores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.diff__de,
+.diff__para {
+  padding: 0.1rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  border-radius: var(--r-xs);
+}
+
+.diff__de {
+  color: var(--fg-muted);
+  background: var(--surface-3);
+}
+
+.diff__para {
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+  background: var(--accent-soft);
+}
+
+.diff__seta {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+/* Rodapé com algo à esquerda e as ações à direita (paginação, excluir). */
+.dialog__foot--espalhado {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dialog__foot--espalhado .btn {
+  flex: none;
+}
+
+.dialog__foot-acoes {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.paginacao {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.paginacao__info,
+.paginacao__pagina {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.field__aviso[data-tom="atencao"] {
+  color: var(--busy-soft-fg);
+  background: var(--busy-soft);
+}
+
+@media (width <= 60rem) {
+  .barra-filtros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width <= 40rem) {
+  .barra-filtros {
+    grid-template-columns: 1fr;
+  }
+
+  .dialog__foot--espalhado {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .dialog__foot-acoes .btn {
+    flex: 1;
   }
 }

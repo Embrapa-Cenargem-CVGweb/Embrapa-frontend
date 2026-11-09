@@ -41,7 +41,6 @@ export default defineConfig({
         '**/tests/**',
         '**/test-results/**',
         '**/playwright-report/**',
-        '**/.pre-refactor-backup/**',
         // Restos de sincronização do OneDrive.
         '**/*.tmp',
         '**/~$*',

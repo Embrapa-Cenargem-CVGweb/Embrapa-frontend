@@ -3,9 +3,8 @@
  *
  * O acesso é verificado a cada render, não só na navegação.
  *
- * Tudo que esta tela altera é gravado no banco quando a API está configurada:
- * aprovar e cancelar reserva, mudar a situação do espaço e cadastrar, desativar
- * ou excluir usuário. Antes isso só mexia na memória do navegador.
+ * Tudo que esta tela altera é gravado no banco: aprovar e cancelar reserva,
+ * mudar a situação do espaço e cadastrar, desativar ou excluir usuário.
  *
  * Duas noções de "status" convivem na tabela de espaços, e confundi-las foi
  * fonte de bug: a SITUAÇÃO é o que se grava (ATIVA, RESERVADA, OCUPADA,
@@ -23,41 +22,51 @@ import {
   ID_REAL_RESERVA,
   carregarEstado,
   invalidarEstado,
-  recalcularOcupacao,
   reservas,
+  proximasReservas,
   reservasDoEspaco,
   reservasVigentes,
-  salvarEstado,
 } from '../data/estufas';
 import { dadosMudaram } from '../lib/bus';
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
-import { capacidade, dataBR, ocupacaoResumo, statusPill } from '../lib/format';
+import { capacidade, dataBR, dataHoraBR, ocupacaoResumo, statusPill } from '../lib/format';
 import { abrirModal, confirmar, trocarModal, fecharTodosModais } from '../lib/modal';
 import { aviso } from '../lib/toast';
-import { MODO_DEMO } from '../lib/ambiente';
 import {
   atualizarEspaco,
   atualizarSituacaoEspaco,
   aprovarReserva as apiAprovar,
   criarEspaco,
+  getCargos,
   getPainel,
   getTiposEspaco,
+  type CargoApi,
   type DadosEspaco,
 } from '../services/api';
 import { cancelarNoDestino } from './reservas';
 import {
   alternarAcessoUsuario,
   cadastrarUsuario,
+  editarUsuario,
   excluirUsuario,
   listarUsuarios,
   recarregarUsuarios,
   reenviarConviteUsuario,
   usuarioAtual,
 } from './login';
-import type { Estufa, EstufaSituacao, PerfilUsuario, Reserva, UnidadeCapacidade } from '../types';
+import type {
+  EstufaSituacao,
+  PerfilUsuario,
+  Reserva,
+  UnidadeCapacidade,
+  Usuario,
+} from '../types';
 
 type FiltroReserva = 'todas' | 'pendente' | 'ativa';
+
+/** Recortes da lista de usuários: perfil, acesso sem senha e desativados. */
+export type FiltroUsuario = 'todos' | 'admin' | 'pesquisador' | 'sem-senha' | 'inativo';
 
 /**
  * O que o administrador pode gravar, na ordem em que a tela mostra. Mesma
@@ -75,17 +84,18 @@ const SITUACOES: { valor: EstufaSituacao; label: string }[] = [
 /** Quantas sugestões de estufa o seletor do formulário mostra de uma vez. */
 const MAX_SUGESTOES = 8;
 
-/**
- * Quantos espaços o modo demonstração aceita. A regra de verdade é do
- * back-end (config/cvgweb.php: espacos.limite); aqui só existe porque em
- * demonstração não há back-end nenhum para recusar o espaço 51.
- */
-const LIMITE_ESPACOS_DEMO = 50;
-
 let buscaEspacos = '';
 let buscaReservas = '';
+let buscaUsuarios = '';
 let filtroReservas: FiltroReserva = 'todas';
+let filtroUsuarios: FiltroUsuario = 'todos';
 let perfilNovoUsuario: PerfilUsuario = 'pesquisador';
+/** Perfil escolhido no formulário de edição de usuário. */
+let perfilEdicao: PerfilUsuario = 'pesquisador';
+/** Usuário aberto no formulário de edição. */
+let usuarioEmEdicao: string | null = null;
+/** Cargos do cadastro, lidos uma vez e reusados pelos dois formulários. */
+let cargos: CargoApi[] = [];
 /** Chave do espaço aberto no formulário; null = cadastro novo. */
 let espacoEmEdicao: string | null = null;
 
@@ -100,14 +110,12 @@ export function renderizarAdmin(): void {
   renderizarReservas();
   renderizarUsuarios();
 
-  // Números do painel e lista de usuários vêm do back-end, quando há API.
+  // Números do painel e lista de usuários vêm do back-end.
   void atualizarDoServidor();
 }
 
 /** Relê do banco o que a tela de administração mostra. */
 async function atualizarDoServidor(): Promise<void> {
-  if (MODO_DEMO) return;
-
   await Promise.allSettled([atualizarMetricasDaApi(), atualizarUsuariosDaApi()]);
 }
 
@@ -116,8 +124,8 @@ async function atualizarDoServidor(): Promise<void> {
    =========================================================================== */
 
 /**
- * Calcula as métricas com o que está na memória. Serve ao modo demonstração e
- * é o que aparece no primeiro instante, antes da resposta do /painel.
+ * Calcula as métricas com o que está na memória: é o que aparece no primeiro
+ * instante, antes da resposta do /painel.
  */
 function renderizarMetricas(): void {
   const espacos = Object.values(ESTUFAS);
@@ -126,6 +134,7 @@ function renderizarMetricas(): void {
   const ocupados = espacos.filter((e) => e.status === 'ocupada' || e.status === 'parcial').length;
   const manutencao = espacos.filter((e) => e.status === 'manutencao').length;
   const emAberto = reservas.filter((r) => r.status === 'ativa' || r.status === 'pendente').length;
+  const pendentes = reservas.filter((r) => r.status === 'pendente').length;
 
   // Taxa pela capacidade, não pelo número de estufas: é o que de fato está
   // tomado dentro delas. Uma estufa com 1 de 20 vasos não está "ocupada".
@@ -133,7 +142,7 @@ function renderizarMetricas(): void {
   const capacidadeOcupada = espacos.reduce((soma, e) => soma + Math.min(e.ocupado, e.capacidadeTotal), 0);
   const taxa = capacidadeTotal ? Math.round((capacidadeOcupada / capacidadeTotal) * 100) : 0;
 
-  pintarMetricas({ total, livres, ocupados, manutencao, emAberto, taxa });
+  pintarMetricas({ total, livres, ocupados, manutencao, emAberto, pendentes, taxa });
 }
 
 /** As mesmas métricas, calculadas no back-end sobre o banco inteiro. */
@@ -149,6 +158,7 @@ async function atualizarMetricasDaApi(): Promise<void> {
       ocupados: m.ocupados ?? 0,
       manutencao: m.manutencao ?? 0,
       emAberto: m.reservas_em_aberto ?? 0,
+      pendentes: m.pendentes ?? 0,
       taxa: m.taxa_ocupacao ?? 0,
     });
   } catch (erro) {
@@ -162,6 +172,7 @@ interface Metricas {
   ocupados: number;
   manutencao: number;
   emAberto: number;
+  pendentes: number;
   taxa: number;
 }
 
@@ -169,6 +180,7 @@ function pintarMetricas(m: Metricas): void {
   setText('m-total', String(m.total));
   setText('m-livres', String(m.livres));
   setText('m-reservas', String(m.emAberto));
+  setText('m-pendentes', String(m.pendentes));
   setText('m-manutencao', String(m.manutencao));
   setText('m-taxa', `${m.taxa}%`);
 
@@ -300,6 +312,42 @@ function opcoesSituacao(atual: EstufaSituacao): string {
  * Grava a nova situação do espaço. Livre, parcial e ocupada não entram aqui:
  * são consequência das reservas, não escolha do administrador.
  */
+/* ===========================================================================
+   Cargos
+
+   A lista vem de /api/cargos (CargoSeeder). Antes o formulário de usuário não
+   tinha o campo, então toda pessoa era cadastrada sem cargo e a coluna Cargo
+   da tabela vivia em "—".
+   =========================================================================== */
+
+async function garantirCargos(): Promise<CargoApi[]> {
+  if (cargos.length) return cargos;
+
+  cargos = await getCargos().catch(() => []);
+  return cargos;
+}
+
+/** Enche um select de cargo, marcando o que a pessoa já tem. */
+function pintarCargos(id: string, escolhido?: number | null): void {
+  const select = el<HTMLSelectElement>(id);
+  if (!select) return;
+
+  select.innerHTML = juntar([
+    html`<option value="">Sem cargo definido</option>`,
+    ...cargos.map((c) => html`<option value="${c.id}">${c.nome}</option>`),
+  ]);
+
+  if (escolhido) select.value = String(escolhido);
+}
+
+/** Lê os cargos em segundo plano e repinta o select quando chegarem. */
+function prepararCargos(id: string, escolhido?: number | null): void {
+  pintarCargos(id, escolhido);
+  if (cargos.length) return;
+
+  void garantirCargos().then(() => pintarCargos(id, escolhido));
+}
+
 export async function alterarSituacaoEspaco(id: string, situacao: string): Promise<void> {
   const estufa = ESTUFAS[id];
   if (!estufa) return;
@@ -311,18 +359,12 @@ export async function alterarSituacaoEspaco(id: string, situacao: string): Promi
   if (nova === anterior) return;
 
   try {
-    if (MODO_DEMO) {
-      estufa.situacao = nova;
-      recalcularOcupacao();
-      salvarEstado();
-    } else {
-      const casaId = ID_REAL_ESPACO[id];
-      if (!casaId) throw new Error('Espaço sem vínculo com o cadastro; recarregue a página.');
+    const casaId = ID_REAL_ESPACO[id];
+    if (!casaId) throw new Error('Espaço sem vínculo com o cadastro; recarregue a página.');
 
-      await atualizarSituacaoEspaco(casaId, nova);
-      invalidarEstado();
-      await carregarEstado('manter');
-    }
+    await atualizarSituacaoEspaco(casaId, nova);
+    invalidarEstado();
+    await carregarEstado('manter');
   } catch (erro) {
     estufa.situacao = anterior;
     dadosMudaram();
@@ -407,6 +449,7 @@ export function abrirEspaco(id?: string): void {
   setText('espaco-titulo', 'Alterar estufa');
   setText('espaco-descricao', 'Escolha a estufa pelo código e corrija o que mudou no cadastro.');
   setText('espaco-enviar-texto', 'Salvar');
+  pintarResumoDoEspaco(null);
   marcarAlvo(null);
 
   abrirModal('modal-espaco');
@@ -426,11 +469,9 @@ function carregarEspacoNoFormulario(id: string): void {
   espacoEmEdicao = id;
 
   setText('espaco-titulo', `Alterar ${estufa.codigo}`);
-  setText(
-    'espaco-descricao',
-    `${estufa.nome} · ${ocupacaoResumo(estufa.disponivel, estufa.capacidadeTotal, estufa.unidade)}`,
-  );
+  setText('espaco-descricao', `${estufa.nome} · ${estufa.tipo}`);
   setText('espaco-enviar-texto', 'Salvar');
+  pintarResumoDoEspaco(id);
 
   definirValor('espaco-codigo', estufa.codigo);
   definirValor('espaco-descricao-campo', estufa.nome);
@@ -473,7 +514,34 @@ function apontarPara(id: string): void {
   espacoEmEdicao = id;
   setText('espaco-titulo', `Alterar ${estufa.codigo}`);
   setText('espaco-enviar-texto', 'Salvar');
+  pintarResumoDoEspaco(id);
   marcarAlvo(id);
+}
+
+/**
+ * Faixa com a situação de hoje da estufa escolhida: capacidade, quanto está em
+ * uso, quanto sobra e quantas reservas vigentes existem.
+ *
+ * É a informação que faltava no formulário — sem ela, reduzir a capacidade era
+ * um palpite que só o erro do back-end corrigia.
+ */
+function pintarResumoDoEspaco(id: string | null): void {
+  const caixa = el('espaco-resumo');
+  if (!caixa) return;
+
+  const estufa = id ? ESTUFAS[id] : null;
+  show(caixa, Boolean(estufa));
+  if (!estufa || !id) return;
+
+  setText('espaco-resumo-capacidade', capacidade(estufa.capacidadeTotal, estufa.unidade));
+  setText('espaco-resumo-ocupado', capacidade(estufa.ocupado, estufa.unidade));
+  setText('espaco-resumo-livre', capacidade(estufa.disponivel, estufa.unidade));
+
+  const vigentes = proximasReservas(id).length;
+  setText(
+    'espaco-resumo-reservas',
+    vigentes ? `${vigentes} ${vigentes === 1 ? 'reserva' : 'reservas'}` : 'nenhuma',
+  );
 }
 
 /**
@@ -540,6 +608,7 @@ export function buscarEstufaNoFormulario(termo: string): void {
       espacoEmEdicao = null;
       setText('espaco-titulo', 'Alterar estufa');
       setText('espaco-enviar-texto', 'Salvar');
+      pintarResumoDoEspaco(null);
     }
   }
 
@@ -674,7 +743,7 @@ function preencherListasDeTexto(): void {
   pintarLista('lista-tipos-espaco', espacos.map((e) => e.tipo));
   pintarLista('lista-setores-espaco', espacos.map((e) => e.setor ?? ''));
 
-  if (!MODO_DEMO) void completarListasDaApi();
+  void completarListasDaApi();
 }
 
 async function completarListasDaApi(): Promise<void> {
@@ -750,8 +819,7 @@ export async function confirmarEspaco(): Promise<void> {
   if (botao) botao.disabled = true;
 
   try {
-    if (MODO_DEMO) gravarEspacoLocal(dados);
-    else await gravarEspacoNaApi(dados);
+    await gravarEspacoNaApi(dados);
   } catch (erro) {
     // A mensagem do back-end é a boa: código repetido, capacidade abaixo do
     // que já está reservado, etc.
@@ -786,61 +854,6 @@ async function gravarEspacoNaApi(dados: DadosEspaco): Promise<void> {
 
   invalidarEstado();
   await carregarEstado('manter');
-}
-
-/**
- * Modo demonstração: o espaço entra na memória, com a posição no mapa tirada
- * do número do código — a mesma regra que a API usa ao carregar.
- */
-function gravarEspacoLocal(dados: DadosEspaco): void {
-  // Mesma regra do back-end (config/cvgweb.php: espacos.limite): o parque e
-  // fechado. Aqui ela so existe porque em demonstracao nao ha API que recuse.
-  if (!espacoEmEdicao && Object.keys(ESTUFAS).length >= LIMITE_ESPACOS_DEMO) {
-    throw new Error(
-      `O cadastro já tem os ${LIMITE_ESPACOS_DEMO} espaços previstos do Cenargen. `
-      + 'Para mudar um deles, escolha a estufa no campo de busca em vez de cadastrar um novo.',
-    );
-  }
-
-  const numero = Number.parseInt(dados.codigo.replace(/\D/g, ''), 10);
-  const chave = espacoEmEdicao
-    ?? `E${String(Number.isNaN(numero) ? Object.keys(ESTUFAS).length + 1 : numero).padStart(2, '0')}`;
-
-  const repetido = Object.entries(ESTUFAS)
-    .some(([k, e]) => k !== chave && e.codigo === dados.codigo);
-
-  if (repetido) throw new Error(`Já existe um espaço com o código ${dados.codigo}.`);
-
-  const anterior = ESTUFAS[chave];
-
-  if (anterior && anterior.ocupado > dados.capacidade_total) {
-    throw new Error(
-      `Não dá para reduzir a capacidade para ${dados.capacidade_total}: `
-      + `já existem ${capacidade(anterior.ocupado, anterior.unidade)} reservadas.`,
-    );
-  }
-
-  const estufa: Estufa = {
-    codigo: dados.codigo,
-    nome: dados.descricao,
-    tipo: dados.tipo ?? 'Casa de vegetação',
-    setor: dados.localizacao || '—',
-    status: 'livre',
-    situacao: dados.status ?? 'ATIVA',
-    area: dados.area_m2 ? `${dados.area_m2} m²` : '—',
-    cap: dados.capacidade ?? 0,
-    unidade: dados.unidade_capacidade,
-    capacidadeTotal: dados.capacidade_total,
-    ocupado: anterior?.ocupado ?? 0,
-    disponivel: Math.max(0, dados.capacidade_total - (anterior?.ocupado ?? 0)),
-    icon: anterior?.icon ?? 'leaf',
-    desc: dados.obs ?? '',
-    vasos: anterior?.vasos,
-  };
-
-  ESTUFAS[chave] = estufa;
-  recalcularOcupacao();
-  salvarEstado();
 }
 
 /* ===========================================================================
@@ -918,6 +931,13 @@ function linhaDeReserva(r: Reserva): string {
                     ${icone('check', 'ic ic--sm')}Aprovar
                   </button>`
             : '')}
+          ${raw(r.status !== 'cancelada'
+            ? html`<button type="button" class="btn btn--quiet btn--sm btn--icon"
+                    data-action="editar-reserva" data-id="${r.id}"
+                    aria-label="Editar a reserva ${r.id} de ${nome}">
+                    ${icone('wrench', 'ic ic--sm')}
+                  </button>`
+            : '')}
           <button type="button" class="btn btn--danger btn--sm btn--icon"
                   data-action="cancelar-reserva" data-id="${r.id}"
                   aria-label="Cancelar a reserva ${r.id} de ${nome}">
@@ -929,12 +949,15 @@ function linhaDeReserva(r: Reserva): string {
 }
 
 function atualizarBadgePendentes(total: number): void {
-  for (const id of ['badge-pendentes', 'badge-pendentes-topo']) {
-    const badge = el(id);
-    if (!badge) continue;
-    badge.textContent = String(total);
-    show(badge, total > 0);
-  }
+  for (const id of ['badge-pendentes', 'badge-pendentes-topo']) pintarBadge(id, total);
+}
+
+/** Contador do chip: some quando é zero, para não virar enfeite. */
+function pintarBadge(id: string, total: number): void {
+  const badge = el(id);
+  if (!badge) return;
+  badge.textContent = String(total);
+  show(badge, total > 0);
 }
 
 /**
@@ -946,18 +969,12 @@ export async function aprovarReserva(id: string): Promise<void> {
   if (!reserva || reserva.status !== 'pendente') return;
 
   try {
-    if (MODO_DEMO) {
-      reserva.status = 'ativa';
-      recalcularOcupacao();
-      salvarEstado();
-    } else {
-      const real = ID_REAL_RESERVA[id];
-      if (!real) throw new Error('Reserva sem vínculo com o cadastro; recarregue a página.');
+    const real = ID_REAL_RESERVA[id];
+    if (!real) throw new Error('Reserva sem vínculo com o cadastro; recarregue a página.');
 
-      await apiAprovar(real);
-      invalidarEstado();
-      await carregarEstado('manter');
-    }
+    await apiAprovar(real);
+    invalidarEstado();
+    await carregarEstado('manter');
   } catch (erro) {
     aviso(erro instanceof Error ? erro.message : 'Não foi possível aprovar.', 'error');
     return;
@@ -1026,84 +1043,176 @@ async function atualizarUsuariosDaApi(): Promise<void> {
   }
 }
 
+/**
+ * Lista de usuários em tabela.
+ *
+ * Eram cartões com nome, cargo e login — bonito com dez pessoas, inútil com
+ * duzentas: não mostrava e-mail nem matrícula, não dizia se o acesso estava
+ * ativo e não tinha como procurar ninguém. Tabela com busca e filtros resolve
+ * as três coisas e lê igual à de reservas.
+ */
 function renderizarUsuarios(): void {
-  const grade = el('grid-usuarios');
-  if (!grade) return;
+  const corpo = el('tbody-usuarios');
+  if (!corpo) return;
 
-  const usuarios = listarUsuarios();
+  const todos = listarUsuarios();
   const eu = usuarioAtual();
-  setText('conta-usuarios', String(usuarios.length));
 
-  if (!usuarios.length) {
-    grade.innerHTML = html`
-      <div class="empty">
-        ${icone('users', 'ic ic--xl')}
-        <p class="empty__text">Nenhum usuário cadastrado.</p>
-      </div>`;
+  pintarBadge('badge-sem-senha', todos.filter((u) => u.situacao === 'CONVITE_PENDENTE').length);
+
+  const termo = buscaUsuarios.trim().toLowerCase();
+  const filtrando = Boolean(termo) || filtroUsuarios !== 'todos';
+
+  const linhas = todos
+    .filter((u) => cabeNoFiltroDeUsuario(u))
+    .filter((u) => !termo || [u.nome, u.email, u.login, u.matricula, u.cargo]
+      .some((campo) => (campo ?? '').toLowerCase().includes(termo)));
+
+  atualizarContador('conta-usuarios', linhas.length, todos.length, filtrando);
+
+  if (!linhas.length) {
+    corpo.innerHTML = linhaVazia(
+      9,
+      'users',
+      termo
+        ? `Nenhum usuário corresponde a “${buscaUsuarios}”.`
+        : 'Nenhum usuário neste filtro.',
+    );
     return;
   }
 
-  grade.innerHTML = juntar(
-    usuarios.map((u) => {
-      const souEu = eu?.id === u.id;
-      // Um admin remove pesquisadores e a própria conta, nunca outro admin.
-      const podeExcluir = !u.admin || souEu;
-      const semSenha = u.situacao === 'CONVITE_PENDENTE';
-      const inativo = u.situacao === 'INATIVO';
+  corpo.innerHTML = juntar(linhas.map((u) => linhaDeUsuario(u, eu)));
+}
 
-      return html`
-        <div class="user-card" data-role="${u.admin ? 'admin' : 'pesquisador'}">
-          <span class="user-card__avatar">${icone(u.admin ? 'shield-user' : 'user', 'ic ic--sm')}</span>
-          <div class="user-card__body">
-            <div class="user-card__name">
-              ${u.nome}
-              ${raw(souEu ? html`<span class="pill pill--ok">você</span>` : '')}
-              ${raw(semSenha ? html`<span class="pill pill--busy">${icone('clock', 'ic ic--sm')}sem senha</span>` : '')}
-              ${raw(inativo ? html`<span class="pill pill--down">${icone('ban', 'ic ic--sm')}inativo</span>` : '')}
-            </div>
-            <div class="user-card__meta">
-              ${u.cargo}
-              <span class="code">${u.login}</span>
-            </div>
-          </div>
-          <div class="user-card__actions">
-            ${raw(semSenha && !MODO_DEMO
-              ? html`<button type="button" class="btn btn--quiet btn--sm"
-                      data-action="reenviar-convite" data-id="${u.id}"
-                      title="Reenviar o link de criação de senha">
-                      ${icone('send-horizontal', 'ic ic--sm')}Convite
-                    </button>`
-              : '')}
-            ${raw(!souEu
-              ? html`<button type="button" class="btn btn--quiet btn--sm"
-                      data-action="alternar-acesso" data-id="${u.id}" data-ativo="${String(!inativo)}">
-                      ${icone(inativo ? 'circle-check' : 'ban', 'ic ic--sm')}${inativo ? 'Reativar' : 'Desativar'}
-                    </button>`
-              : '')}
-            ${raw(podeExcluir
-              ? html`<button type="button" class="user-card__del"
-                      data-action="excluir-usuario" data-id="${u.id}"
-                      aria-label="Excluir ${souEu ? 'minha conta' : u.nome}">
-                      ${icone('trash-2', 'ic ic--sm')}
-                    </button>`
-              : '')}
-          </div>
-        </div>`;
-    }),
-  );
+function cabeNoFiltroDeUsuario(u: Usuario): boolean {
+  switch (filtroUsuarios) {
+    case 'admin':
+      return u.admin;
+    case 'pesquisador':
+      return !u.admin;
+    case 'sem-senha':
+      return u.situacao === 'CONVITE_PENDENTE';
+    case 'inativo':
+      return u.situacao === 'INATIVO';
+    default:
+      return true;
+  }
+}
+
+function linhaDeUsuario(u: Usuario, eu: Usuario | null): string {
+  const souEu = eu?.id === u.id;
+  const semSenha = u.situacao === 'CONVITE_PENDENTE';
+  const inativo = u.situacao === 'INATIVO';
+  // Um admin remove pesquisadores e a própria conta, nunca outro admin.
+  const podeExcluir = !u.admin || souEu;
+  const vazio = html`<span class="table__muted">&mdash;</span>`;
+
+  return html`
+    <tr class="${raw(inativo ? 'is-off' : '')}">
+      <td data-label="Nome completo">
+        <div class="table__stack">
+          <span class="table__name">
+            ${u.nome}
+            ${raw(souEu ? html`<span class="pill pill--ok">você</span>` : '')}
+          </span>
+          ${raw(u.projetos
+            ? html`<span class="table__sub">
+                     ${String(u.projetos)} ${u.projetos === 1 ? 'projeto' : 'projetos'}
+                   </span>`
+            : '')}
+        </div>
+      </td>
+      <td data-label="E-mail" class="table__truncate" title="${u.email ?? ''}">
+        ${raw(u.email ? html`${u.email}` : vazio)}
+      </td>
+      <td data-label="Usuário"><span class="code">${u.login}</span></td>
+      <td data-label="Matrícula">${raw(u.matricula ? html`${u.matricula}` : vazio)}</td>
+      <td data-label="Cargo">${raw(u.cargo ? html`${u.cargo}` : vazio)}</td>
+      <td data-label="Perfil">
+        <span class="pill ${raw(u.admin ? 'pill--booked' : 'pill--neutral')}">
+          ${icone(u.admin ? 'shield-user' : 'user', 'ic ic--sm')}${u.admin ? 'Administrador' : 'Pesquisador'}
+        </span>
+      </td>
+      <td data-label="Situação">${raw(pillDoAcesso(u))}</td>
+      <td data-label="Último acesso" style="white-space:nowrap">
+        ${raw(u.ultimoAcesso
+          ? html`${dataHoraBR(u.ultimoAcesso)}`
+          : html`<span class="table__muted">nunca entrou</span>`)}
+      </td>
+      <td data-label="Ações">
+        <div class="table__actions">
+          ${raw(semSenha
+            ? html`<button type="button" class="btn btn--quiet btn--sm"
+                    data-action="reenviar-convite" data-id="${u.id}"
+                    title="Reenviar o link de criação de senha">
+                    ${icone('send-horizontal', 'ic ic--sm')}Convite
+                  </button>`
+            : '')}
+          <button type="button" class="btn btn--quiet btn--sm btn--icon"
+                  data-action="editar-usuario" data-id="${u.id}"
+                  aria-label="Editar ${u.nome}">
+            ${icone('wrench', 'ic ic--sm')}
+          </button>
+          ${raw(!souEu
+            ? html`<button type="button" class="btn btn--quiet btn--sm"
+                    data-action="alternar-acesso" data-id="${u.id}" data-ativo="${String(!inativo)}">
+                    ${icone(inativo ? 'circle-check' : 'ban', 'ic ic--sm')}${inativo ? 'Reativar' : 'Desativar'}
+                  </button>`
+            : '')}
+          ${raw(podeExcluir
+            ? html`<button type="button" class="btn btn--danger btn--sm btn--icon"
+                    data-action="excluir-usuario" data-id="${u.id}"
+                    aria-label="Excluir ${souEu ? 'minha conta' : u.nome}">
+                    ${icone('trash-2', 'ic ic--sm')}
+                  </button>`
+            : '')}
+        </div>
+      </td>
+    </tr>`;
+}
+
+/** Situação do acesso: ativo, cadastrado sem senha criada, ou desativado. */
+function pillDoAcesso(u: Usuario): string {
+  if (u.situacao === 'INATIVO') {
+    return html`<span class="pill pill--down">${icone('ban', 'ic ic--sm')}Inativo</span>`;
+  }
+
+  if (u.situacao === 'CONVITE_PENDENTE') {
+    return html`<span class="pill pill--busy">${icone('clock', 'ic ic--sm')}Sem senha</span>`;
+  }
+
+  return html`<span class="pill pill--ok">${icone('circle-check', 'ic ic--sm')}Ativo</span>`;
+}
+
+export function buscarUsuarios(termo: string): void {
+  buscaUsuarios = termo;
+  show(el('limpar-usuarios'), Boolean(termo));
+  renderizarUsuarios();
+}
+
+export function filtrarUsuarios(filtro: FiltroUsuario): void {
+  filtroUsuarios = filtro;
+  for (const chip of qsa('[data-action="filtrar-usuarios"]')) {
+    chip.setAttribute('aria-selected', String(chip.dataset.filtro === filtro));
+  }
+  renderizarUsuarios();
 }
 
 export function abrirNovoUsuario(): void {
   perfilNovoUsuario = 'pesquisador';
 
   el<HTMLFormElement>('form-novo-usuario')?.reset();
-  const campo = el<HTMLInputElement>('novo-usuario-email');
-  campo?.removeAttribute('aria-invalid');
+  for (const id of ['novo-usuario-nome', 'novo-usuario-email', 'novo-usuario-nick']) {
+    el<HTMLInputElement>(id)?.removeAttribute('aria-invalid');
+  }
   show(el('novo-usuario-erro'), false);
   marcarPerfilNovoUsuario('pesquisador');
+  prepararCargos('novo-usuario-cargo');
 
   if (el('modal-usuarios')?.hidden === false) trocarModal('modal-usuarios', 'modal-novo-usuario');
   else abrirModal('modal-novo-usuario');
+
+  el<HTMLInputElement>('novo-usuario-nome')?.focus();
 }
 
 export function definirPerfilNovoUsuario(perfil: PerfilUsuario): void {
@@ -1120,12 +1229,35 @@ function marcarPerfilNovoUsuario(perfil: PerfilUsuario): void {
 }
 
 export async function confirmarNovoUsuario(): Promise<void> {
+  const campoNome = el<HTMLInputElement>('novo-usuario-nome');
   const campo = el<HTMLInputElement>('novo-usuario-email');
   const botao = el<HTMLButtonElement>('novo-usuario-enviar');
 
+  // O nome é digitado, não deduzido do e-mail: é ele que aparece na lista de
+  // usuários e nas reservas.
+  if (!(campoNome?.value ?? '').trim()) {
+    campoNome?.setAttribute('aria-invalid', 'true');
+    setText('novo-usuario-erro-texto', 'Informe o nome completo da pessoa.');
+    show(el('novo-usuario-erro'), true);
+    campoNome?.focus();
+    return;
+  }
+  campoNome?.removeAttribute('aria-invalid');
+
   if (botao) botao.disabled = true;
 
-  const resultado = await cadastrarUsuario(campo?.value ?? '', perfilNovoUsuario);
+  const cargo = el<HTMLSelectElement>('novo-usuario-cargo')?.value ?? '';
+
+  const resultado = await cadastrarUsuario(
+    campo?.value ?? '',
+    perfilNovoUsuario,
+    campoNome?.value ?? '',
+    {
+      nick: el<HTMLInputElement>('novo-usuario-nick')?.value ?? '',
+      matricula: el<HTMLInputElement>('novo-usuario-matricula')?.value ?? '',
+      cargoId: cargo ? Number(cargo) : null,
+    },
+  );
 
   if (botao) botao.disabled = false;
 
@@ -1142,14 +1274,114 @@ export async function confirmarNovoUsuario(): Promise<void> {
   renderizarUsuarios();
   trocarModal('modal-novo-usuario', 'modal-usuarios');
 
-  // Com a API, a mensagem do back-end diz para onde o convite foi; no modo
-  // demonstração não há e-mail, então o aviso traz a senha fixa.
+  // A mensagem do back-end diz para onde o convite foi.
   aviso(
     resultado.mensagem
-      ?? `${resultado.usuario?.nome ?? 'Usuário'} cadastrado. `
-        + `Primeiro acesso com o e-mail e a senha ${resultado.senha}.`,
+      ?? `${resultado.usuario?.nome ?? 'Usuário'} cadastrado; o convite de acesso foi enviado.`,
     'success',
   );
+}
+
+/* ===========================================================================
+   Edição de usuário
+
+   `PUT /api/funcionarios/{id}` sempre existiu sem tela: um nome ou um e-mail
+   digitado errado era permanente, e corrigir pelo caminho de excluir e
+   recadastrar não funciona — o back-end recusa excluir quem já tem reserva.
+   =========================================================================== */
+
+export function abrirEditarUsuario(id: string): void {
+  const usuario = listarUsuarios().find((u) => u.id === id);
+  if (!usuario) return;
+
+  usuarioEmEdicao = id;
+  perfilEdicao = usuario.admin ? 'admin' : 'pesquisador';
+
+  setText('editar-usuario-titulo', usuario.nome);
+  setText(
+    'editar-usuario-desc',
+    `${usuario.login}${usuario.matricula ? ` · matrícula ${usuario.matricula}` : ''}`,
+  );
+
+  const situacao = el('editar-usuario-situacao');
+  if (situacao) situacao.innerHTML = pillDoAcesso(usuario);
+
+  setText(
+    'editar-usuario-acesso',
+    usuario.ultimoAcesso ? dataHoraBR(usuario.ultimoAcesso) : 'nunca entrou',
+  );
+  setText(
+    'editar-usuario-projetos',
+    usuario.projetos
+      ? `${usuario.projetos} ${usuario.projetos === 1 ? 'equipe' : 'equipes'}`
+      : 'nenhuma',
+  );
+
+  definirCampo('editar-usuario-nome', usuario.nome);
+  definirCampo('editar-usuario-email', usuario.email ?? '');
+  definirCampo('editar-usuario-nick', usuario.login);
+  definirCampo('editar-usuario-matricula', usuario.matricula ?? '');
+  prepararCargos('editar-usuario-cargo', usuario.cargoId);
+
+  marcarPerfilEdicao(perfilEdicao);
+  show(el('editar-usuario-erro'), false);
+
+  if (el('modal-usuarios')?.hidden === false) trocarModal('modal-usuarios', 'modal-usuario-editar');
+  else abrirModal('modal-usuario-editar');
+
+  el<HTMLInputElement>('editar-usuario-nome')?.focus();
+}
+
+function definirCampo(id: string, valor: string): void {
+  const campo = el<HTMLInputElement>(id);
+  if (campo) campo.value = valor;
+}
+
+export function definirPerfilEdicao(perfil: PerfilUsuario): void {
+  perfilEdicao = perfil;
+  marcarPerfilEdicao(perfil);
+}
+
+function marcarPerfilEdicao(perfil: PerfilUsuario): void {
+  for (const opcao of qsa('#editar-usuario-perfil [data-papel]')) {
+    opcao.setAttribute('aria-checked', String(opcao.dataset.papel === perfil));
+  }
+}
+
+export async function confirmarEdicaoUsuario(): Promise<void> {
+  if (!usuarioEmEdicao) return;
+
+  const botao = el<HTMLButtonElement>('editar-usuario-enviar');
+  if (botao) botao.disabled = true;
+
+  const cargo = el<HTMLSelectElement>('editar-usuario-cargo')?.value ?? '';
+
+  const resultado = await editarUsuario(usuarioEmEdicao, {
+    nome: el<HTMLInputElement>('editar-usuario-nome')?.value ?? '',
+    email: el<HTMLInputElement>('editar-usuario-email')?.value ?? '',
+    nick: el<HTMLInputElement>('editar-usuario-nick')?.value ?? '',
+    matricula: el<HTMLInputElement>('editar-usuario-matricula')?.value ?? '',
+    cargoId: cargo ? Number(cargo) : null,
+    admin: perfilEdicao === 'admin',
+  });
+
+  if (botao) botao.disabled = false;
+
+  if (!resultado.ok) {
+    setText('editar-usuario-erro-texto', resultado.erro ?? 'Não foi possível salvar.');
+    show(el('editar-usuario-erro'), true);
+    return;
+  }
+
+  const nome = resultado.usuario?.nome ?? 'Usuário';
+  usuarioEmEdicao = null;
+  show(el('editar-usuario-erro'), false);
+
+  trocarModal('modal-usuario-editar', 'modal-usuarios');
+  renderizarUsuarios();
+  dadosMudaram();
+
+  aviso(`${nome} salvo.`, 'success');
 }
 
 export async function reenviarConviteDoUsuario(id: string): Promise<void> {
@@ -1294,12 +1526,14 @@ function linhaVazia(colunas: number, simbolo: string, mensagem: string): string 
 }
 
 /** Reaplica a busca visível quando a tabela é redesenhada de fora. */
-export function limparBusca(qual: 'espacos' | 'reservas'): void {
+export function limparBusca(qual: 'espacos' | 'reservas' | 'usuarios'): void {
   const campo = el<HTMLInputElement>(`busca-${qual}`);
   if (campo) {
     campo.value = '';
     campo.focus();
   }
+
   if (qual === 'espacos') buscarEspacos('');
-  else buscarReservas('');
+  else if (qual === 'reservas') buscarReservas('');
+  else buscarUsuarios('');
 }

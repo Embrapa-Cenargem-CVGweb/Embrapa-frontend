@@ -8,7 +8,6 @@
  */
 import BASE from './base-conhecimento.md?raw';
 import { ESTUFAS, garantirEstadoFresco, reservasVigentes, ultimaLeitura } from '../data/estufas';
-import { MODO_DEMO } from '../lib/ambiente';
 import { capacidade, dataBR, hojeISO, ocupacaoResumo } from '../lib/format';
 import { usuarioAtual } from '../views/login';
 import type { Estufa, Reserva } from '../types';
@@ -145,9 +144,7 @@ function frescor(): string {
     ? new Date(momento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : '—';
 
-  return MODO_DEMO
-    ? `estado em memória às ${hora}; muda a cada reserva feita nesta tela`
-    : `lido da API às ${hora}; relido antes de cada pergunta`;
+  return `lido da API às ${hora}; relido antes de cada pergunta`;
 }
 
 function quemEsta(): string {
@@ -175,9 +172,7 @@ export async function montarPrompt(): Promise<string> {
   const valores: Record<string, string> = {
     HOJE: dataBR(hoje),
     USUARIO: quemEsta(),
-    ORIGEM: MODO_DEMO
-      ? 'dados locais do navegador (sem back-end conectado)'
-      : 'API Laravel do CVGWeb',
+    ORIGEM: 'API Laravel do CVGWeb',
     ATUALIZADO: frescor(),
     RESUMO: resumo(),
     OCUPACAO: ocupacao(hoje),

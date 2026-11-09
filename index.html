@@ -67,6 +67,7 @@
 <symbol id="i-calendar-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18h6" /> <path d="M16 2v3" /> <path d="M19 15v6" /> <path d="M21 11.5V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h8.3" /> <path d="M3 9h18" /> <path d="M8 2v3" /></symbol>
 <symbol id="i-calendar-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /> <path d="m14 13-4 4" /> <path d="m10 13 4 4" /></symbol>
 <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></symbol>
+<symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /> <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /> <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /> <path d="m2 2 20 20" /></symbol>
 <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /> <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /> <path d="M7 3v4a1 1 0 0 0 1 1h7" /></symbol>
 <symbol id="i-warehouse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21V10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v11" /> <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 1.132-1.803l7.95-3.974a2 2 0 0 1 1.837 0l7.948 3.974A2 2 0 0 1 22 8z" /> <path d="M6 13h12" /> <path d="M6 17h12" /></symbol>
 <symbol id="i-chart-pie" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" /> <path d="M21.21 15.89A10 10 0 1 1 8 2.83" /></symbol>
@@ -119,8 +120,16 @@
 
       <div class="field">
         <label class="field__label" for="entrada-senha">Senha</label>
-        <input class="input" type="password" id="entrada-senha" name="senha"
-               autocomplete="current-password" required />
+        <div class="senha">
+          <input class="input senha__campo" type="password" id="entrada-senha" name="senha"
+                 autocomplete="current-password" required />
+          <button class="senha__botao" type="button" data-action="alternar-senha"
+                  data-campo="entrada-senha" aria-controls="entrada-senha"
+                  aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha">
+            <svg class="ic senha__ic-ver" aria-hidden="true"><use href="#i-eye" /></svg>
+            <svg class="ic senha__ic-ocultar" aria-hidden="true" hidden><use href="#i-eye-off" /></svg>
+          </button>
+        </div>
       </div>
 
       <button class="btn btn--primary login__submit" type="submit" id="entrada-enviar">
@@ -156,8 +165,12 @@
         <span>Mapa</span>
       </button>
       <button type="button" class="nav__item" id="nav-admin" data-action="ver" data-view="admin" hidden>
-        <svg class="ic" aria-hidden="true"><use href="#i-shield-check" /></svg>
+        <svg class="ic" aria-hidden="true"><use href="#i-shield-user" /></svg>
         <span>Administração</span>
+      </button>
+      <button type="button" class="nav__item" id="nav-historico" data-action="ver" data-view="historico" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-shield-check" /></svg>
+        <span>Histórico</span>
       </button>
     </nav>
 
@@ -332,6 +345,10 @@
               Reservas
               <span class="chip__badge" id="badge-pendentes-topo" hidden>0</span>
             </button>
+            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-projetos">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
+              Projetos
+            </button>
             <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-usuarios">
               <svg class="ic ic--sm" aria-hidden="true"><use href="#i-users" /></svg>
               Usuários
@@ -343,6 +360,9 @@
           </div>
         </div>
 
+        <!-- Retrato de agora. Era um modal; numa tela de administracao o
+             painel so serve se estiver a vista sem precisar de clique. -->
+        <!-- Reservas primeiro: e a unica secao que pede acao (pendencias). -->
         <div class="section" id="sec-espacos">
           <div class="section__head">
             <h2 class="section__title">
@@ -391,9 +411,142 @@
       </div>
     </section>
 
+    <!-- ===== Histórico ===================================================
+         Aba própria, não modal: a trilha é uma tela de consulta com filtro e
+         paginação — coisa que se percorre, e não um recado que se fecha.
+         ================================================================== -->
+    <section class="view" id="view-historico" aria-labelledby="titulo-historico">
+      <div class="pagina">
+
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-historico">Histórico de alterações</h1>
+            <p class="page-head__desc">Quem alterou o quê, quando, e o valor que havia antes</p>
+          </div>
+
+          <div class="page-head__actions">
+            <button type="button" class="btn btn--quiet btn--sm" id="auditoria-limpar"
+                    data-action="limpar-auditoria" hidden>
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+              Limpar filtros
+            </button>
+          </div>
+        </div>
+
+        <div class="section" id="sec-auditoria">
+
+          <!-- Os filtros vem de /auditorias/filtros: so o que existe na trilha -->
+          <div class="barra-filtros">
+            <div class="field">
+              <label class="field__label" for="auditoria-entidade">Registro</label>
+              <select class="select" id="auditoria-entidade" data-change="filtro-auditoria" data-campo="entidade"></select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-acao">Ação</label>
+              <select class="select" id="auditoria-acao" data-change="filtro-auditoria" data-campo="acao"></select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-pessoa">Quem alterou</label>
+              <select class="select" id="auditoria-pessoa" data-change="filtro-auditoria" data-campo="funcionario_id"></select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-projeto">Projeto</label>
+              <select class="select" id="auditoria-projeto" data-change="filtro-auditoria" data-campo="projeto_id"></select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-de">De</label>
+              <input class="input" type="date" id="auditoria-de" data-change="filtro-auditoria" data-campo="de" />
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-ate">Até</label>
+              <input class="input" type="date" id="auditoria-ate" data-change="filtro-auditoria" data-campo="ate" />
+            </div>
+          </div>
+
+          <div class="section__head">
+            <h3 class="section__title">
+              Alterações
+              <span class="count" id="conta-auditoria">0</span>
+            </h3>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Alterações registradas no sistema, com autor, ação, registro afetado e os valores antes e depois</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Quando</th>
+                  <th scope="col">Quem</th>
+                  <th scope="col">Ação</th>
+                  <th scope="col">Registro</th>
+                  <th scope="col">O que mudou</th>
+                  <th scope="col">Projeto</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-auditoria"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="paginacao-barra">
+          <p class="paginacao__info">
+            Mostrando <strong id="auditoria-intervalo">&mdash;</strong> alterações
+          </p>
+          <div class="paginacao">
+            <button type="button" class="btn btn--quiet btn--sm" id="auditoria-anterior"
+                    data-action="paginar-auditoria" data-direcao="anterior" disabled>Anterior</button>
+            <span class="paginacao__pagina" id="auditoria-pagina">página 1 de 1</span>
+            <button type="button" class="btn btn--quiet btn--sm" id="auditoria-proxima"
+                    data-action="paginar-auditoria" data-direcao="proxima" disabled>Próxima</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
   </main>
 </div>
 
+
+<!-- ===========================================================================
+     Tela de falha
+
+     Aparece quando o sistema nao consegue continuar: API fora do ar, 403, 500.
+     Fica por cima de tudo, inclusive da tela de entrada, e o codigo HTTP
+     aparece de proposito — e o que serve para pedir ajuda ou abrir chamado.
+     =========================================================================== -->
+<div class="falha" id="tela-falha" hidden>
+  <div class="falha__card" role="alert" aria-labelledby="falha-titulo">
+
+    <span class="falha__mark">
+      <svg class="ic ic--xl" aria-hidden="true"><use id="falha-icone" href="#i-circle-x" /></svg>
+    </span>
+
+    <p class="falha__codigo" id="falha-codigo">&mdash;</p>
+    <h1 class="falha__titulo" id="falha-titulo">&mdash;</h1>
+    <p class="falha__desc" id="falha-desc">&mdash;</p>
+
+    <p class="falha__detalhe" id="falha-detalhe" hidden>
+      <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+      <span id="falha-detalhe-texto"></span>
+    </p>
+
+    <div class="falha__acoes">
+      <button type="button" class="btn btn--primary" id="falha-repetir" data-action="tentar-de-novo">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        Tentar de novo
+      </button>
+      <button type="button" class="btn btn--quiet" id="falha-sair" data-action="sair">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-log-out" /></svg>
+        Sair
+      </button>
+    </div>
+
+    <p class="falha__dica" id="falha-dica" hidden>
+      <span id="falha-dica-texto"></span>
+    </p>
+  </div>
+</div>
 
 <!-- ===========================================================================
      Modais
@@ -413,7 +566,7 @@
       </button>
     </div>
     <div class="dialog__body">
-      <div class="metrics">
+<div class="metrics">
         <button type="button" class="metric" data-action="ir-para" data-target="espacos">
           <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg></span>
           <span class="metric__body">
@@ -437,6 +590,15 @@
           <span class="metric__body">
             <span class="metric__value" id="m-reservas">&mdash;</span>
             <span class="metric__label">Reservas em aberto</span>
+          </span>
+          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        </button>
+
+        <button type="button" class="metric" data-tone="busy" data-action="ir-para" data-target="reservas-pendente">
+          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-clock" /></svg></span>
+          <span class="metric__body">
+            <span class="metric__value" id="m-pendentes">&mdash;</span>
+            <span class="metric__label">Aguardando aprovação</span>
           </span>
           <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
         </button>
@@ -481,7 +643,7 @@
     </div>
 
     <div class="dialog__body dialog__body--flush">
-      <div class="section" id="sec-reservas">
+<div class="section" id="sec-reservas">
         <div class="section__head">
           <h3 class="section__title">
             Todas
@@ -536,13 +698,11 @@
 
 <!-- Usuarios -->
 <div class="scrim" id="modal-usuarios" hidden>
-  <div class="dialog dialog--wide" role="dialog" aria-modal="true" aria-labelledby="usuarios-titulo">
+  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="usuarios-titulo">
     <div class="dialog__head">
       <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-users" /></svg></span>
       <div class="dialog__heading">
-        <h2 class="dialog__title" id="usuarios-titulo">
-          Usuários <span class="count" id="conta-usuarios">0</span>
-        </h2>
+        <h2 class="dialog__title" id="usuarios-titulo">Usuários</h2>
         <p class="dialog__desc">Quem tem acesso ao sistema</p>
       </div>
       <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
@@ -553,8 +713,337 @@
         <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
       </button>
     </div>
+
+    <div class="dialog__body dialog__body--flush">
+<div class="section" id="sec-usuarios">
+        <div class="section__head">
+          <h3 class="section__title">
+            Todos
+            <span class="count" id="conta-usuarios">0</span>
+          </h3>
+          <div class="section__tools">
+            <div class="chips" role="tablist" aria-label="Filtrar usuários">
+              <button type="button" class="chip" role="tab" aria-selected="true"
+                      data-action="filtrar-usuarios" data-filtro="todos">Todos</button>
+              <button type="button" class="chip" role="tab" aria-selected="false"
+                      data-action="filtrar-usuarios" data-filtro="admin">Administradores</button>
+              <button type="button" class="chip" role="tab" aria-selected="false"
+                      data-action="filtrar-usuarios" data-filtro="pesquisador">Pesquisadores</button>
+              <button type="button" class="chip" role="tab" aria-selected="false"
+                      data-action="filtrar-usuarios" data-filtro="sem-senha">
+                Sem senha
+                <span class="chip__badge" id="badge-sem-senha" hidden>0</span>
+              </button>
+              <button type="button" class="chip" role="tab" aria-selected="false"
+                      data-action="filtrar-usuarios" data-filtro="inativo">Inativos</button>
+            </div>
+            <div class="search">
+              <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+              <input class="input" type="search" id="busca-usuarios"
+                     placeholder="Buscar por nome, e-mail, usuário, matrícula ou cargo"
+                     aria-label="Buscar usuário" />
+              <button type="button" class="search__clear" id="limpar-usuarios"
+                      data-action="limpar-busca" data-target="usuarios"
+                      aria-label="Limpar busca de usuários" hidden>
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <caption class="sr-only">Usuários com acesso ao sistema, com e-mail, cargo, perfil e situação do acesso</caption>
+            <thead>
+              <tr>
+                <th scope="col">Nome completo</th>
+                <th scope="col">E-mail</th>
+                <th scope="col">Usuário</th>
+                <th scope="col">Matrícula</th>
+                <th scope="col">Cargo</th>
+                <th scope="col">Perfil</th>
+                <th scope="col">Situação</th>
+                <th scope="col">Último acesso</th>
+                <th scope="col">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-usuarios"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Usuarios -->
+<!--
+  Tabela, nao cartoes: o sistema tem muito usuario e o que se procura aqui e
+  uma pessoa especifica — nome completo, e-mail, matricula e situacao do acesso
+  lado a lado, com busca e filtros. Mesmo tamanho e mesma estrutura do modal de
+  reservas, para as duas telas se lerem igual.
+-->
+<!-- Projetos: cadastro, equipe e permissoes por projeto -->
+<div class="scrim" id="modal-projetos" hidden>
+  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="projetos-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="projetos-titulo">Projetos</h2>
+        <p class="dialog__desc">Projetos de pesquisa, equipe e o que cada membro pode fazer</p>
+      </div>
+      <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-projeto">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
+        Novo projeto
+      </button>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar projetos">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body dialog__body--flush">
+      <div class="section" id="sec-projetos">
+        <div class="section__head">
+          <h3 class="section__title">
+            Todos
+            <span class="count" id="conta-projetos">0</span>
+          </h3>
+          <div class="section__tools">
+            <div class="search">
+              <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+              <input class="input" type="search" id="busca-projetos"
+                     placeholder="Buscar por codigo, titulo, responsavel ou situacao"
+                     aria-label="Buscar projeto" />
+              <button type="button" class="search__clear" id="limpar-projetos"
+                      data-action="limpar-busca-projetos"
+                      aria-label="Limpar busca de projetos" hidden>
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <caption class="sr-only">Projetos de pesquisa, com responsavel, situacao, periodo e acesso a equipe</caption>
+            <thead>
+              <tr>
+                <th scope="col">Codigo</th>
+                <th scope="col">Projeto</th>
+                <th scope="col">Responsavel</th>
+                <th scope="col">Situacao</th>
+                <th scope="col">Periodo</th>
+                <th scope="col">Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-projetos"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cadastro do projeto -->
+<div class="scrim" id="modal-projeto" hidden>
+  <div class="dialog dialog--form" role="dialog" aria-modal="true" aria-labelledby="proj-dialogo-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="proj-dialogo-titulo">Novo projeto</h2>
+        <p class="dialog__desc">
+          O responsavel entra na equipe como lider. Liderar nao da CRUD: as
+          permissoes sao concedidas uma a uma, em &ldquo;Equipe e permissoes&rdquo;.
+        </p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar cadastro de projeto">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-projeto" novalidate>
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="proj-codigo">Codigo</label>
+          <input class="input" type="text" id="proj-codigo" name="codigo" maxlength="40"
+                 placeholder="P-2026-01" autocomplete="off" spellcheck="false" required />
+          <p class="field__hint">Identificacao curta do projeto; nao pode repetir.</p>
+        </div>
+        <div class="field">
+          <label class="field__label" for="proj-titulo">Titulo</label>
+          <input class="input" type="text" id="proj-titulo" name="titulo" maxlength="200"
+                 placeholder="Tolerancia a seca em feijao-caupi" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="proj-descricao">
+          Descricao <span class="field__opcional">opcional</span>
+        </label>
+        <textarea class="input" id="proj-descricao" name="descricao" rows="3"
+                  placeholder="O que o projeto investiga"></textarea>
+      </div>
+
+      <div class="form-cols">
+        <fieldset class="fieldset">
+          <legend class="fieldset__legend">Responsabilidade</legend>
+
+          <div class="field">
+            <label class="field__label" for="proj-responsavel">Pesquisador responsavel</label>
+            <select class="select" id="proj-responsavel" name="funcionario_id" required></select>
+            <p class="field__hint">Entra na equipe como lider do projeto.</p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="proj-status">Situacao</label>
+            <select class="select" id="proj-status" name="status_projeto_id" required></select>
+            <p class="field__hint">Suspenso, concluido e cancelado nao aceitam novas reservas.</p>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend class="fieldset__legend">Periodo</legend>
+
+          <div class="field">
+            <label class="field__label" for="proj-inicio">
+              Inicio <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="date" id="proj-inicio" name="data_inicio" />
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="proj-fim">
+              Fim <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="date" id="proj-fim" name="data_fim" />
+          </div>
+        </fieldset>
+      </div>
+
+      <p class="field__error" id="proj-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="proj-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" form="form-projeto">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        <span id="proj-enviar-texto">Criar projeto</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Equipe do projeto -->
+<div class="scrim" id="modal-equipe" hidden>
+  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="equipe-projeto-nome">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-users" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="equipe-projeto-nome">Equipe</h2>
+        <p class="dialog__desc" id="equipe-projeto-desc">&mdash;</p>
+      </div>
+      <button type="button" class="btn btn--quiet btn--sm" data-action="voltar-projetos">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        Projetos
+      </button>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar equipe">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body dialog__body--flush">
+      <div class="section" id="sec-equipe">
+        <div class="section__head">
+          <h3 class="section__title">
+            Membros
+            <span class="count" id="conta-equipe">0</span>
+          </h3>
+        </div>
+
+        <!--
+          Incluir alguem e um ato so: pessoa, papel e, se quiser, a funcao no
+          projeto. Entra SEM permissao nenhuma, de proposito: conceder CRUD e
+          um segundo passo, explicito, em "Permissoes".
+        -->
+        <form class="barra-inclusao" id="form-equipe-membro" novalidate>
+          <div class="field">
+            <label class="field__label" for="equipe-novo-membro">Incluir na equipe</label>
+            <select class="select" id="equipe-novo-membro"></select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="equipe-novo-papel">Papel</label>
+            <select class="select" id="equipe-novo-papel">
+              <option value="PESQUISADOR">Pesquisador</option>
+              <option value="LIDER">Lider</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="equipe-nova-funcao">
+              Funcao <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="text" id="equipe-nova-funcao" maxlength="80"
+                   placeholder="bolsista, tecnico..." autocomplete="off" />
+          </div>
+          <button type="submit" class="btn btn--primary">
+            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
+            Incluir
+          </button>
+        </form>
+
+        <div class="table-wrap">
+          <table class="table">
+            <caption class="sr-only">Membros da equipe do projeto, com papel, funcao e quantas permissoes cada um tem</caption>
+            <thead>
+              <tr>
+                <th scope="col">Membro</th>
+                <th scope="col">Papel</th>
+                <th scope="col">Funcao</th>
+                <th scope="col">Permissoes</th>
+                <th scope="col">Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-equipe"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Permissoes do membro naquele projeto -->
+<div class="scrim" id="modal-permissoes" hidden>
+  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="perm-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-shield-user" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="perm-titulo">Permissoes</h2>
+        <p class="dialog__desc" id="perm-desc">&mdash;</p>
+      </div>
+      <button type="button" class="btn btn--quiet btn--sm" data-action="voltar-equipe">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        Equipe
+      </button>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar permissoes">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
     <div class="dialog__body">
-      <div class="users-grid" id="grid-usuarios"></div>
+      <div class="form-cols perm-grupos" id="perm-grupos"></div>
+    </div>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="sugerir-permissoes">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-check" /></svg>
+        Sugerir pelo papel
+      </button>
+      <button type="button" class="btn btn--quiet" data-action="voltar-equipe">Cancelar</button>
+      <button type="button" class="btn btn--primary" data-action="salvar-permissoes">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        Salvar permissoes
+      </button>
     </div>
   </div>
 </div>
@@ -578,6 +1067,16 @@
 
     <form class="dialog__body" id="form-novo-usuario" novalidate>
       <div class="field">
+        <label class="field__label" for="novo-usuario-nome">Nome completo</label>
+        <input class="input" type="text" id="novo-usuario-nome" name="nome"
+               maxlength="150" placeholder="Ana Paula Ribeiro" autocomplete="off"
+               aria-describedby="novo-usuario-nome-ajuda" required />
+        <p class="field__hint" id="novo-usuario-nome-ajuda">
+          É este nome que aparece na lista de usuários e nas reservas.
+        </p>
+      </div>
+
+      <div class="field">
         <label class="field__label" for="novo-usuario-email">E-mail</label>
         <input class="input" type="email" id="novo-usuario-email" name="email"
                placeholder="nome@embrapa.br" autocomplete="off" autocapitalize="none"
@@ -587,6 +1086,43 @@
           <span id="novo-usuario-erro-texto"></span>
         </p>
       </div>
+
+      <!--
+        Usuario, matricula e cargo: o back-end sempre aceitou os tres, e o
+        formulario nunca os enviava. Por isso as colunas Matricula e Cargo da
+        tabela de usuarios ficavam em "—" e o login era deduzido do e-mail,
+        sem ninguem poder escolher.
+      -->
+      <fieldset class="fieldset">
+        <legend class="fieldset__legend">Dados funcionais</legend>
+
+        <div class="field-row">
+          <div class="field">
+            <label class="field__label" for="novo-usuario-nick">Usuário</label>
+            <input class="input" type="text" id="novo-usuario-nick" name="nick"
+                   maxlength="30" placeholder="ana.paula" autocomplete="off"
+                   autocapitalize="none" spellcheck="false"
+                   aria-describedby="novo-usuario-nick-ajuda" />
+            <p class="field__hint" id="novo-usuario-nick-ajuda">
+              Em branco, sai do e-mail. É o que se digita para entrar.
+            </p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="novo-usuario-matricula">
+              Matrícula <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="text" id="novo-usuario-matricula" name="matricula"
+                   maxlength="20" placeholder="123.456-7" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="novo-usuario-cargo">
+            Cargo <span class="field__opcional">opcional</span>
+          </label>
+          <select class="select" id="novo-usuario-cargo" name="cargo_id"></select>
+        </div>
+      </fieldset>
 
       <p class="field__hint">
         O usuário é cadastrado sem senha: ele recebe neste e-mail um link para
@@ -619,9 +1155,219 @@
   </div>
 </div>
 
+<!-- Editar usuario -->
+<div class="scrim" id="modal-usuario-editar" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="editar-usuario-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-user" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="editar-usuario-titulo">&mdash;</h2>
+        <p class="dialog__desc" id="editar-usuario-desc">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar edição de usuário">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-editar-usuario" novalidate>
+
+      <div class="resumo" id="editar-usuario-resumo">
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Acesso</span>
+          <span class="resumo__valor" id="editar-usuario-situacao">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Último acesso</span>
+          <span class="resumo__valor" id="editar-usuario-acesso">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Projetos</span>
+          <span class="resumo__valor" id="editar-usuario-projetos">&mdash;</span>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="editar-usuario-nome">Nome completo</label>
+          <input class="input" type="text" id="editar-usuario-nome" maxlength="150" required />
+          <p class="field__hint">Corrigir aqui corrige nas reservas e no histórico.</p>
+        </div>
+        <div class="field">
+          <label class="field__label" for="editar-usuario-email">E-mail</label>
+          <input class="input" type="email" id="editar-usuario-email" autocapitalize="none"
+                 spellcheck="false" required />
+          <p class="field__hint">Trocar o e-mail não troca o usuário de login.</p>
+        </div>
+      </div>
+
+      <fieldset class="fieldset">
+        <legend class="fieldset__legend">Dados funcionais</legend>
+        <div class="field-row">
+          <div class="field">
+            <label class="field__label" for="editar-usuario-nick">Usuário</label>
+            <input class="input" type="text" id="editar-usuario-nick" maxlength="30"
+                   autocapitalize="none" spellcheck="false" required />
+            <p class="field__hint">Mudar isto muda como a pessoa entra.</p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="editar-usuario-matricula">
+              Matrícula <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="text" id="editar-usuario-matricula" maxlength="20" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="editar-usuario-cargo">
+            Cargo <span class="field__opcional">opcional</span>
+          </label>
+          <select class="select" id="editar-usuario-cargo"></select>
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <span class="field__label" id="editar-usuario-perfil-titulo">Perfil de acesso</span>
+        <div class="segmented" role="radiogroup" aria-labelledby="editar-usuario-perfil-titulo" id="editar-usuario-perfil">
+          <button type="button" class="segmented__option" role="radio" aria-checked="true" data-papel="pesquisador">
+            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg>
+            Pesquisador
+          </button>
+          <button type="button" class="segmented__option" role="radio" aria-checked="false" data-papel="admin">
+            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-user" /></svg>
+            Administrador
+          </button>
+        </div>
+      </div>
+
+      <p class="field__aviso">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-check" /></svg>
+        A senha não aparece aqui, para ninguém. Para a pessoa definir outra, use
+        &ldquo;Convite&rdquo; na lista de usuários.
+      </p>
+
+      <p class="field__error" id="editar-usuario-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="editar-usuario-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" id="editar-usuario-enviar" form="form-editar-usuario">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        Salvar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Editar reserva -->
+<div class="scrim" id="modal-reserva-editar" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="editar-reserva-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-calendar-check" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="editar-reserva-titulo">&mdash;</h2>
+        <p class="dialog__desc" id="editar-reserva-desc">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar edição de reserva">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-editar-reserva" novalidate>
+
+      <div class="resumo">
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Situação</span>
+          <span class="resumo__valor" id="editar-reserva-status">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Responsável</span>
+          <span class="resumo__valor" id="editar-reserva-responsavel">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Capacidade do espaço</span>
+          <span class="resumo__valor" id="editar-reserva-capacidade">&mdash;</span>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="editar-reserva-inicio">Início</label>
+          <input class="input" type="date" id="editar-reserva-inicio" required />
+        </div>
+        <div class="field">
+          <label class="field__label" for="editar-reserva-fim">Fim</label>
+          <input class="input" type="date" id="editar-reserva-fim" required />
+        </div>
+      </div>
+
+      <p class="field__aviso" id="editar-reserva-disponibilidade" aria-live="polite" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        <span id="editar-reserva-disponibilidade-texto"></span>
+      </p>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="editar-reserva-quantidade">Quantidade</label>
+          <div class="field__inline">
+            <input class="input" type="number" id="editar-reserva-quantidade" min="1" required />
+            <span class="field__sufixo" id="editar-reserva-unidade">vasos</span>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="editar-reserva-finalidade">Finalidade</label>
+          <input class="input" type="text" id="editar-reserva-finalidade" maxlength="255"
+                 list="lista-finalidades" autocomplete="off" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="editar-reserva-obs">
+          Observações <span class="field__opcional">opcional</span>
+        </label>
+        <textarea class="input" id="editar-reserva-obs" rows="2"></textarea>
+      </div>
+
+      <p class="field__aviso" data-tom="atencao">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        Mudar período ou quantidade devolve a reserva para pendente: a aprovação
+        valia para o que foi aprovado, e a capacidade é conferida de novo.
+      </p>
+
+      <p class="field__error" id="editar-reserva-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="editar-reserva-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot dialog__foot--espalhado">
+      <button type="button" class="btn btn--danger btn--sm" data-action="excluir-reserva-aberta">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-trash-2" /></svg>
+        Excluir reserva
+      </button>
+      <div class="dialog__foot-acoes">
+        <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+        <button type="submit" class="btn btn--primary" id="editar-reserva-enviar" form="form-editar-reserva">
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+          Salvar alterações
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Alterar / cadastrar espaço -->
+<!--
+  Duas colunas de assunto em vez de quatro linhas de dois campos: antes cada
+  linha tinha um campo com texto de ajuda e outro sem, e o curto deixava um
+  buraco do tamanho da ajuda do vizinho. Agora identificação e capacidade ficam
+  cada uma no seu bloco, da mesma altura, e a faixa do topo mostra a ocupação
+  da estufa escolhida — que era a informação que faltava para decidir.
+-->
 <div class="scrim" id="modal-espaco" hidden>
-  <div class="dialog dialog--wide" role="dialog" aria-modal="true" aria-labelledby="espaco-titulo">
+  <div class="dialog dialog--form" role="dialog" aria-modal="true" aria-labelledby="espaco-titulo">
     <div class="dialog__head">
       <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg></span>
       <div class="dialog__heading">
@@ -638,9 +1384,9 @@
     <form class="dialog__body" id="form-espaco" novalidate>
       <!--
         As estufas do Cenargen são 50, nem mais nem menos: o caminho normal
-        aqui é ESCOLHER uma e alterar o cadastro dela, não inventar a 51ª.
-        Por isso o próprio campo de código sugere o que já existe: digitar
-        "CVG0" lista as estufas e escolher uma traz o cadastro inteiro.
+        aqui é ESCOLHER uma e alterar o cadastro dela. Por isso o campo de
+        código sugere o que já existe — digitar "CVG0" lista as estufas e
+        escolher uma traz o cadastro inteiro.
       -->
       <div class="field-row">
         <div class="field">
@@ -656,8 +1402,7 @@
                 aria-label="Estufas que casam com o código digitado" hidden></ul>
           </div>
           <p class="field__hint" id="espaco-codigo-ajuda">
-            Digite <strong>CVG0</strong> e escolha na lista: os campos abaixo vêm
-            com o cadastro atual. O número define a posição no mapa.
+            Digite <strong>CVG0</strong> e escolha na lista. O número define a posição no mapa.
           </p>
         </div>
         <div class="field">
@@ -669,86 +1414,109 @@
 
       <p class="combo__alvo" id="espaco-alvo" aria-live="polite"></p>
 
-      <div class="field-row">
-        <div class="field">
-          <label class="field__label" for="espaco-tipo">Tipo</label>
-          <!--
-            Texto livre de propósito: a administração escreve o tipo que o
-            espaço tem, não o que uma lista nossa previu. O datalist só sugere
-            o que já existe no cadastro — não limita o que se pode digitar.
-          -->
-          <input class="input" type="text" id="espaco-tipo" name="tipo" maxlength="60"
-                 list="lista-tipos-espaco" autocomplete="off"
-                 placeholder="Casa de vegetação" aria-describedby="espaco-tipo-ajuda" />
-          <datalist id="lista-tipos-espaco"></datalist>
-          <p class="field__hint" id="espaco-tipo-ajuda">
-            Escreva como quiser; as sugestões são só os tipos já usados.
-          </p>
+      <!-- Como está a estufa escolhida, hoje. Só aparece depois da escolha. -->
+      <div class="resumo" id="espaco-resumo" hidden>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Capacidade</span>
+          <span class="resumo__valor" id="espaco-resumo-capacidade">&mdash;</span>
         </div>
-        <div class="field">
-          <label class="field__label" for="espaco-localizacao">
-            Setor <span class="field__opcional">opcional</span>
-          </label>
-          <input class="input" type="text" id="espaco-localizacao" name="localizacao"
-                 maxlength="60" list="lista-setores-espaco" autocomplete="off"
-                 placeholder="Setor Norte" />
-          <datalist id="lista-setores-espaco"></datalist>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Em uso hoje</span>
+          <span class="resumo__valor" id="espaco-resumo-ocupado">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Livre hoje</span>
+          <span class="resumo__valor" id="espaco-resumo-livre">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Reservas vigentes</span>
+          <span class="resumo__valor" id="espaco-resumo-reservas">&mdash;</span>
         </div>
       </div>
 
-      <div class="field-row">
-        <div class="field">
-          <label class="field__label" for="espaco-capacidade-total">Capacidade reservável</label>
-          <div class="field__inline">
-            <input class="input input--numero" type="number" id="espaco-capacidade-total"
-                   name="capacidade_total" min="0" step="1" value="0" required
-                   aria-describedby="espaco-capacidade-ajuda" />
-            <select class="select" id="espaco-unidade" name="unidade_capacidade"
-                    aria-label="Unidade da capacidade">
-              <option value="VASO">vasos</option>
-              <option value="BANCADA">bancadas</option>
-            </select>
+      <div class="form-cols">
+        <fieldset class="fieldset">
+          <legend class="fieldset__legend">Identificação</legend>
+
+          <div class="field">
+            <label class="field__label" for="espaco-tipo">Tipo</label>
+            <!--
+              Texto livre de propósito: a administração escreve o tipo que o
+              espaço tem, não o que uma lista nossa previu. O datalist sugere o
+              que já existe no cadastro e não limita a digitação.
+            -->
+            <input class="input" type="text" id="espaco-tipo" name="tipo" maxlength="60"
+                   list="lista-tipos-espaco" autocomplete="off"
+                   placeholder="Casa de vegetação" aria-describedby="espaco-tipo-ajuda" />
+            <datalist id="lista-tipos-espaco"></datalist>
+            <p class="field__hint" id="espaco-tipo-ajuda">Texto livre; a lista só sugere.</p>
           </div>
-          <p class="field__hint" id="espaco-capacidade-ajuda">
-            É esta quantidade que as reservas consomem. Reduzir abaixo do que já
-            está reservado é recusado pelo sistema.
-          </p>
-        </div>
-        <div class="field">
-          <label class="field__label" for="espaco-area">
-            Área em m² <span class="field__opcional">opcional</span>
-          </label>
-          <input class="input input--numero" type="number" id="espaco-area" name="area_m2"
-                 min="0" step="1" placeholder="204" />
-        </div>
-      </div>
 
-      <div class="field-row">
-        <div class="field">
-          <label class="field__label" for="espaco-bancadas">
-            Bancadas <span class="field__opcional">opcional</span>
-          </label>
-          <input class="input input--numero" type="number" id="espaco-bancadas" name="capacidade"
-                 min="0" step="1" placeholder="4" aria-describedby="espaco-bancadas-ajuda" />
-          <p class="field__hint" id="espaco-bancadas-ajuda">
-            Só informativo, quando a capacidade é contada em vasos.
-          </p>
-        </div>
-        <div class="field">
-          <label class="field__label" for="espaco-situacao">Situação</label>
-          <select class="select" id="espaco-situacao" name="status"
-                  aria-describedby="espaco-situacao-ajuda">
-            <option value="ATIVA">Disponível para reserva</option>
-            <option value="RESERVADA">Reservada</option>
-            <option value="OCUPADA">Ocupada</option>
-            <option value="MANUTENCAO">Em manutenção</option>
-            <option value="INATIVA">Inativa</option>
-          </select>
-          <p class="field__hint" id="espaco-situacao-ajuda">
-            Reservada e ocupada seguram a estufa sem precisar criar reserva.
-            Só “disponível para reserva” aceita pedido novo.
-          </p>
-        </div>
+          <div class="field">
+            <label class="field__label" for="espaco-localizacao">
+              Setor <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="text" id="espaco-localizacao" name="localizacao"
+                   maxlength="60" list="lista-setores-espaco" autocomplete="off"
+                   placeholder="Setor Norte" />
+            <datalist id="lista-setores-espaco"></datalist>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="espaco-area">
+              Área em m² <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input input--numero" type="number" id="espaco-area" name="area_m2"
+                   min="0" step="1" placeholder="204" />
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend class="fieldset__legend">Capacidade e situação</legend>
+
+          <div class="field">
+            <label class="field__label" for="espaco-capacidade-total">Capacidade reservável</label>
+            <div class="field__inline">
+              <input class="input input--numero" type="number" id="espaco-capacidade-total"
+                     name="capacidade_total" min="0" step="1" value="0" required
+                     aria-describedby="espaco-capacidade-ajuda" />
+              <select class="select" id="espaco-unidade" name="unidade_capacidade"
+                      aria-label="Unidade da capacidade">
+                <option value="VASO">vasos</option>
+                <option value="BANCADA">bancadas</option>
+              </select>
+            </div>
+            <p class="field__hint" id="espaco-capacidade-ajuda">
+              É o que as reservas consomem. Reduzir abaixo do que já está reservado é recusado.
+            </p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="espaco-bancadas">
+              Bancadas <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input input--numero" type="number" id="espaco-bancadas" name="capacidade"
+                   min="0" step="1" placeholder="4" aria-describedby="espaco-bancadas-ajuda" />
+            <p class="field__hint" id="espaco-bancadas-ajuda">
+              Informativo, quando a capacidade é contada em vasos.
+            </p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="espaco-situacao">Situação</label>
+            <select class="select" id="espaco-situacao" name="status"
+                    aria-describedby="espaco-situacao-ajuda">
+              <option value="ATIVA">Disponível para reserva</option>
+              <option value="RESERVADA">Reservada</option>
+              <option value="OCUPADA">Ocupada</option>
+              <option value="MANUTENCAO">Em manutenção</option>
+              <option value="INATIVA">Inativa</option>
+            </select>
+            <p class="field__hint" id="espaco-situacao-ajuda">
+              Reservada e ocupada seguram a estufa sem criar reserva. Só a primeira aceita pedido novo.
+            </p>
+          </div>
+        </fieldset>
       </div>
 
       <div class="field">
@@ -844,20 +1612,22 @@
       </p>
 
       <div class="field">
-        <label class="field__label" for="reservar-projeto">
-          Projeto <span class="field__opcional">opcional</span>
-        </label>
+        <label class="field__label" for="reservar-projeto">Projeto</label>
         <input class="input" type="text" id="reservar-projeto" name="projeto_id"
-               list="lista-projetos" placeholder="Código ou id do projeto"
+               list="lista-projetos" placeholder="Comece a digitar o código ou o nome"
                autocomplete="off" />
-        <!-- Preenchida a partir de GET /projetos quando a API estiver ligada. -->
+        <!-- Preenchida em views/reservas.ts com os projetos em que você pode reservar. -->
         <datalist id="lista-projetos"></datalist>
+        <p class="field__hint" id="reservar-projeto-ajuda">Aparecem só os projetos em que você pode reservar.</p>
       </div>
 
       <div class="field">
         <label class="field__label" for="reservar-finalidade">Finalidade</label>
         <input class="input" type="text" id="reservar-finalidade" name="finalidade"
+               list="lista-finalidades" autocomplete="off"
                placeholder="Para que o espaço será usado" required />
+        <!-- Sugestões do que já foi usado antes, montadas em views/reservas.ts -->
+        <datalist id="lista-finalidades"></datalist>
       </div>
 
       <div class="field">
@@ -933,6 +1703,11 @@
 
     <div class="dialog__foot">
       <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
+      <button type="button" class="btn btn--quiet" id="ver-reserva-editar"
+              data-action="editar-reserva-atual">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-wrench" /></svg>
+        Editar
+      </button>
       <button type="button" class="btn btn--danger" id="ver-reserva-cancelar"
               data-action="cancelar-reserva-atual">
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-x" /></svg>

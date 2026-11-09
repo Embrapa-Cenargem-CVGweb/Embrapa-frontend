@@ -16,21 +16,23 @@ import {
   aceitaReserva,
   carregarEstado,
   invalidarEstado,
-  proximoIdReserva,
-  recalcularOcupacao,
   reservas,
-  salvarEstado,
 } from '../data/estufas';
 import { dadosMudaram } from '../lib/bus';
 import { el, setText, show } from '../lib/dom';
 import { html, icone } from '../lib/html';
 import { capacidade, dataBR, hojeISO, ocupacaoResumo, plural, statusPill } from '../lib/format';
-import { abrirModal, fecharModal, fecharTodosModais } from '../lib/modal';
+import { abrirModal, confirmar, fecharModal, fecharTodosModais, trocarModal } from '../lib/modal';
 import { aviso } from '../lib/toast';
-import { MODO_DEMO } from '../lib/ambiente';
-import { cancelarReserva as apiCancelar, criarReserva, getDisponibilidade } from '../services/api';
+import {
+  cancelarReserva as apiCancelar,
+  atualizarReserva,
+  criarReserva,
+  excluirReserva,
+  getContexto,
+  getDisponibilidade,
+} from '../services/api';
 import { fecharPainel } from './mapa';
-import { usuarioAtual } from './login';
 
 /** Espaço que o modal de reserva está preenchendo. */
 let espacoDaReserva: string | null = null;
@@ -38,6 +40,115 @@ let espacoDaReserva: string | null = null;
 let reservaAberta: string | null = null;
 /** Evita que duas confirmações saiam juntas no clique repetido. */
 let enviando = false;
+
+/* ---------------------------------------------------------------------------
+   Projetos e finalidades do formulário
+
+   O campo de projeto era texto livre e o back-end espera o id — digitar o
+   nome do projeto virava "campo obrigatório" sem explicação. Agora é uma
+   escolha entre os projetos em que a pessoa PODE reservar, que é onde a
+   permissão mora.
+   ------------------------------------------------------------------------ */
+
+interface ProjetoDoCampo {
+  id: number;
+  codigo: string;
+  titulo: string;
+}
+
+let projetosDoCampo: ProjetoDoCampo[] | null = null;
+let carregandoProjetos = false;
+
+async function garantirProjetos(): Promise<ProjetoDoCampo[]> {
+  if (projetosDoCampo) return projetosDoCampo;
+
+  const contexto = await getContexto();
+  projetosDoCampo = contexto.projetos
+    .filter((p) => contexto.adm || p.permissoes.includes('reserva.criar'))
+    .map((p) => ({ id: p.id, codigo: p.codigo, titulo: p.titulo }));
+
+  return projetosDoCampo;
+}
+
+/** Enche o datalist do campo de projeto: o código sugere, o título explica. */
+function pintarProjetos(lista: ProjetoDoCampo[]): void {
+  const sugestoes = el('lista-projetos');
+  const ajuda = el('reservar-projeto-ajuda');
+
+  if (sugestoes) {
+    sugestoes.innerHTML = '';
+    for (const p of lista) {
+      const opcao = document.createElement('option');
+      opcao.value = p.codigo;
+      opcao.label = p.titulo;
+      opcao.textContent = p.titulo;
+      sugestoes.appendChild(opcao);
+    }
+  }
+
+  if (ajuda) {
+    ajuda.textContent = lista.length
+      ? 'Aparecem só os projetos em que você pode reservar.'
+      : 'Você ainda não tem permissão de reserva em nenhum projeto. Procure a administração.';
+  }
+}
+
+/**
+ * Descobre qual projeto a pessoa escreveu. Aceita o código, o título ou o id,
+ * sem diferenciar maiúscula, acento ou espaço sobrando — o campo é livre, e
+ * quem decide é a comparação, não a digitação exata.
+ */
+function acharProjeto(texto: string): ProjetoDoCampo | null {
+  const alvo = normalizar(texto);
+  if (!alvo) return null;
+
+  const lista = projetosDoCampo ?? [];
+
+  return lista.find((p) => normalizar(p.codigo) === alvo)
+    ?? lista.find((p) => normalizar(p.titulo) === alvo)
+    ?? lista.find((p) => String(p.id) === alvo)
+    ?? lista.find((p) => normalizar(`${p.codigo} — ${p.titulo}`) === alvo)
+    ?? null;
+}
+
+function normalizar(texto: string): string {
+  return texto.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Sugestões de finalidade: o que já foi usado nas reservas. */
+function pintarFinalidades(): void {
+  const lista = el('lista-finalidades');
+  if (!lista) return;
+
+  const usadas = reservas.map((r) => (r.finalidade ?? '').trim()).filter(Boolean);
+  const todas = [...new Set(usadas)]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  lista.innerHTML = '';
+  for (const texto of todas) {
+    const opcao = document.createElement('option');
+    opcao.value = texto;
+    lista.appendChild(opcao);
+  }
+}
+
+/** Carrega os projetos em segundo plano e repinta quando chegarem. */
+function prepararCamposDaReserva(): void {
+  pintarFinalidades();
+
+  if (projetosDoCampo) {
+    pintarProjetos(projetosDoCampo);
+    return;
+  }
+
+  if (carregandoProjetos) return;
+  carregandoProjetos = true;
+
+  void garantirProjetos()
+    .then(pintarProjetos)
+    .catch(() => pintarProjetos([]))
+    .finally(() => { carregandoProjetos = false; });
+}
 
 /* ---------------------------------------------------------------------------
    Rascunho da reserva
@@ -141,7 +252,7 @@ function restaurarRascunho(estufaId: string): boolean {
 }
 
 /** Joga fora o rascunho de um espaço. */
-export function descartarRascunhoDaReserva(estufaId = espacoDaReserva): void {
+function descartarRascunhoDaReserva(estufaId = espacoDaReserva): void {
   if (!estufaId) return;
   const mapa = lerRascunhos();
   if (!(estufaId in mapa)) return;
@@ -201,6 +312,7 @@ export function abrirModalReservar(estufaId: string): void {
   if (marca) marca.innerHTML = html`${icone(estufa.icon)}`;
 
   el<HTMLFormElement>('form-reservar')?.reset();
+  prepararCamposDaReserva();
 
   // A quantidade nasce em 1 e não passa do que está livre hoje.
   const quantidade = el<HTMLInputElement>('reservar-quantidade');
@@ -259,7 +371,7 @@ function mostrarAviso(mensagem: string | null, tom: 'ok' | 'erro' = 'ok'): void 
  * tempo de corrigir ("só 10 de 20 vasos disponíveis; os outros estão com...").
  */
 export async function consultarDisponibilidade(): Promise<void> {
-  if (!espacoDaReserva || MODO_DEMO) return;
+  if (!espacoDaReserva) return;
 
   const estufa = ESTUFAS[espacoDaReserva];
   const casaId = ID_REAL_ESPACO[espacoDaReserva];
@@ -305,6 +417,22 @@ export async function confirmarReserva(): Promise<void> {
     return;
   }
 
+  const campoProjeto = el<HTMLInputElement>('reservar-projeto');
+  const projetoEscolhido = acharProjeto(projeto);
+
+  if (!projetoEscolhido) {
+    campoProjeto?.setAttribute('aria-invalid', 'true');
+    campoProjeto?.focus();
+    aviso(
+      projeto
+        ? `Não achei o projeto "${projeto}". Escolha um da lista que aparece ao digitar.`
+        : 'Informe o projeto da reserva.',
+      'error',
+    );
+    return;
+  }
+  campoProjeto?.removeAttribute('aria-invalid');
+
   const campoQuantidade = el<HTMLInputElement>('reservar-quantidade');
   if (quantidade < 1) {
     campoQuantidade?.setAttribute('aria-invalid', 'true');
@@ -328,19 +456,10 @@ export async function confirmarReserva(): Promise<void> {
   if (botao) botao.disabled = true;
 
   try {
-    if (MODO_DEMO) {
-      reservarLocal(espacoDaReserva, { inicio, fim, projeto, finalidade, obs, quantidade });
-      aviso(
-        `${estufa.nome} reservada: ${capacidade(quantidade, estufa.unidade)}. `
-        + 'A reserva entra como pendente de aprovação.',
-        'success',
-      );
-    } else {
-      const mensagem = await reservarNaApi(espacoDaReserva, {
-        inicio, fim, projeto, finalidade, obs, quantidade,
-      });
-      aviso(mensagem, 'success');
-    }
+    const mensagem = await reservarNaApi(espacoDaReserva, {
+      inicio, fim, projeto: String(projetoEscolhido.id), finalidade, obs, quantidade,
+    });
+    aviso(mensagem, 'success');
   } catch (erro) {
     // A mensagem do back-end é a boa: diz quanto sobrou e com quem está.
     const mensagem = erro instanceof Error ? erro.message : 'Não foi possível reservar.';
@@ -371,34 +490,6 @@ interface DadosReserva {
   quantidade: number;
 }
 
-/** Modo demonstração: a reserva vive na memória e no localStorage. */
-function reservarLocal(estufaId: string, dados: DadosReserva): void {
-  const estufa = ESTUFAS[estufaId];
-
-  if (dados.quantidade > estufa.disponivel) {
-    throw new Error(
-      `${estufa.nome}: só ${ocupacaoResumo(estufa.disponivel, estufa.capacidadeTotal, estufa.unidade)} `
-      + `no momento. Você pediu ${capacidade(dados.quantidade, estufa.unidade)}.`,
-    );
-  }
-
-  reservas.push({
-    id: proximoIdReserva(),
-    estufaId,
-    data: dados.inicio,
-    dataFim: dados.fim,
-    quantidade: dados.quantidade,
-    projeto: dados.projeto,
-    finalidade: dados.finalidade,
-    obs: dados.obs,
-    pesquisador: usuarioAtual()?.nome ?? '',
-    status: 'pendente',
-  });
-
-  recalcularOcupacao();
-  salvarEstado();
-}
-
 /** Grava a reserva no banco e recarrega o estado do que a API respondeu. */
 async function reservarNaApi(estufaId: string, dados: DadosReserva): Promise<string> {
   const casaId = ID_REAL_ESPACO[estufaId];
@@ -411,8 +502,8 @@ async function reservarNaApi(estufaId: string, dados: DadosReserva): Promise<str
     data_fim: dados.fim,
     finalidade: dados.finalidade,
     obs: dados.obs || undefined,
-    // O campo de projeto aceita o id numérico do projeto; em branco, sem vínculo.
-    projeto_id: /^\d+$/.test(dados.projeto) ? Number(dados.projeto) : null,
+    // O select guarda o id do projeto; a reserva precisa dele para a permissão.
+    projeto_id: Number(dados.projeto),
   });
 
   invalidarEstado();
@@ -475,20 +566,10 @@ export async function cancelarReservaAberta(): Promise<void> {
   aviso(`Reserva ${reserva.id} cancelada; a capacidade voltou a ficar disponível.`, 'info');
 }
 
-/**
- * Cancela onde for o caso: no banco, com a API; na memória, no modo
- * demonstração. Usado também pela administração.
- */
+/** Cancela a reserva no banco. Usado também pela administração. */
 export async function cancelarNoDestino(codigo: string, motivo?: string): Promise<void> {
   const reserva = reservas.find((r) => r.id === codigo);
   if (!reserva) return;
-
-  if (MODO_DEMO) {
-    reserva.status = 'cancelada';
-    recalcularOcupacao();
-    salvarEstado();
-    return;
-  }
 
   const id = ID_REAL_RESERVA[codigo];
   if (!id) throw new Error('Reserva sem vínculo com o cadastro; recarregue a página.');
@@ -496,4 +577,258 @@ export async function cancelarNoDestino(codigo: string, motivo?: string): Promis
   await apiCancelar(id, motivo);
   invalidarEstado();
   await carregarEstado('manter');
+}
+
+
+/* ===========================================================================
+   Editar e excluir reserva
+
+   `PUT` e `DELETE /api/reservas/{id}` sempre existiram sem tela: esticar uma
+   reserva em dois dias obrigava a cancelar e pedir de novo, e no intervalo
+   entre as duas coisas a capacidade ficava livre para outro pesquisador tomar.
+
+   O projeto não é editável aqui de propósito: é ele que decide de quem são as
+   permissões sobre a reserva, e trocá-lo no meio do caminho mudaria quem pode
+   aprovar e cancelar o que já está em andamento. Para isso, cancela e pede de
+   novo no projeto certo.
+   ======================================================================== */
+
+/** Reserva aberta no formulário de edição. */
+let reservaEmEdicao: string | null = null;
+
+/** Botão "Editar" da ficha da reserva, aberta pelo mapa. */
+export function editarReservaAberta(): void {
+  if (reservaAberta) abrirEditarReserva(reservaAberta);
+}
+
+export function abrirEditarReserva(codigo: string): void {
+  const reserva = reservas.find((r) => r.id === codigo);
+  if (!reserva) return;
+
+  const estufa = ESTUFAS[reserva.estufaId];
+
+  if (reserva.status === 'cancelada') {
+    aviso('Reserva cancelada não é editada: faça um novo pedido.', 'error');
+    return;
+  }
+
+  reservaEmEdicao = codigo;
+
+  setText('editar-reserva-titulo', `Reserva ${reserva.id}`);
+  setText(
+    'editar-reserva-desc',
+    estufa
+      ? `${estufa.codigo} — ${estufa.nome}${reserva.projeto ? ` · ${reserva.projeto}` : ''}`
+      : reserva.estufaId,
+  );
+
+  const status = el('editar-reserva-status');
+  if (status) status.innerHTML = html`${statusPill(reserva.status)}`;
+
+  setText('editar-reserva-responsavel', reserva.pesquisador || 'não informado');
+  setText(
+    'editar-reserva-capacidade',
+    estufa ? capacidade(estufa.capacidadeTotal, estufa.unidade) : '—',
+  );
+  setText('editar-reserva-unidade', estufa?.unidade === 'BANCADA' ? 'bancadas' : 'vasos');
+
+  preencher('editar-reserva-inicio', reserva.data);
+  preencher('editar-reserva-fim', reserva.dataFim);
+  preencher('editar-reserva-quantidade', String(reserva.quantidade));
+  preencher('editar-reserva-finalidade', reserva.finalidade ?? '');
+  preencher('editar-reserva-obs', reserva.obs ?? '');
+
+  // O datalist de finalidades é o mesmo do formulário de nova reserva; sem
+  // isto ele chegaria vazio para quem abre a edição sem ter reservado antes.
+  pintarFinalidades();
+
+  mostrarDisponibilidadeDaEdicao(null);
+  show(el('editar-reserva-erro'), false);
+
+  // Pode vir da lista de reservas da administração ou do mapa.
+  if (el('modal-reservas')?.hidden === false) trocarModal('modal-reservas', 'modal-reserva-editar');
+  else if (el('modal-ver-reserva')?.hidden === false) trocarModal('modal-ver-reserva', 'modal-reserva-editar');
+  else abrirModal('modal-reserva-editar');
+
+  void consultarDisponibilidadeDaEdicao();
+}
+
+function preencher(id: string, valorNovo: string): void {
+  const campo = el<HTMLInputElement | HTMLTextAreaElement>(id);
+  if (campo) campo.value = valorNovo;
+}
+
+function mostrarDisponibilidadeDaEdicao(mensagem: string | null, tom: 'ok' | 'erro' = 'ok'): void {
+  const caixa = el('editar-reserva-disponibilidade');
+  show(caixa, Boolean(mensagem));
+  if (caixa) caixa.dataset.tom = tom;
+  if (mensagem) setText('editar-reserva-disponibilidade-texto', mensagem);
+}
+
+/**
+ * Quanto sobra no período novo, sem contar esta reserva.
+ *
+ * O `ignorar_reserva` é o que faz a conta fechar: sem ele, a própria reserva
+ * entraria duas vezes na soma e crescer de 6 para 10 numa estufa de 10 seria
+ * recusado como se fossem 16.
+ */
+export async function consultarDisponibilidadeDaEdicao(): Promise<void> {
+  if (!reservaEmEdicao) return;
+
+  const reserva = reservas.find((r) => r.id === reservaEmEdicao);
+  if (!reserva) return;
+
+  const casaId = ID_REAL_ESPACO[reserva.estufaId];
+  const real = ID_REAL_RESERVA[reservaEmEdicao];
+  const inicio = valor('editar-reserva-inicio');
+  const fim = valor('editar-reserva-fim');
+
+  if (!casaId || !inicio || !fim || fim < inicio) return;
+
+  try {
+    const resposta = await getDisponibilidade(casaId, {
+      de: inicio,
+      ate: fim,
+      quantidade: numero('editar-reserva-quantidade') || undefined,
+      ignorarReserva: real,
+    });
+
+    const campo = el<HTMLInputElement>('editar-reserva-quantidade');
+    if (campo) campo.max = String(Math.max(1, resposta.disponivel));
+
+    mostrarDisponibilidadeDaEdicao(resposta.mensagem, resposta.cabe === false ? 'erro' : 'ok');
+  } catch (erro) {
+    // Falha aqui não impede salvar: o back-end confere de novo.
+    console.warn('[CVGWeb] não foi possível consultar a disponibilidade:', erro);
+  }
+}
+
+/** Fim antes do início não existe: o campo de fim acompanha o de início. */
+export function ajustarFimDaEdicao(): void {
+  const inicio = el<HTMLInputElement>('editar-reserva-inicio');
+  const fim = el<HTMLInputElement>('editar-reserva-fim');
+  if (!inicio || !fim) return;
+
+  fim.min = inicio.value;
+  if (fim.value && fim.value < inicio.value) fim.value = inicio.value;
+}
+
+export async function confirmarEdicaoReserva(): Promise<void> {
+  if (!reservaEmEdicao || enviando) return;
+
+  const codigo = reservaEmEdicao;
+  const real = ID_REAL_RESERVA[codigo];
+
+  if (!real) {
+    mostrarErroDaEdicao('Reserva sem vínculo com o cadastro; recarregue a página.');
+    return;
+  }
+
+  const inicio = valor('editar-reserva-inicio');
+  const fim = valor('editar-reserva-fim');
+  const finalidade = valor('editar-reserva-finalidade');
+  const quantidade = numero('editar-reserva-quantidade');
+
+  if (!inicio || !fim || !finalidade) {
+    mostrarErroDaEdicao('Preencha o período e a finalidade.');
+    return;
+  }
+
+  if (fim < inicio) {
+    mostrarErroDaEdicao('O fim do período não pode ser antes do início.');
+    return;
+  }
+
+  if (quantidade < 1) {
+    mostrarErroDaEdicao('Informe a quantidade reservada.');
+    return;
+  }
+
+  const botao = el<HTMLButtonElement>('editar-reserva-enviar');
+  enviando = true;
+  if (botao) botao.disabled = true;
+
+  let mensagem = 'Reserva alterada.';
+
+  try {
+    const resposta = await atualizarReserva(real, {
+      data_inicio: inicio,
+      data_fim: fim,
+      quantidade,
+      finalidade,
+      obs: valor('editar-reserva-obs') || null,
+    });
+
+    // O back-end diz se a alteração devolveu a reserva para a fila.
+    mensagem = resposta?.message ?? mensagem;
+
+    invalidarEstado();
+    await carregarEstado('manter');
+  } catch (erro) {
+    mostrarErroDaEdicao(erro instanceof Error ? erro.message : 'Não foi possível salvar a reserva.');
+    return;
+  } finally {
+    enviando = false;
+    if (botao) botao.disabled = false;
+  }
+
+  reservaEmEdicao = null;
+  show(el('editar-reserva-erro'), false);
+  fecharModal(el('modal-reserva-editar'));
+  dadosMudaram();
+
+  aviso(mensagem, 'success');
+}
+
+function mostrarErroDaEdicao(mensagem: string): void {
+  setText('editar-reserva-erro-texto', mensagem);
+  show(el('editar-reserva-erro'), true);
+}
+
+/**
+ * Exclui a reserva de vez.
+ *
+ * Diferente de cancelar: cancelar guarda o registro (e o motivo) na agenda e na
+ * auditoria; excluir tira a linha do banco. A auditoria mantém o rastro da
+ * exclusão, mas a reserva em si não voltam — por isso a confirmação diz isso.
+ */
+export async function excluirReservaAberta(): Promise<void> {
+  if (!reservaEmEdicao) return;
+
+  const codigo = reservaEmEdicao;
+  const reserva = reservas.find((r) => r.id === codigo);
+  const real = ID_REAL_RESERVA[codigo];
+  if (!reserva || !real) return;
+
+  const estufa = ESTUFAS[reserva.estufaId];
+
+  const ok = await confirmar({
+    titulo: `Excluir a reserva ${reserva.id}?`,
+    mensagem: html`
+      A linha sai do banco e a capacidade de
+      ${estufa ? `${estufa.codigo} — ${estufa.nome}` : reserva.estufaId}
+      volta a ficar disponível. Para guardar o registro e o motivo na agenda,
+      <strong>cancele</strong> em vez de excluir.`,
+    icone: 'trash-2',
+    confirmar: 'Excluir',
+    cancelar: 'Voltar',
+    perigo: true,
+  });
+
+  if (!ok) return;
+
+  try {
+    await excluirReserva(real);
+    invalidarEstado();
+    await carregarEstado('manter');
+  } catch (erro) {
+    mostrarErroDaEdicao(erro instanceof Error ? erro.message : 'Não foi possível excluir a reserva.');
+    return;
+  }
+
+  reservaEmEdicao = null;
+  fecharTodosModais();
+  dadosMudaram();
+
+  aviso(`Reserva ${reserva.id} excluída.`, 'info');
 }

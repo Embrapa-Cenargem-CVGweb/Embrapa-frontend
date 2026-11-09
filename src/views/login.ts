@@ -1,21 +1,19 @@
 /**
  * Entrada no sistema e gestão de usuários.
  *
- * Dois caminhos, escolhidos por `MODO_DEMO`:
+ * `/login` autentica no back-end e devolve o token do Sanctum e o
+ * funcionário. O cadastro de usuário vai para o banco: o back-end grava sem
+ * senha e manda por e-mail o link de criação de senha.
  *
- * - Com a API configurada, `/login` autentica de verdade e devolve o token e o
- *   funcionário. O cadastro de usuário também vai para o banco: o back-end
- *   grava sem senha e manda por e-mail o link de criação de senha.
- * - Sem API, uma única conta local de administrador permite abrir o sistema
- *   sem back-end. A validação acontece no cliente e não protege nada.
- *
- * Os dois caminhos produzem o mesmo `Usuario`, por isso o resto do app não
- * precisa saber de onde veio a sessão.
+ * Não há caminho local: sem API, não há login. Autenticação conferida no
+ * cliente não protege nada, e manter os dois caminhos fazia a tela mentir
+ * sobre o que estava gravado.
  */
 import { el, setText, show } from '../lib/dom';
-import { MODO_DEMO } from '../lib/ambiente';
+import { esconderSenha } from '../lib/senha';
 import { aviso } from '../lib/toast';
 import {
+  atualizarFuncionario,
   atualizarSituacaoFuncionario,
   criarFuncionario,
   descartarToken,
@@ -30,49 +28,15 @@ import {
 import type { PerfilUsuario, SituacaoUsuario, Usuario } from '../types';
 
 const CHAVES = {
-  usuarios: 'cvgweb:usuarios:v2',
   sessao: 'cvgweb:sessao',
 } as const;
-
-/** Senha atribuída a quem o administrador cadastra, no modo demonstração. */
-const SENHA_PADRAO = 'embrapa123';
-
-/**
- * Única conta local, para abrir o sistema enquanto a API não está ligada.
- * Os demais usuários são cadastrados pela própria administração.
- */
-const SEMENTE: Usuario[] = [
-  { id: 'U01', nome: 'Administrador', admin: true, cargo: 'Administrador', login: 'admin', senha: 'admin123', situacao: 'ATIVO' },
-];
 
 /* ===========================================================================
    Lista de usuários
    =========================================================================== */
 
-function carregarDoLocal(): Usuario[] {
-  try {
-    const salvos = localStorage.getItem(CHAVES.usuarios);
-    if (salvos) {
-      const lidos = JSON.parse(salvos) as Usuario[];
-      if (Array.isArray(lidos) && lidos.length) return lidos;
-    }
-  } catch {
-    /* dados corrompidos: volta para a semente */
-  }
-  return SEMENTE.map((u) => ({ ...u }));
-}
-
-/** Cache da lista mostrada na administração. Com a API, vem de /funcionarios. */
-const USUARIOS: Usuario[] = MODO_DEMO ? carregarDoLocal() : [];
-
-function salvarUsuarios(): void {
-  if (!MODO_DEMO) return;
-  try {
-    localStorage.setItem(CHAVES.usuarios, JSON.stringify(USUARIOS));
-  } catch {
-    /* storage indisponível */
-  }
-}
+/** Cache da lista mostrada na administração; vem de /funcionarios. */
+const USUARIOS: Usuario[] = [];
 
 let sessao: Usuario | null = null;
 
@@ -94,14 +58,17 @@ function daApi(funcionario: FuncionarioApi): Usuario {
     cargo: funcionario.cargo || (admin ? 'Administrador' : 'Funcionário'),
     login: funcionario.nick ?? String(funcionario.id),
     email: funcionario.email,
-    situacao: (funcionario.situacao as SituacaoUsuario | undefined) ?? 'ATIVO',
+    matricula: funcionario.matricula ?? undefined,
+    cargoId: funcionario.cargo_id ?? undefined,
+    projetos: funcionario.projetos,
+    ultimoAcesso: funcionario.ultimo_acesso_em ?? undefined,
+    situacao: (funcionario.situacao as SituacaoUsuario | undefined)
+      ?? (funcionario.ativo === false ? 'INATIVO' : 'ATIVO'),
   };
 }
 
-/** Relê a lista de usuários do banco. Em demonstração não há o que buscar. */
+/** Relê a lista de usuários do banco. */
 export async function recarregarUsuarios(): Promise<void> {
-  if (MODO_DEMO) return;
-
   const resposta = await getFuncionarios();
   const lista: FuncionarioApi[] = resposta.data ?? resposta;
 
@@ -117,21 +84,11 @@ export interface ResultadoCadastro {
   ok: boolean;
   erro?: string;
   usuario?: Usuario;
-  /** Só no modo demonstração: a senha fixa de primeiro acesso. */
-  senha?: string;
   /** Mensagem do back-end, que diz para onde o convite foi. */
   mensagem?: string;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-function proximoId(): string {
-  const maior = USUARIOS.reduce((max, u) => {
-    const n = Number.parseInt(u.id.replace(/\D/g, ''), 10);
-    return Number.isNaN(n) ? max : Math.max(max, n);
-  }, 0);
-  return `U${String(maior + 1).padStart(2, '0')}`;
-}
 
 /** "ana.paula@embrapa.br" vira "Ana Paula". */
 function nomeDoEmail(email: string): string {
@@ -150,25 +107,42 @@ function nickDoEmail(email: string): string {
   return (email.split('@')[0] ?? email).slice(0, 30).toLowerCase();
 }
 
+/**
+ * Cadastra o usuário. O nome vem do formulário; quando não vier, é deduzido do
+ * e-mail — o que serve para não travar o cadastro, mas rende "Ana Paula" onde
+ * o certo seria "Ana Paula Ribeiro", e é esse nome que aparece na lista e nas
+ * reservas. Por isso o formulário pede o nome completo.
+ */
+export interface DadosNovoUsuario {
+  /** Em branco, sai do e-mail. */
+  nick?: string;
+  matricula?: string;
+  cargoId?: number | null;
+}
+
 export async function cadastrarUsuario(
   emailBruto: string,
   perfil: PerfilUsuario = 'pesquisador',
+  nomeBruto = '',
+  extras: DadosNovoUsuario = {},
 ): Promise<ResultadoCadastro> {
   const email = emailBruto.trim().toLowerCase();
+  const nome = nomeBruto.trim();
 
   if (!EMAIL.test(email)) {
     return { ok: false, erro: 'Informe um e-mail válido, como nome@embrapa.br.' };
   }
 
-  if (MODO_DEMO) return cadastrarLocal(email, perfil);
-
   try {
     const resposta = await criarFuncionario({
-      nome: nomeDoEmail(email),
-      nick: nickDoEmail(email),
+      nome: nome || nomeDoEmail(email),
+      // O login é escolhido no formulário; em branco, sai do e-mail.
+      nick: (extras.nick ?? '').trim().toLowerCase() || nickDoEmail(email),
       email,
-      // O back-end reconhece o administrador pelo token /SU/ no perfil.
-      perfil: perfil === 'admin' ? '/SU/' : '/FUNCIONARIO-C/',
+      matricula: (extras.matricula ?? '').trim() || undefined,
+      cargo_id: extras.cargoId ?? null,
+      // Quem é adm é decidido aqui; o perfil legado (/SU/) é montado no back-end.
+      super_usuario: perfil === 'admin',
     });
 
     await recarregarUsuarios();
@@ -183,26 +157,57 @@ export async function cadastrarUsuario(
   }
 }
 
-function cadastrarLocal(email: string, perfil: PerfilUsuario): ResultadoCadastro {
-  if (USUARIOS.some((u) => u.login.toLowerCase() === email)) {
-    return { ok: false, erro: 'Este e-mail já tem acesso ao sistema.' };
+/**
+ * Salva a edição de um usuário.
+ *
+ * O back-end valida com `sometimes`, então o que não for enviado fica como
+ * está — e ele mesmo decide o que esta pessoa tem direito de alterar: trocar
+ * perfil, por exemplo, é só do adm, e o campo é ignorado para os demais.
+ */
+export async function editarUsuario(
+  id: string,
+  dados: {
+    nome: string;
+    email: string;
+    nick: string;
+    matricula?: string;
+    cargoId?: number | null;
+    admin?: boolean;
+  },
+): Promise<ResultadoCadastro> {
+  const email = dados.email.trim().toLowerCase();
+
+  if (!dados.nome.trim()) {
+    return { ok: false, erro: 'Informe o nome completo da pessoa.' };
   }
 
-  const usuario: Usuario = {
-    id: proximoId(),
-    nome: nomeDoEmail(email),
-    admin: perfil === 'admin',
-    cargo: perfil === 'admin' ? 'Administrador' : 'Pesquisador',
-    login: email,
-    email,
-    senha: SENHA_PADRAO,
-    situacao: 'ATIVO',
-  };
+  if (!EMAIL.test(email)) {
+    return { ok: false, erro: 'Informe um e-mail válido, como nome@embrapa.br.' };
+  }
 
-  USUARIOS.push(usuario);
-  salvarUsuarios();
+  if (!dados.nick.trim()) {
+    return { ok: false, erro: 'Informe o usuário de login.' };
+  }
 
-  return { ok: true, usuario, senha: SENHA_PADRAO };
+  try {
+    const resposta = await atualizarFuncionario(Number(id), {
+      nome: dados.nome.trim(),
+      email,
+      nick: dados.nick.trim().toLowerCase(),
+      matricula: (dados.matricula ?? '').trim() || null,
+      cargo_id: dados.cargoId ?? null,
+      super_usuario: dados.admin,
+    });
+
+    await recarregarUsuarios();
+
+    return {
+      ok: true,
+      usuario: resposta?.id ? daApi(resposta as FuncionarioApi) : undefined,
+    };
+  } catch (erro) {
+    return { ok: false, erro: erro instanceof Error ? erro.message : 'Não foi possível salvar.' };
+  }
 }
 
 export interface ResultadoExclusao {
@@ -217,15 +222,6 @@ export async function excluirUsuario(id: string): Promise<ResultadoExclusao> {
 
   const eraEuMesmo = sessao?.id === id;
 
-  if (MODO_DEMO) {
-    if (usuario.admin && USUARIOS.filter((u) => u.admin).length <= 1) {
-      return { ok: false, erro: 'O sistema precisa de pelo menos um administrador.' };
-    }
-    USUARIOS.splice(USUARIOS.indexOf(usuario), 1);
-    salvarUsuarios();
-    return { ok: true, eraEuMesmo };
-  }
-
   try {
     await excluirFuncionario(Number(id));
     await recarregarUsuarios();
@@ -238,13 +234,6 @@ export async function excluirUsuario(id: string): Promise<ResultadoExclusao> {
 
 /** Desativa ou reativa o acesso sem apagar o histórico. */
 export async function alternarAcessoUsuario(id: string, ativo: boolean): Promise<ResultadoExclusao> {
-  if (MODO_DEMO) {
-    const usuario = USUARIOS.find((u) => u.id === id);
-    if (usuario) usuario.situacao = ativo ? 'ATIVO' : 'INATIVO';
-    salvarUsuarios();
-    return { ok: true };
-  }
-
   try {
     await atualizarSituacaoFuncionario(Number(id), ativo);
     await recarregarUsuarios();
@@ -256,10 +245,6 @@ export async function alternarAcessoUsuario(id: string, ativo: boolean): Promise
 
 /** Reenvia o link de criação de senha. */
 export async function reenviarConviteUsuario(id: string): Promise<ResultadoCadastro> {
-  if (MODO_DEMO) {
-    return { ok: true, mensagem: 'No modo demonstração não há envio de e-mail.' };
-  }
-
   try {
     const resposta = await reenviarConvite(Number(id));
     await recarregarUsuarios();
@@ -292,6 +277,8 @@ function limparSenha(): void {
     campo.value = '';
     campo.focus();
   }
+  // Senha errada: esconde de novo, para o campo nao ficar exposto na tela.
+  esconderSenha('entrada-senha');
 }
 
 /** Callbacks que a casca da aplicação registra no boot. */
@@ -311,7 +298,7 @@ export async function entrar(): Promise<void> {
   if (botao) botao.disabled = true;
 
   try {
-    sessao = MODO_DEMO ? entrarLocal(login, senha) : await entrarPelaApi(login, senha);
+    sessao = await entrarPelaApi(login, senha);
   } catch (erro) {
     // A API explica o caso mais comum: acesso ainda sem senha criada.
     mostrarErro(erro instanceof Error ? erro.message : 'Não foi possível entrar.');
@@ -332,13 +319,6 @@ export async function entrar(): Promise<void> {
   aoEntrar(sessao);
 }
 
-function entrarLocal(login: string, senha: string): Usuario | null {
-  const usuario = USUARIOS.find((u) => u.login === login && u.senha === senha);
-  if (!usuario) return null;
-  if (usuario.situacao === 'INATIVO') throw new Error('Este acesso está desativado.');
-  return usuario;
-}
-
 async function entrarPelaApi(login: string, senha: string): Promise<Usuario> {
   const resposta = await apiLogin(login, senha);
   guardarToken(resposta.token);
@@ -347,13 +327,9 @@ async function entrarPelaApi(login: string, senha: string): Promise<Usuario> {
 
 function guardarSessao(usuario: Usuario): void {
   try {
-    // No modo demonstração basta o id: o usuário vem da lista local, assim
-    // mudanças de perfil e exclusões valem na volta. Com a API, o funcionário
-    // é guardado inteiro, já que não há lista local para consultar.
-    localStorage.setItem(
-      CHAVES.sessao,
-      MODO_DEMO ? usuario.id : JSON.stringify(usuario),
-    );
+    // O funcionário é guardado inteiro: não há lista local para consultar na
+    // volta, e a sessão só vale enquanto o token do Sanctum estiver salvo.
+    localStorage.setItem(CHAVES.sessao, JSON.stringify(usuario));
   } catch {
     /* storage indisponível */
   }
@@ -372,6 +348,7 @@ export function sair(): void {
     const node = el<HTMLInputElement>(campo);
     if (node) node.value = '';
   }
+  esconderSenha('entrada-senha');
   mostrarErro(null);
 
   aoSair();
@@ -413,9 +390,7 @@ export function iniciarAutenticacao(
 }
 
 function recuperarSessao(salvo: string): Usuario | null {
-  if (MODO_DEMO) return USUARIOS.find((u) => u.id === salvo) ?? null;
-
-  // Com a API, a sessão só vale enquanto houver token.
+  // A sessão só vale enquanto houver token.
   if (!tokenSalvo()) return null;
   try {
     const usuario = JSON.parse(salvo) as Usuario;

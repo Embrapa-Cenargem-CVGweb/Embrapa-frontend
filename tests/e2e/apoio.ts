@@ -298,18 +298,20 @@ export async function reservarPelaApi(
   page: Page,
   codigo: string,
   quantidade: number,
-  opcoes: { de?: string; ate?: string; status?: 'ATIVA' | 'PENDENTE'; finalidade?: string } = {},
+  opcoes: { de?: string; ate?: string; finalidade?: string } = {},
 ): Promise<{ id: number }> {
   const espaco = await espacoPorCodigo(page, codigo);
   expect(espaco).toBeTruthy();
 
+  // O status nao vai no corpo: quem decide e a API, e toda reserva nova nasce
+  // PENDENTE. Mandar `status: 'ATIVA'` daqui nao fazia nada — o controller
+  // ignora o campo — e dava a impressao de montar um cenario que nao existia.
   const r = await chamar<{ data: { id: number } }>(page, 'post', '/reservas', {
     casa_vegetacao_id: espaco!.id,
     quantidade,
     data_inicio: opcoes.de ?? hoje(),
     data_fim: opcoes.ate ?? emDias(5),
     finalidade: opcoes.finalidade ?? `${MARCA} ${RUN} cenário`,
-    ...(opcoes.status ? { status: opcoes.status } : {}),
   });
 
   return r.data;

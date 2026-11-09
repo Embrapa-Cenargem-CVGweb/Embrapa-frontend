@@ -292,6 +292,7 @@ test.describe('CVGWeb de ponta a ponta', () => {
 
     await page.locator('#view-admin [data-action="abrir-novo-usuario"]').click();
     await expect(page.locator('#modal-novo-usuario')).toBeVisible();
+    await page.fill('#novo-usuario-nome', 'Convidado de Teste');
     await page.fill('#novo-usuario-email', EMAIL);
     await page.click('#novo-usuario-enviar');
 
@@ -301,8 +302,10 @@ test.describe('CVGWeb de ponta a ponta', () => {
     // O banco concorda: usuário sem senha, convite pendente.
     expect((await funcionarioPorEmail(page, EMAIL))?.situacao).toBe('CONVITE_PENDENTE');
 
-    // E ele aparece marcado na lista.
-    await expect(page.locator('.user-card', { hasText: EMAIL.split('@')[0] })).toContainText('sem senha');
+    // E ele aparece marcado na lista, com nome e e-mail.
+    const linhaDoUsuario = page.locator('#tbody-usuarios tr', { hasText: EMAIL });
+    await expect(linhaDoUsuario).toContainText('Convidado de Teste');
+    await expect(linhaDoUsuario).toContainText('Sem senha');
   });
 
   test('login é recusado para quem ainda não criou a senha', async ({ page }) => {
@@ -332,7 +335,8 @@ test.describe('CVGWeb de ponta a ponta', () => {
     await garantirEspacoDeTeste(page, PARA_APROVAR, 20);
 
     const finalidade = `${MARCA} ${RUN} aprovação`;
-    await reservarPelaApi(page, PARA_APROVAR, 6, { status: 'PENDENTE', finalidade });
+    // Nasce pendente: e o estado de toda reserva nova.
+    await reservarPelaApi(page, PARA_APROVAR, 6, { finalidade });
 
     await recarregar(page);
     await irParaAdmin(page);
