@@ -20,8 +20,6 @@ import {
   buscarEstufaNoFormulario,
   escolherEstufa,
   navegarSugestoesDeEspaco,
-  abrirModalReservas,
-  abrirModalUsuarios,
   abrirEspaco,
   abrirNovoUsuario,
   abrirPainelMetricas,
@@ -41,6 +39,8 @@ import {
   filtrarUsuarios,
   irPara,
   limparBusca,
+  mostrarReservas,
+  mostrarUsuarios,
   pedirExclusaoUsuario,
   reenviarConviteDoUsuario,
   renderizarAdmin,
@@ -48,6 +48,7 @@ import {
 } from './views/admin';
 import {
   alternarChat,
+  chatSoNoMapa,
   fecharChat,
   iniciarChat,
   limparConversa,
@@ -70,7 +71,6 @@ import {
 import {
   abrirEditarProjeto,
   abrirEquipe,
-  abrirModalProjetos,
   abrirNovoProjeto,
   abrirPermissoesMembro,
   alterarPapelMembro,
@@ -78,6 +78,7 @@ import {
   confirmarProjeto,
   incluirMembro,
   limparBuscaDeProjetos,
+  mostrarProjetos,
   pedirExclusaoProjeto,
   removerMembroDaEquipe,
   salvarPermissoes,
@@ -115,11 +116,10 @@ import {
   verReserva,
 } from './views/reservas';
 import type { PerfilUsuario } from './types';
-
-type Secao = 'mapa' | 'admin' | 'historico';
+import { aoNavegar, type Secao } from './lib/navegacao';
 
 /** Seções restritas a quem administra. */
-const RESTRITAS: Secao[] = ['admin', 'historico'];
+const RESTRITAS: Secao[] = ['reservas', 'projetos', 'usuarios', 'admin', 'historico'];
 
 /* ===========================================================================
    Navegação entre views
@@ -141,7 +141,14 @@ function mostrarSecao(secao: Secao): void {
   }
 
   fecharPainel();
+
+  // O assistente responde sobre o mapa; nas tabelas ele só atrapalhava.
+  chatSoNoMapa(secao === 'mapa');
+
   if (secao === 'admin') renderizarAdmin();
+  if (secao === 'reservas') mostrarReservas();
+  if (secao === 'projetos') mostrarProjetos();
+  if (secao === 'usuarios') mostrarUsuarios();
   if (secao === 'historico') renderizarHistorico();
 }
 
@@ -174,8 +181,9 @@ function montarApp(usuario: Usuario): void {
 
   setText('conta-nome', usuario.nome);
   setText('conta-perfil', usuario.cargo);
-  show(el('nav-admin'), usuario.admin);
-  show(el('nav-historico'), usuario.admin);
+  for (const id of ['nav-reservas', 'nav-projetos', 'nav-usuarios', 'nav-admin', 'nav-historico']) {
+    show(el(id), usuario.admin);
+  }
 
   mostrarSecao('mapa');
   void carregarInventario(usuario);
@@ -262,8 +270,6 @@ function registrarTodasAsAcoes(): void {
 
     // administração
     'abrir-painel-metricas': () => abrirPainelMetricas(),
-    'abrir-reservas': () => abrirModalReservas(),
-    'abrir-usuarios': () => abrirModalUsuarios(),
     'abrir-novo-usuario': () => abrirNovoUsuario(),
     // O formulario de espaco comeca perguntando qual estufa; sem id, abre na
     // busca. 'abrir-espaco' e do mapa (painel da estufa) e nao se confunde.
@@ -310,7 +316,6 @@ function registrarTodasAsAcoes(): void {
     },
 
     // projetos, equipe e permissões
-    'abrir-projetos': () => abrirModalProjetos(),
     'abrir-novo-projeto': () => abrirNovoProjeto(),
     'limpar-busca-projetos': () => limparBuscaDeProjetos(),
     'editar-projeto': (elemento) => {
@@ -578,6 +583,8 @@ function ligarTeclado(): void {
 
 export function iniciarApp(): void {
   iniciarAcoes();
+  // Views pedem troca de tela sem importar a casca (evita ciclo).
+  aoNavegar(mostrarSecao);
   iniciarModais();
   iniciarMapa();
   iniciarChat();

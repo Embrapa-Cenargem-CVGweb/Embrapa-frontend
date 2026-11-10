@@ -17,6 +17,9 @@ import {
   garantirEspacoDeTeste,
   hoje,
   irParaAdmin,
+  irParaMapa,
+  irParaReservas,
+  irParaUsuarios,
   limparAvisos,
   limparReservas,
   linhaDoEspaco,
@@ -287,10 +290,10 @@ test.describe('CVGWeb de ponta a ponta', () => {
   test('cadastra usuário sem senha e com convite pendente', async ({ page }) => {
     await abrirSistema(page);
     await apagarFuncionario(page, EMAIL);
-    await irParaAdmin(page);
+    await irParaUsuarios(page);
     await limparAvisos(page);
 
-    await page.locator('#view-admin [data-action="abrir-novo-usuario"]').click();
+    await page.locator('#view-usuarios [data-action="abrir-novo-usuario"]').click();
     await expect(page.locator('#modal-novo-usuario')).toBeVisible();
     await page.fill('#novo-usuario-nome', 'Convidado de Teste');
     await page.fill('#novo-usuario-email', EMAIL);
@@ -330,6 +333,19 @@ test.describe('CVGWeb de ponta a ponta', () => {
     await expect(page.locator('#app')).toBeHidden();
   });
 
+  test('o assistente aparece no mapa e em nenhuma outra tela', async ({ page }) => {
+    await abrirSistema(page);
+    await expect(page.locator('#chat')).toBeVisible();
+
+    for (const ir of [irParaAdmin, irParaReservas, irParaUsuarios]) {
+      await ir(page);
+      await expect(page.locator('#chat')).toBeHidden();
+    }
+
+    await irParaMapa(page);
+    await expect(page.locator('#chat')).toBeVisible();
+  });
+
   test('aprovar e cancelar reserva muda o banco e devolve a capacidade', async ({ page }) => {
     await abrirSistema(page);
     await garantirEspacoDeTeste(page, PARA_APROVAR, 20);
@@ -342,8 +358,7 @@ test.describe('CVGWeb de ponta a ponta', () => {
     await irParaAdmin(page);
     await expect(capacidadeDoEspaco(page, PARA_APROVAR)).toContainText('14 de 20 vasos livres');
 
-    await page.locator('#view-admin [data-action="abrir-reservas"]').click();
-    await expect(page.locator('#modal-reservas')).toBeVisible();
+    await irParaReservas(page);
 
     // A tabela de reservas mostra o espaço, não a finalidade: localiza pelo
     // código do espaço, que é único nesta execução.
@@ -371,7 +386,7 @@ test.describe('CVGWeb de ponta a ponta', () => {
     await page.locator('[data-confirmar="sim"]').click();
     await esperarAviso(page, 'cancelada');
 
-    await page.locator('#modal-reservas [data-action="fechar"]').click();
+    await irParaAdmin(page);
     await expect(capacidadeDoEspaco(page, PARA_APROVAR)).toContainText('20 de 20 vasos livres');
 
     const canceladas = await pelaApi<{ data: { finalidade: string }[] }>(

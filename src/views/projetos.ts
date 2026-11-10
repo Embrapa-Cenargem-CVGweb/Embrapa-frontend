@@ -20,7 +20,7 @@
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
 import { dataBR } from '../lib/format';
-import { abrirModal, confirmar, trocarModal } from '../lib/modal';
+import { abrirModal, confirmar, fecharModal, trocarModal } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import {
   adicionarMembro,
@@ -103,13 +103,13 @@ function erroDe(erro: unknown, padrao: string): string {
    Lista de projetos
    =========================================================================== */
 
-export function abrirModalProjetos(): void {
+/** Entrada da seção de projetos: a casca chama ao mostrar a tela. */
+export function mostrarProjetos(): void {
   if (!ehAdmin()) {
     aviso('Só a administração configura projetos.', 'error');
     return;
   }
 
-  abrirModal('modal-projetos');
   void carregarProjetos();
 }
 
@@ -267,11 +267,9 @@ export function abrirEditarProjeto(id: string): void {
   irParaFormulario();
 }
 
-/** Abre o formulário trocando o modal da lista, quando é dela que se veio. */
+/** A lista é tela, não modal: o formulário abre por cima dela. */
 function irParaFormulario(): void {
-  if (el('modal-projetos')?.hidden === false) trocarModal('modal-projetos', 'modal-projeto');
-  else abrirModal('modal-projeto');
-
+  abrirModal('modal-projeto');
   el<HTMLInputElement>('proj-codigo')?.focus();
 }
 
@@ -363,7 +361,7 @@ export async function confirmarProjeto(): Promise<void> {
   }
 
   const criado = !projetoEmEdicao;
-  trocarModal('modal-projeto', 'modal-projetos');
+  fecharModal(el('modal-projeto'));
   await carregarProjetos();
 
   aviso(criado ? `Projeto ${codigo} criado.` : `Projeto ${codigo} salvo.`, 'success');
@@ -410,8 +408,7 @@ export function abrirEquipe(id: string): void {
   setText('equipe-projeto-nome', `Equipe de ${projeto.codigo}`);
   setText('equipe-projeto-desc', projeto.titulo);
 
-  if (el('modal-projetos')?.hidden === false) trocarModal('modal-projetos', 'modal-equipe');
-  else abrirModal('modal-equipe');
+  abrirModal('modal-equipe');
 
   void carregarEquipe();
 }
@@ -613,7 +610,7 @@ export async function removerMembroDaEquipe(id: string): Promise<void> {
 }
 
 export function voltarParaProjetos(): void {
-  trocarModal('modal-equipe', 'modal-projetos');
+  fecharModal(el('modal-equipe'));
 }
 
 /* ===========================================================================

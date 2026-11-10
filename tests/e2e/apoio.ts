@@ -99,6 +99,16 @@ export async function irParaAdmin(page: Page): Promise<void> {
   await expect(page.locator('#sec-espacos')).toBeVisible();
 }
 
+export async function irParaReservas(page: Page): Promise<void> {
+  await page.click('#nav-reservas');
+  await expect(page.locator('#sec-reservas')).toBeVisible();
+}
+
+export async function irParaUsuarios(page: Page): Promise<void> {
+  await page.click('#nav-usuarios');
+  await expect(page.locator('#sec-usuarios')).toBeVisible();
+}
+
 export async function irParaMapa(page: Page): Promise<void> {
   await page.click('#nav-mapa');
   await expect(page.locator('.marker').first()).toBeVisible();

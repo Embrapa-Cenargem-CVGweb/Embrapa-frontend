@@ -116,7 +116,7 @@ function estaAberto(): boolean {
   return el('chat-janela')?.hidden === false;
 }
 
-export function alternarChat(forcar?: boolean): void {
+export function alternarChat(forcar?: boolean, devolverFoco = true): void {
   const janela = el('chat-janela');
   const fab = el('chat-fab');
   if (!janela || !fab) return;
@@ -132,7 +132,7 @@ export function alternarChat(forcar?: boolean): void {
     emCurso?.abort();
     emCurso = null;
     pensando = false;
-    fab.focus();
+    if (devolverFoco) fab.focus();
   }
 }
 
@@ -147,6 +147,19 @@ export function mostrarChat(visivel: boolean): void {
     historico.length = 0;
   }
   show(el('chat'), visivel);
+}
+
+/**
+ * Liga o assistente apenas na tela do mapa, onde a pergunta tem contexto
+ * ("a E12 está livre?"). Nas telas de tabela ele só cobria a página.
+ *
+ * Diferente de `mostrarChat`, guarda a conversa: quem volta ao mapa continua
+ * de onde parou.
+ */
+export function chatSoNoMapa(noMapa: boolean): void {
+  // Sem devolver o foco: o próprio botão sai da tela no instante seguinte.
+  if (!noMapa) alternarChat(false, false);
+  show(el('chat'), noMapa);
 }
 
 export function limparConversa(): void {

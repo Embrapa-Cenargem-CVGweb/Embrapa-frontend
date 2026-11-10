@@ -1,6 +1,10 @@
 /**
  * Administração: métricas, espaços, reservas e usuários.
  *
+ * Espaços ficam na tela de administração; reservas e usuários têm seção
+ * própria no menu. Este arquivo desenha as três tabelas, porque as contas e o
+ * cadastro são os mesmos.
+ *
  * O acesso é verificado a cada render, não só na navegação.
  *
  * Tudo que esta tela altera é gravado no banco: aprovar e cancelar reserva,
@@ -31,7 +35,8 @@ import { dadosMudaram } from '../lib/bus';
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
 import { capacidade, dataBR, dataHoraBR, ocupacaoResumo, statusPill } from '../lib/format';
-import { abrirModal, confirmar, trocarModal, fecharTodosModais } from '../lib/modal';
+import { abrirModal, confirmar, fecharModal, fecharTodosModais } from '../lib/modal';
+import { irParaSecao } from '../lib/navegacao';
 import { aviso } from '../lib/toast';
 import {
   atualizarEspaco,
@@ -1209,8 +1214,7 @@ export function abrirNovoUsuario(): void {
   marcarPerfilNovoUsuario('pesquisador');
   prepararCargos('novo-usuario-cargo');
 
-  if (el('modal-usuarios')?.hidden === false) trocarModal('modal-usuarios', 'modal-novo-usuario');
-  else abrirModal('modal-novo-usuario');
+  abrirModal('modal-novo-usuario');
 
   el<HTMLInputElement>('novo-usuario-nome')?.focus();
 }
@@ -1272,7 +1276,7 @@ export async function confirmarNovoUsuario(): Promise<void> {
   campo?.removeAttribute('aria-invalid');
   show(el('novo-usuario-erro'), false);
   renderizarUsuarios();
-  trocarModal('modal-novo-usuario', 'modal-usuarios');
+  fecharModal(el('modal-novo-usuario'));
 
   // A mensagem do back-end diz para onde o convite foi.
   aviso(
@@ -1326,8 +1330,7 @@ export function abrirEditarUsuario(id: string): void {
   marcarPerfilEdicao(perfilEdicao);
   show(el('editar-usuario-erro'), false);
 
-  if (el('modal-usuarios')?.hidden === false) trocarModal('modal-usuarios', 'modal-usuario-editar');
-  else abrirModal('modal-usuario-editar');
+  abrirModal('modal-usuario-editar');
 
   el<HTMLInputElement>('editar-usuario-nome')?.focus();
 }
@@ -1377,7 +1380,7 @@ export async function confirmarEdicaoUsuario(): Promise<void> {
   usuarioEmEdicao = null;
   show(el('editar-usuario-erro'), false);
 
-  trocarModal('modal-usuario-editar', 'modal-usuarios');
+  fecharModal(el('modal-usuario-editar'));
   renderizarUsuarios();
   dadosMudaram();
 
@@ -1472,9 +1475,11 @@ export function irPara(destino: string): void {
   if (destino.startsWith('reservas')) {
     const status = destino.split('-')[1] as FiltroReserva | undefined;
     filtrarReservas(status ?? 'todas');
-    abrirModal('modal-reservas');
+    irParaSecao('reservas');
     return;
   }
+
+  irParaSecao('admin');
 
   const secao = el('sec-espacos');
   if (!secao) return;
@@ -1489,15 +1494,15 @@ export function abrirPainelMetricas(): void {
   abrirModal('modal-metricas');
 }
 
-export function abrirModalReservas(status?: FiltroReserva): void {
+/** Entrada da seção de reservas: a casca chama ao mostrar a tela. */
+export function mostrarReservas(status?: FiltroReserva): void {
   filtrarReservas(status ?? filtroReservas);
-  abrirModal('modal-reservas');
 }
 
-export function abrirModalUsuarios(): void {
+/** Entrada da seção de usuários: desenha o que há e relê do back-end. */
+export function mostrarUsuarios(): void {
   renderizarUsuarios();
   void atualizarUsuariosDaApi();
-  abrirModal('modal-usuarios');
 }
 
 /* ===========================================================================

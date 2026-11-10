@@ -645,9 +645,9 @@ export function abrirEditarReserva(codigo: string): void {
   mostrarDisponibilidadeDaEdicao(null);
   show(el('editar-reserva-erro'), false);
 
-  // Pode vir da lista de reservas da administração ou do mapa.
-  if (el('modal-reservas')?.hidden === false) trocarModal('modal-reservas', 'modal-reserva-editar');
-  else if (el('modal-ver-reserva')?.hidden === false) trocarModal('modal-ver-reserva', 'modal-reserva-editar');
+  // Da seção de reservas abre por cima da tabela; da ficha do mapa, troca a
+  // ficha pelo formulário, para não empilhar dois modais.
+  if (el('modal-ver-reserva')?.hidden === false) trocarModal('modal-ver-reserva', 'modal-reserva-editar');
   else abrirModal('modal-reserva-editar');
 
   void consultarDisponibilidadeDaEdicao();

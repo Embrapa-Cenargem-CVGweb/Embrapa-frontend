@@ -104,6 +104,12 @@
   outline-color: var(--nav-fg);
 }
 
+/* Pendências de reserva: o número vai para a ponta do item, não grudado no
+   rótulo. No trilho de ícones ele sai junto com o texto. */
+.nav__item .chip__badge {
+  margin-left: auto;
+}
+
 /* --- Rodapé: usuário e menu --------------------------------------------- */
 
 .sidebar__footer {

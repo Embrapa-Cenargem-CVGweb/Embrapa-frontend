@@ -164,6 +164,19 @@
         <svg class="ic" aria-hidden="true"><use href="#i-map" /></svg>
         <span>Mapa</span>
       </button>
+      <button type="button" class="nav__item" id="nav-reservas" data-action="ver" data-view="reservas" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg>
+        <span>Reservas</span>
+        <span class="chip__badge" id="badge-pendentes-topo" hidden>0</span>
+      </button>
+      <button type="button" class="nav__item" id="nav-projetos" data-action="ver" data-view="projetos" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
+        <span>Projetos</span>
+      </button>
+      <button type="button" class="nav__item" id="nav-usuarios" data-action="ver" data-view="usuarios" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-users" /></svg>
+        <span>Usuários</span>
+      </button>
       <button type="button" class="nav__item" id="nav-admin" data-action="ver" data-view="admin" hidden>
         <svg class="ic" aria-hidden="true"><use href="#i-shield-user" /></svg>
         <span>Administração</span>
@@ -332,7 +345,7 @@
         <div class="page-head">
           <div>
             <h1 class="page-head__title" id="titulo-admin">Administração</h1>
-            <p class="page-head__desc">Espaços, reservas e usuários do Cenargen</p>
+            <p class="page-head__desc">Estufas e casas de vegetação do Cenargen</p>
           </div>
 
           <div class="page-head__actions">
@@ -340,29 +353,11 @@
               <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chart-pie" /></svg>
               Painel
             </button>
-            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-reservas">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-days" /></svg>
-              Reservas
-              <span class="chip__badge" id="badge-pendentes-topo" hidden>0</span>
-            </button>
-            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-projetos">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
-              Projetos
-            </button>
-            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-usuarios">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-users" /></svg>
-              Usuários
-            </button>
-            <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
-              Cadastrar usuário
-            </button>
           </div>
         </div>
 
-        <!-- Retrato de agora. Era um modal; numa tela de administracao o
-             painel so serve se estiver a vista sem precisar de clique. -->
-        <!-- Reservas primeiro: e a unica secao que pede acao (pendencias). -->
+        <!-- Esta tela ficou só com os espaços: reservas, projetos e usuários
+             viraram seções próprias no menu. -->
         <div class="section" id="sec-espacos">
           <div class="section__head">
             <h2 class="section__title">
@@ -404,6 +399,217 @@
                 </tr>
               </thead>
               <tbody id="tbody-espacos"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== Reservas ===================================================
+         Tela própria, não modal: aprovar pendência é rotina diária da administração,
+         com filtro e busca — coisa que se percorre, e não um recado que se fecha.
+         ================================================================== -->
+    <section class="view" id="view-reservas" aria-labelledby="titulo-reservas">
+      <div class="pagina">
+
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-reservas">Reservas</h1>
+            <p class="page-head__desc">Aprovar, acompanhar e cancelar</p>
+          </div>
+        </div>
+
+        <div class="section" id="sec-reservas">
+          <div class="section__head">
+            <h2 class="section__title">
+              Todas
+              <span class="count" id="conta-reservas">0</span>
+            </h2>
+            <div class="section__tools">
+              <div class="chips" role="tablist" aria-label="Filtrar reservas por status">
+                <button type="button" class="chip" role="tab" aria-selected="true"
+                        data-action="filtrar-reservas" data-status="todas">Todas</button>
+                <button type="button" class="chip" role="tab" aria-selected="false"
+                        data-action="filtrar-reservas" data-status="pendente">
+                  Pendentes
+                  <span class="chip__badge" id="badge-pendentes" hidden>0</span>
+                </button>
+                <button type="button" class="chip" role="tab" aria-selected="false"
+                        data-action="filtrar-reservas" data-status="ativa">Ativas</button>
+              </div>
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="busca-reservas"
+                       placeholder="Buscar por código, espaço, projeto ou responsável" aria-label="Buscar reserva" />
+                <button type="button" class="search__clear" id="limpar-reservas"
+                        data-action="limpar-busca" data-target="reservas" aria-label="Limpar busca de reservas" hidden>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Reservas dos espaços experimentais</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Código</th>
+                  <th scope="col">Espaço</th>
+                  <th scope="col">Responsável</th>
+                  <th scope="col">Quantidade</th>
+                  <th scope="col">Projeto</th>
+                  <th scope="col">Período</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-reservas"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== Projetos ===================================================
+         A equipe e as permissões de cada membro continuam em modal filho: são
+         formulários curtos abertos a partir da linha do projeto.
+         ================================================================== -->
+    <section class="view" id="view-projetos" aria-labelledby="titulo-projetos">
+      <div class="pagina">
+
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-projetos">Projetos</h1>
+            <p class="page-head__desc">Projetos de pesquisa, equipe e o que cada membro pode fazer</p>
+          </div>
+
+          <div class="page-head__actions">
+            <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-projeto">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
+              Novo projeto
+            </button>
+          </div>
+        </div>
+
+        <div class="section" id="sec-projetos">
+          <div class="section__head">
+            <h2 class="section__title">
+              Todos
+              <span class="count" id="conta-projetos">0</span>
+            </h2>
+            <div class="section__tools">
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="busca-projetos"
+                       placeholder="Buscar por codigo, titulo, responsavel ou situacao"
+                       aria-label="Buscar projeto" />
+                <button type="button" class="search__clear" id="limpar-projetos"
+                        data-action="limpar-busca-projetos"
+                        aria-label="Limpar busca de projetos" hidden>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Projetos de pesquisa, com responsavel, situacao, periodo e acesso a equipe</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Codigo</th>
+                  <th scope="col">Projeto</th>
+                  <th scope="col">Responsavel</th>
+                  <th scope="col">Situacao</th>
+                  <th scope="col">Periodo</th>
+                  <th scope="col">Acoes</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-projetos"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== Usuários ===================================================
+         Tabela, não cartões: o que se procura aqui é uma pessoa específica — nome
+         completo, e-mail, matrícula e situação do acesso lado a lado.
+         ================================================================== -->
+    <section class="view" id="view-usuarios" aria-labelledby="titulo-usuarios">
+      <div class="pagina">
+
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-usuarios">Usuários</h1>
+            <p class="page-head__desc">Quem tem acesso ao sistema</p>
+          </div>
+
+          <div class="page-head__actions">
+            <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
+              Cadastrar usuário
+            </button>
+          </div>
+        </div>
+
+        <div class="section" id="sec-usuarios">
+          <div class="section__head">
+            <h2 class="section__title">
+              Todos
+              <span class="count" id="conta-usuarios">0</span>
+            </h2>
+            <div class="section__tools">
+              <div class="chips" role="tablist" aria-label="Filtrar usuários">
+                <button type="button" class="chip" role="tab" aria-selected="true"
+                        data-action="filtrar-usuarios" data-filtro="todos">Todos</button>
+                <button type="button" class="chip" role="tab" aria-selected="false"
+                        data-action="filtrar-usuarios" data-filtro="admin">Administradores</button>
+                <button type="button" class="chip" role="tab" aria-selected="false"
+                        data-action="filtrar-usuarios" data-filtro="pesquisador">Pesquisadores</button>
+                <button type="button" class="chip" role="tab" aria-selected="false"
+                        data-action="filtrar-usuarios" data-filtro="sem-senha">
+                  Sem senha
+                  <span class="chip__badge" id="badge-sem-senha" hidden>0</span>
+                </button>
+                <button type="button" class="chip" role="tab" aria-selected="false"
+                        data-action="filtrar-usuarios" data-filtro="inativo">Inativos</button>
+              </div>
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="busca-usuarios"
+                       placeholder="Buscar por nome, e-mail, usuário, matrícula ou cargo"
+                       aria-label="Buscar usuário" />
+                <button type="button" class="search__clear" id="limpar-usuarios"
+                        data-action="limpar-busca" data-target="usuarios"
+                        aria-label="Limpar busca de usuários" hidden>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Usuários com acesso ao sistema, com e-mail, cargo, perfil e situação do acesso</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Nome completo</th>
+                  <th scope="col">E-mail</th>
+                  <th scope="col">Usuário</th>
+                  <th scope="col">Matrícula</th>
+                  <th scope="col">Cargo</th>
+                  <th scope="col">Perfil</th>
+                  <th scope="col">Situação</th>
+                  <th scope="col">Último acesso</th>
+                  <th scope="col">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-usuarios"></tbody>
             </table>
           </div>
         </div>
@@ -628,220 +834,8 @@
   </div>
 </div>
 
-<!-- Todas as reservas -->
-<div class="scrim" id="modal-reservas" hidden>
-  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="reservas-titulo">
-    <div class="dialog__head">
-      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg></span>
-      <div class="dialog__heading">
-        <h2 class="dialog__title" id="reservas-titulo">Reservas</h2>
-        <p class="dialog__desc">Aprovar, acompanhar e cancelar</p>
-      </div>
-      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar reservas">
-        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
-      </button>
-    </div>
 
-    <div class="dialog__body dialog__body--flush">
-<div class="section" id="sec-reservas">
-        <div class="section__head">
-          <h3 class="section__title">
-            Todas
-            <span class="count" id="conta-reservas">0</span>
-          </h3>
-          <div class="section__tools">
-            <div class="chips" role="tablist" aria-label="Filtrar reservas por status">
-              <button type="button" class="chip" role="tab" aria-selected="true"
-                      data-action="filtrar-reservas" data-status="todas">Todas</button>
-              <button type="button" class="chip" role="tab" aria-selected="false"
-                      data-action="filtrar-reservas" data-status="pendente">
-                Pendentes
-                <span class="chip__badge" id="badge-pendentes" hidden>0</span>
-              </button>
-              <button type="button" class="chip" role="tab" aria-selected="false"
-                      data-action="filtrar-reservas" data-status="ativa">Ativas</button>
-            </div>
-            <div class="search">
-              <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
-              <input class="input" type="search" id="busca-reservas"
-                     placeholder="Buscar por código, espaço, projeto ou responsável" aria-label="Buscar reserva" />
-              <button type="button" class="search__clear" id="limpar-reservas"
-                      data-action="limpar-busca" data-target="reservas" aria-label="Limpar busca de reservas" hidden>
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
-              </button>
-            </div>
-          </div>
-        </div>
 
-        <div class="table-wrap">
-          <table class="table">
-            <caption class="sr-only">Reservas dos espaços experimentais</caption>
-            <thead>
-              <tr>
-                <th scope="col">Código</th>
-                <th scope="col">Espaço</th>
-                <th scope="col">Responsável</th>
-                <th scope="col">Quantidade</th>
-                <th scope="col">Projeto</th>
-                <th scope="col">Período</th>
-                <th scope="col">Status</th>
-                <th scope="col">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-reservas"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Usuarios -->
-<div class="scrim" id="modal-usuarios" hidden>
-  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="usuarios-titulo">
-    <div class="dialog__head">
-      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-users" /></svg></span>
-      <div class="dialog__heading">
-        <h2 class="dialog__title" id="usuarios-titulo">Usuários</h2>
-        <p class="dialog__desc">Quem tem acesso ao sistema</p>
-      </div>
-      <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
-        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
-        Cadastrar
-      </button>
-      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar usuários">
-        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
-      </button>
-    </div>
-
-    <div class="dialog__body dialog__body--flush">
-<div class="section" id="sec-usuarios">
-        <div class="section__head">
-          <h3 class="section__title">
-            Todos
-            <span class="count" id="conta-usuarios">0</span>
-          </h3>
-          <div class="section__tools">
-            <div class="chips" role="tablist" aria-label="Filtrar usuários">
-              <button type="button" class="chip" role="tab" aria-selected="true"
-                      data-action="filtrar-usuarios" data-filtro="todos">Todos</button>
-              <button type="button" class="chip" role="tab" aria-selected="false"
-                      data-action="filtrar-usuarios" data-filtro="admin">Administradores</button>
-              <button type="button" class="chip" role="tab" aria-selected="false"
-                      data-action="filtrar-usuarios" data-filtro="pesquisador">Pesquisadores</button>
-              <button type="button" class="chip" role="tab" aria-selected="false"
-                      data-action="filtrar-usuarios" data-filtro="sem-senha">
-                Sem senha
-                <span class="chip__badge" id="badge-sem-senha" hidden>0</span>
-              </button>
-              <button type="button" class="chip" role="tab" aria-selected="false"
-                      data-action="filtrar-usuarios" data-filtro="inativo">Inativos</button>
-            </div>
-            <div class="search">
-              <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
-              <input class="input" type="search" id="busca-usuarios"
-                     placeholder="Buscar por nome, e-mail, usuário, matrícula ou cargo"
-                     aria-label="Buscar usuário" />
-              <button type="button" class="search__clear" id="limpar-usuarios"
-                      data-action="limpar-busca" data-target="usuarios"
-                      aria-label="Limpar busca de usuários" hidden>
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="table-wrap">
-          <table class="table">
-            <caption class="sr-only">Usuários com acesso ao sistema, com e-mail, cargo, perfil e situação do acesso</caption>
-            <thead>
-              <tr>
-                <th scope="col">Nome completo</th>
-                <th scope="col">E-mail</th>
-                <th scope="col">Usuário</th>
-                <th scope="col">Matrícula</th>
-                <th scope="col">Cargo</th>
-                <th scope="col">Perfil</th>
-                <th scope="col">Situação</th>
-                <th scope="col">Último acesso</th>
-                <th scope="col">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-usuarios"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Usuarios -->
-<!--
-  Tabela, nao cartoes: o sistema tem muito usuario e o que se procura aqui e
-  uma pessoa especifica — nome completo, e-mail, matricula e situacao do acesso
-  lado a lado, com busca e filtros. Mesmo tamanho e mesma estrutura do modal de
-  reservas, para as duas telas se lerem igual.
--->
-<!-- Projetos: cadastro, equipe e permissoes por projeto -->
-<div class="scrim" id="modal-projetos" hidden>
-  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="projetos-titulo">
-    <div class="dialog__head">
-      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg></span>
-      <div class="dialog__heading">
-        <h2 class="dialog__title" id="projetos-titulo">Projetos</h2>
-        <p class="dialog__desc">Projetos de pesquisa, equipe e o que cada membro pode fazer</p>
-      </div>
-      <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-projeto">
-        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
-        Novo projeto
-      </button>
-      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar projetos">
-        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
-      </button>
-    </div>
-
-    <div class="dialog__body dialog__body--flush">
-      <div class="section" id="sec-projetos">
-        <div class="section__head">
-          <h3 class="section__title">
-            Todos
-            <span class="count" id="conta-projetos">0</span>
-          </h3>
-          <div class="section__tools">
-            <div class="search">
-              <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
-              <input class="input" type="search" id="busca-projetos"
-                     placeholder="Buscar por codigo, titulo, responsavel ou situacao"
-                     aria-label="Buscar projeto" />
-              <button type="button" class="search__clear" id="limpar-projetos"
-                      data-action="limpar-busca-projetos"
-                      aria-label="Limpar busca de projetos" hidden>
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="table-wrap">
-          <table class="table">
-            <caption class="sr-only">Projetos de pesquisa, com responsavel, situacao, periodo e acesso a equipe</caption>
-            <thead>
-              <tr>
-                <th scope="col">Codigo</th>
-                <th scope="col">Projeto</th>
-                <th scope="col">Responsavel</th>
-                <th scope="col">Situacao</th>
-                <th scope="col">Periodo</th>
-                <th scope="col">Acoes</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-projetos"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- Cadastro do projeto -->
 <div class="scrim" id="modal-projeto" hidden>

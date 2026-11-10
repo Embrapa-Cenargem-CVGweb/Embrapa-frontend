@@ -1,7 +1,8 @@
 /* ===========================================================================
    CVGWeb · Administração
    Uma página: cabeçalho com as ações e a tabela de espaços em altura cheia.
-   Painel, reservas e usuários abrem em modal.
+   O painel abre em modal; reservas, projetos e usuários têm seção própria
+   (classe `.pagina`) e reaproveitam a mesma `.section` daqui.
    =========================================================================== */
 
 .admin {
