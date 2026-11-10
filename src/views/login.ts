@@ -102,7 +102,7 @@ function nomeDoEmail(email: string): string {
   );
 }
 
-/** "ana.paula@embrapa.br" vira "ana.paula" — é o que se digita para entrar. */
+/** Gera um identificador interno a partir do e-mail. */
 function nickDoEmail(email: string): string {
   return (email.split('@')[0] ?? email).slice(0, 30).toLowerCase();
 }
@@ -114,7 +114,7 @@ function nickDoEmail(email: string): string {
  * reservas. Por isso o formulário pede o nome completo.
  */
 export interface DadosNovoUsuario {
-  /** Em branco, sai do e-mail. */
+  /** Em branco, é gerado a partir do e-mail. */
   nick?: string;
   matricula?: string;
   cargoId?: number | null;
@@ -136,7 +136,7 @@ export async function cadastrarUsuario(
   try {
     const resposta = await criarFuncionario({
       nome: nome || nomeDoEmail(email),
-      // O login é escolhido no formulário; em branco, sai do e-mail.
+      // O identificador interno não é usado para autenticar.
       nick: (extras.nick ?? '').trim().toLowerCase() || nickDoEmail(email),
       email,
       matricula: (extras.matricula ?? '').trim() || undefined,
@@ -186,7 +186,7 @@ export async function editarUsuario(
   }
 
   if (!dados.nick.trim()) {
-    return { ok: false, erro: 'Informe o usuário de login.' };
+    return { ok: false, erro: 'Informe o identificador interno.' };
   }
 
   try {
@@ -286,11 +286,11 @@ let aoEntrar: (usuario: Usuario) => void = () => {};
 let aoSair: () => void = () => {};
 
 export async function entrar(): Promise<void> {
-  const login = (el<HTMLInputElement>('entrada-usuario')?.value ?? '').trim();
+  const email = (el<HTMLInputElement>('entrada-usuario')?.value ?? '').trim().toLowerCase();
   const senha = el<HTMLInputElement>('entrada-senha')?.value ?? '';
 
-  if (!login || !senha) {
-    mostrarErro('Informe usuário e senha.');
+  if (!email || !senha) {
+    mostrarErro('Informe seu e-mail e senha.');
     return;
   }
 
@@ -298,7 +298,7 @@ export async function entrar(): Promise<void> {
   if (botao) botao.disabled = true;
 
   try {
-    sessao = await entrarPelaApi(login, senha);
+    sessao = await entrarPelaApi(email, senha);
   } catch (erro) {
     // A API explica o caso mais comum: acesso ainda sem senha criada.
     mostrarErro(erro instanceof Error ? erro.message : 'Não foi possível entrar.');
@@ -319,8 +319,8 @@ export async function entrar(): Promise<void> {
   aoEntrar(sessao);
 }
 
-async function entrarPelaApi(login: string, senha: string): Promise<Usuario> {
-  const resposta = await apiLogin(login, senha);
+async function entrarPelaApi(email: string, senha: string): Promise<Usuario> {
+  const resposta = await apiLogin(email, senha);
   guardarToken(resposta.token);
   return daApi(resposta.funcionario);
 }

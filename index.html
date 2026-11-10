@@ -113,8 +113,8 @@
       </p>
 
       <div class="field">
-        <label class="field__label" for="entrada-usuario">Usuário</label>
-        <input class="input" type="text" id="entrada-usuario" name="usuario"
+        <label class="field__label" for="entrada-usuario">E-mail</label>
+        <input class="input" type="email" id="entrada-usuario" name="email"
                autocomplete="username" autocapitalize="none" spellcheck="false" required />
       </div>
 
@@ -136,7 +136,170 @@
         <svg class="ic" aria-hidden="true"><use href="#i-log-in" /></svg>
         Entrar
       </button>
+
+      <p class="login__links">
+        <button type="button" class="login__link" data-action="abrir-esqueci">Esqueci minha senha</button>
+      </p>
     </form>
+
+    <!-- Esqueci a senha: pede o e-mail; o back-end manda o link. -->
+    <form id="form-esqueci" novalidate hidden>
+      <h2 class="login__subtitle">Esqueci minha senha</h2>
+      <p class="login__desc">
+        Informe o e-mail do seu cadastro. Se ele existir, você recebe um link
+        para definir uma senha nova.
+      </p>
+
+      <p class="login__error" id="esqueci-erro" role="alert" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="esqueci-erro-texto"></span>
+      </p>
+
+      <div id="esqueci-campos">
+        <div class="field">
+          <label class="field__label" for="esqueci-email">E-mail</label>
+          <input class="input" type="email" id="esqueci-email" name="email"
+                 autocomplete="email" inputmode="email" spellcheck="false" required />
+        </div>
+
+        <button class="btn btn--primary login__submit" type="submit" id="esqueci-enviar">
+          <svg class="ic" aria-hidden="true"><use href="#i-send-horizontal" /></svg>
+          Enviar link
+        </button>
+      </div>
+
+      <div class="login__ok" id="esqueci-ok" role="status" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-check" /></svg>
+        <span id="esqueci-ok-texto"></span>
+      </div>
+
+      <p class="login__links">
+        <button type="button" class="login__link" data-action="voltar-entrada">Voltar para a entrada</button>
+      </p>
+    </form>
+
+  </div>
+</div>
+
+
+<!-- ===========================================================================
+     Definir senha (link do e-mail: /definir-senha?token=...)
+     =========================================================================== -->
+
+<div class="login" id="tela-definir" hidden>
+  <div class="login__card">
+
+    <div class="login__brand">
+      <img class="login__logo" src="/assets/embrapa.png" alt="Embrapa"
+           width="360" height="137" />
+      <div>
+        <div class="login__brand-name">CVGWeb</div>
+        <div class="login__brand-org">Cenargen</div>
+      </div>
+    </div>
+
+    <!-- conferindo o link -->
+    <div id="definir-conferindo">
+      <h1 class="login__title">Conferindo o link…</h1>
+      <p class="login__desc">Um instante.</p>
+    </div>
+
+    <!-- link inválido ou vencido -->
+    <div id="definir-invalido" hidden>
+      <h1 class="login__title">Link inválido ou vencido</h1>
+      <p class="login__error" role="alert">
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="definir-invalido-texto"></span>
+      </p>
+      <p class="login__desc">
+        Na tela de entrada, use "Esqueci minha senha" para receber um link novo,
+        ou peça à administração para reenviar o convite.
+      </p>
+      <button type="button" class="btn btn--primary login__submit" data-action="ir-entrada">
+        <svg class="ic" aria-hidden="true"><use href="#i-log-in" /></svg>
+        Ir para a entrada
+      </button>
+    </div>
+
+    <!-- formulário -->
+    <form id="form-definir" novalidate hidden>
+      <h1 class="login__title" id="definir-titulo">Crie a sua senha</h1>
+      <p class="login__desc" id="definir-desc"></p>
+
+      <dl class="login__resumo">
+        <div><dt>Nome</dt><dd id="definir-nome">—</dd></div>
+        <div><dt>E-mail de acesso</dt><dd id="definir-email">—</dd></div>
+      </dl>
+
+      <p class="login__error" id="definir-erro" role="alert" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="definir-erro-texto"></span>
+      </p>
+
+      <div class="field">
+        <label class="field__label" for="definir-senha">Nova senha</label>
+        <div class="senha">
+          <input class="input senha__campo" type="password" id="definir-senha" name="senha"
+                 autocomplete="new-password" minlength="8" required />
+          <button class="senha__botao" type="button" data-action="alternar-senha"
+                  data-campo="definir-senha" aria-controls="definir-senha"
+                  aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha">
+            <svg class="ic senha__ic-ver" aria-hidden="true"><use href="#i-eye" /></svg>
+            <svg class="ic senha__ic-ocultar" aria-hidden="true" hidden><use href="#i-eye-off" /></svg>
+          </button>
+        </div>
+        <p class="field__hint">Pelo menos 8 caracteres.</p>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="definir-confirmacao">Repita a senha</label>
+        <div class="senha">
+          <input class="input senha__campo" type="password" id="definir-confirmacao" name="confirmacao"
+                 autocomplete="new-password" minlength="8" required />
+          <button class="senha__botao" type="button" data-action="alternar-senha"
+                  data-campo="definir-confirmacao" aria-controls="definir-confirmacao"
+                  aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha">
+            <svg class="ic senha__ic-ver" aria-hidden="true"><use href="#i-eye" /></svg>
+            <svg class="ic senha__ic-ocultar" aria-hidden="true" hidden><use href="#i-eye-off" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <button class="btn btn--primary login__submit" type="submit" id="definir-enviar">
+        <svg class="ic" aria-hidden="true"><use href="#i-check" /></svg>
+        Salvar senha
+      </button>
+    </form>
+
+    <!-- pronto: resumo do acesso -->
+    <div id="definir-pronto" hidden>
+      <h1 class="login__title">Senha salva</h1>
+      <p class="login__ok" role="status">
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-check" /></svg>
+        <span id="definir-pronto-texto"></span>
+      </p>
+      <p class="login__desc">Estes são os seus dados de acesso. Guarde-os:</p>
+
+      <dl class="login__resumo">
+        <div><dt>E-mail de acesso</dt><dd id="pronto-email">—</dd></div>
+        <div>
+          <dt>Senha</dt>
+          <dd class="login__resumo-senha">
+            <code id="pronto-senha" data-senha="" aria-live="polite">••••••••</code>
+            <button type="button" class="senha__botao" data-action="alternar-senha-pronta"
+                    aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha">
+              <svg class="ic senha__ic-ver" aria-hidden="true"><use href="#i-eye" /></svg>
+              <svg class="ic senha__ic-ocultar" aria-hidden="true" hidden><use href="#i-eye-off" /></svg>
+            </button>
+          </dd>
+        </div>
+      </dl>
+
+      <button type="button" class="btn btn--primary login__submit" data-action="ir-entrada">
+        <svg class="ic" aria-hidden="true"><use href="#i-log-in" /></svg>
+        Entrar no sistema
+      </button>
+    </div>
 
   </div>
 </div>
@@ -617,19 +780,15 @@
       </div>
     </section>
 
-    <!-- ===== Histórico ===================================================
-         Aba própria, não modal: a trilha é uma tela de consulta com filtro e
-         paginação — coisa que se percorre, e não um recado que se fecha.
-         ================================================================== -->
+    <!-- ===== Log de atividade ============================================ -->
     <section class="view" id="view-historico" aria-labelledby="titulo-historico">
-      <div class="pagina">
-
+      <div class="pagina audit-page">
         <div class="page-head">
           <div>
-            <h1 class="page-head__title" id="titulo-historico">Histórico de alterações</h1>
-            <p class="page-head__desc">Quem alterou o quê, quando, e o valor que havia antes</p>
+            <p class="audit-kicker">OBSERVABILIDADE</p>
+            <h1 class="page-head__title" id="titulo-historico">Log de atividade</h1>
+            <p class="page-head__desc">Ações e alterações registradas no sistema</p>
           </div>
-
           <div class="page-head__actions">
             <button type="button" class="btn btn--quiet btn--sm" id="auditoria-limpar"
                     data-action="limpar-auditoria" hidden>
@@ -639,25 +798,15 @@
           </div>
         </div>
 
-        <div class="section" id="sec-auditoria">
-
-          <!-- Os filtros vem de /auditorias/filtros: so o que existe na trilha -->
-          <div class="barra-filtros">
-            <div class="field">
-              <label class="field__label" for="auditoria-entidade">Registro</label>
-              <select class="select" id="auditoria-entidade" data-change="filtro-auditoria" data-campo="entidade"></select>
-            </div>
+        <div class="section audit-section" id="sec-auditoria">
+          <div class="audit-filters" aria-label="Filtros principais do log">
             <div class="field">
               <label class="field__label" for="auditoria-acao">Ação</label>
               <select class="select" id="auditoria-acao" data-change="filtro-auditoria" data-campo="acao"></select>
             </div>
             <div class="field">
-              <label class="field__label" for="auditoria-pessoa">Quem alterou</label>
+              <label class="field__label" for="auditoria-pessoa">Pessoa</label>
               <select class="select" id="auditoria-pessoa" data-change="filtro-auditoria" data-campo="funcionario_id"></select>
-            </div>
-            <div class="field">
-              <label class="field__label" for="auditoria-projeto">Projeto</label>
-              <select class="select" id="auditoria-projeto" data-change="filtro-auditoria" data-campo="projeto_id"></select>
             </div>
             <div class="field">
               <label class="field__label" for="auditoria-de">De</label>
@@ -669,24 +818,35 @@
             </div>
           </div>
 
-          <div class="section__head">
-            <h3 class="section__title">
-              Alterações
-              <span class="count" id="conta-auditoria">0</span>
-            </h3>
+          <details class="audit-filters__advanced">
+            <summary>Filtros avançados</summary>
+            <div class="audit-filters__extra">
+              <div class="field">
+                <label class="field__label" for="auditoria-entidade">Registro</label>
+                <select class="select" id="auditoria-entidade" data-change="filtro-auditoria" data-campo="entidade"></select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="auditoria-projeto">Projeto</label>
+                <select class="select" id="auditoria-projeto" data-change="filtro-auditoria" data-campo="projeto_id"></select>
+              </div>
+            </div>
+          </details>
+
+          <div class="audit-log__head">
+            <h2 class="audit-log__title">Eventos</h2>
+            <span class="audit-log__count"><strong id="conta-auditoria">0</strong> eventos</span>
           </div>
 
-          <div class="table-wrap">
-            <table class="table">
-              <caption class="sr-only">Alterações registradas no sistema, com autor, ação, registro afetado e os valores antes e depois</caption>
+          <div class="table-wrap audit-log__wrap">
+            <table class="table audit-log">
+              <caption class="sr-only">Log de atividade com data, ação, pessoa, registro e detalhes</caption>
               <thead>
                 <tr>
                   <th scope="col">Quando</th>
-                  <th scope="col">Quem</th>
                   <th scope="col">Ação</th>
-                  <th scope="col">Registro</th>
-                  <th scope="col">O que mudou</th>
-                  <th scope="col">Projeto</th>
+                  <th scope="col">Pessoa</th>
+                  <th scope="col">Evento</th>
+                  <th scope="col">Detalhe</th>
                 </tr>
               </thead>
               <tbody id="tbody-auditoria"></tbody>
@@ -694,9 +854,9 @@
           </div>
         </div>
 
-        <div class="paginacao-barra">
+        <div class="paginacao-barra audit-pagination">
           <p class="paginacao__info">
-            Mostrando <strong id="auditoria-intervalo">&mdash;</strong> alterações
+            Mostrando <strong id="auditoria-intervalo">&mdash;</strong> eventos
           </p>
           <div class="paginacao">
             <button type="button" class="btn btn--quiet btn--sm" id="auditoria-anterior"
@@ -1092,13 +1252,13 @@
 
         <div class="field-row">
           <div class="field">
-            <label class="field__label" for="novo-usuario-nick">Usuário</label>
+            <label class="field__label" for="novo-usuario-nick">Identificador interno</label>
             <input class="input" type="text" id="novo-usuario-nick" name="nick"
                    maxlength="30" placeholder="ana.paula" autocomplete="off"
                    autocapitalize="none" spellcheck="false"
                    aria-describedby="novo-usuario-nick-ajuda" />
             <p class="field__hint" id="novo-usuario-nick-ajuda">
-              Em branco, sai do e-mail. É o que se digita para entrar.
+              Em branco, é gerado pelo e-mail. Não é usado para entrar.
             </p>
           </div>
           <div class="field">
@@ -1190,7 +1350,7 @@
           <label class="field__label" for="editar-usuario-email">E-mail</label>
           <input class="input" type="email" id="editar-usuario-email" autocapitalize="none"
                  spellcheck="false" required />
-          <p class="field__hint">Trocar o e-mail não troca o usuário de login.</p>
+          <p class="field__hint">O e-mail é usado para entrar no sistema.</p>
         </div>
       </div>
 
@@ -1198,10 +1358,10 @@
         <legend class="fieldset__legend">Dados funcionais</legend>
         <div class="field-row">
           <div class="field">
-            <label class="field__label" for="editar-usuario-nick">Usuário</label>
+            <label class="field__label" for="editar-usuario-nick">Identificador interno</label>
             <input class="input" type="text" id="editar-usuario-nick" maxlength="30"
                    autocapitalize="none" spellcheck="false" required />
-            <p class="field__hint">Mudar isto muda como a pessoa entra.</p>
+            <p class="field__hint">A entrada no sistema usa o e-mail.</p>
           </div>
           <div class="field">
             <label class="field__label" for="editar-usuario-matricula">

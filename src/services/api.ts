@@ -684,23 +684,79 @@ export interface RespostaLogin {
 }
 
 /** Autentica no back-end e devolve o token junto com o funcionário. */
-export async function login(nick: string, senha: string): Promise<RespostaLogin> {
+export async function login(email: string, senha: string): Promise<RespostaLogin> {
   const resposta = await fetch(`${API_URL}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ nick, senha }),
+    body: JSON.stringify({ email: email.trim().toLowerCase(), senha }),
   });
 
   const dados = await resposta.json().catch(() => null);
 
   if (!resposta.ok) {
-    throw new Error(mensagemDoErro(dados, 'Usuário ou senha incorretos.'));
+    throw new Error(mensagemDoErro(dados, 'E-mail ou senha incorretos.'));
   }
 
   return dados as RespostaLogin;
 }
 
 /** Pede o link de criação de nova senha. A resposta é sempre a mesma. */
-export function esqueciSenha(email: string): Promise<any> {
+export function esqueciSenha(email: string): Promise<{ message?: string }> {
   return enviar('POST', '/esqueci-senha', { email }, 'Não foi possível enviar o e-mail.');
+}
+
+/** O que a tela do link mostra antes de pedir a senha. */
+export interface TokenAcesso {
+  valido: boolean;
+  tipo: 'CONVITE' | 'NOVA_SENHA';
+  primeiro_acesso: boolean;
+  nome: string;
+  nick: string;
+  email: string;
+  expira_em: string;
+}
+
+/**
+ * Confere o token do link (`/definir-senha?token=...`) e diz para quem ele é.
+ * Rota pública: sem token de sessão. Um 422 aqui é "link inválido ou
+ * vencido", não sessão perdida — por isso não passa por `buscar`.
+ */
+export async function consultarTokenAcesso(token: string): Promise<TokenAcesso> {
+  const resposta = await fetch(`${API_URL}/definir-senha/${encodeURIComponent(token)}`, {
+    headers: { Accept: 'application/json' },
+  });
+  const dados = await resposta.json().catch(() => null);
+
+  if (!resposta.ok) {
+    throw new ErroApi(mensagemDoErro(dados, 'Link inválido ou vencido.'), resposta.status, dados);
+  }
+
+  return dados as TokenAcesso;
+}
+
+export interface SenhaDefinida {
+  message: string;
+  nome: string;
+  nick: string;
+  email: string;
+}
+
+/** Grava a senha escolhida pelo link. Rota pública, sem sessão. */
+export async function definirSenha(
+  token: string,
+  senha: string,
+  confirmacao: string,
+): Promise<SenhaDefinida> {
+  const resposta = await fetch(`${API_URL}/definir-senha`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ token, senha, senha_confirmation: confirmacao }),
+  });
+  const dados = await resposta.json().catch(() => null);
+
+  if (!resposta.ok) {
+    throw new ErroApi(mensagemDoErro(dados, 'Não foi possível salvar a senha.'), resposta.status, dados);
+  }
+
+  return dados as SenhaDefinida;
 }

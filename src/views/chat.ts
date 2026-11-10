@@ -1,14 +1,20 @@
 /**
  * Assistente do CVGWeb — widget no canto inferior direito.
  *
- * A pergunta vai para a LLM junto com `src/chat/base-conhecimento.md` já
- * preenchido com o estado do sistema (ocupação, responsável, período,
- * projeto e finalidade). O widget só aparece depois da entrada no sistema.
+ * A pergunta vai para `POST /api/assistente` do back-end, que monta o prompt
+ * com o estado do banco (ocupação, responsável, período, projeto e
+ * finalidade) e fala com a LLM usando a chave guardada no servidor. O widget
+ * só aparece depois da entrada no sistema.
  */
-import { montarPrompt } from '../chat/contexto';
 import { el, show } from '../lib/dom';
 import { html, raw } from '../lib/html';
-import { LLM_PRONTA, perguntar, type Fala } from '../services/llm';
+import {
+  esquecerDisponibilidade,
+  llmPronta,
+  perguntar,
+  verificarAssistente,
+  type Fala,
+} from '../services/llm';
 
 const SUGESTOES = [
   'Quem está usando a Estufa 03 e até quando?',
@@ -21,13 +27,30 @@ const ABERTURA =
   + 'e qual projeto está lá dentro. Pergunte à vontade.';
 
 const SEM_CHAVE =
-  'O assistente está sem chave de LLM. Defina **VITE_GROQ_API_KEY** no arquivo '
-  + '`.env` e reinicie o `npm run dev`.';
+  'O assistente não está configurado neste servidor. Peça à administração para '
+  + 'definir **GROQ_API_KEY** no ambiente do back-end.';
+
+const VERIFICANDO = 'Verificando o assistente…';
 
 const historico: Fala[] = [];
 
 let pensando = false;
 let emCurso: AbortController | null = null;
+
+/** Já perguntamos ao servidor se o assistente existe nesta sessão? */
+let verificado = false;
+
+/**
+ * Pergunta ao back-end se há chave configurada e redesenha. Roda uma vez por
+ * sessão: sair e entrar de novo pergunta outra vez (a configuração do servidor
+ * pode ter mudado no meio).
+ */
+async function garantirVerificado(): Promise<void> {
+  if (verificado) return;
+  await verificarAssistente();
+  verificado = true;
+  renderizar();
+}
 
 /* ===========================================================================
    Texto da resposta
@@ -81,7 +104,10 @@ function renderizar(): void {
   const log = el('chat-log');
   if (!log) return;
 
-  const primeira = balao('assistant', formatar(LLM_PRONTA ? ABERTURA : SEM_CHAVE));
+  const primeira = balao(
+    'assistant',
+    formatar(llmPronta() ? ABERTURA : (verificado ? SEM_CHAVE : VERIFICANDO)),
+  );
   const falas = historico.map((f) => balao(f.papel, formatar(f.texto)));
 
   const carregando = pensando
@@ -98,14 +124,14 @@ function renderizar(): void {
   log.innerHTML = primeira + falas.join('') + carregando;
   log.scrollTop = log.scrollHeight;
 
-  show(el('chat-sugestoes'), historico.length === 0 && LLM_PRONTA);
+  show(el('chat-sugestoes'), historico.length === 0 && llmPronta());
   show(el('chat-limpar'), historico.length > 0);
 
   const enviar = el<HTMLButtonElement>('chat-enviar');
-  if (enviar) enviar.disabled = pensando || !LLM_PRONTA;
+  if (enviar) enviar.disabled = pensando || !llmPronta();
 
   const entrada = el<HTMLTextAreaElement>('chat-entrada');
-  if (entrada) entrada.disabled = !LLM_PRONTA;
+  if (entrada) entrada.disabled = !llmPronta();
 }
 
 /* ===========================================================================
@@ -127,6 +153,7 @@ export function alternarChat(forcar?: boolean, devolverFoco = true): void {
 
   if (abrir) {
     renderizar();
+    void garantirVerificado();
     el<HTMLTextAreaElement>('chat-entrada')?.focus();
   } else {
     emCurso?.abort();
@@ -145,6 +172,9 @@ export function mostrarChat(visivel: boolean): void {
   if (!visivel) {
     alternarChat(false);
     historico.length = 0;
+    // Próxima sessão pergunta de novo ao servidor.
+    verificado = false;
+    esquecerDisponibilidade();
   }
   show(el('chat'), visivel);
 }
@@ -182,7 +212,7 @@ function ajustarAltura(campo: HTMLTextAreaElement): void {
 
 async function enviar(pergunta: string): Promise<void> {
   const texto = pergunta.trim();
-  if (!texto || pensando || !LLM_PRONTA) return;
+  if (!texto || pensando || !llmPronta()) return;
 
   const campo = el<HTMLTextAreaElement>('chat-entrada');
   if (campo) {
@@ -197,10 +227,10 @@ async function enviar(pergunta: string): Promise<void> {
   emCurso = new AbortController();
 
   try {
-    // O prompt é montado agora, não no boot: releva a API se preciso, então a
+    // O prompt é montado no servidor a cada pergunta, direto do banco: a
     // resposta reflete a reserva feita há dez segundos — por outra pessoa,
     // em outra máquina.
-    const resposta = await perguntar(await montarPrompt(), historico, emCurso.signal);
+    const resposta = await perguntar(historico, emCurso.signal);
     historico.push({ papel: 'assistant', texto: resposta });
   } catch (erro) {
     if (erro instanceof DOMException && erro.name === 'AbortError') return;
@@ -257,10 +287,6 @@ export function iniciarChat(): void {
       fecharChat();
     }
   });
-
-  if (!LLM_PRONTA) {
-    console.warn('[CVGWeb] assistente sem VITE_GROQ_API_KEY: o widget abre, mas não consulta a LLM.');
-  }
 
   renderizar();
 }

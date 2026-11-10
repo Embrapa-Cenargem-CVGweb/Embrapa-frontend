@@ -161,7 +161,7 @@ function pintarCarregando(): void {
 
   corpo.innerHTML = html`
     <tr class="table__empty">
-      <td colspan="6">
+      <td colspan="5">
         <div class="empty">
           ${icone('clock', 'ic ic--xl')}
           <p class="empty__text">Lendo o histórico&hellip;</p>
@@ -221,7 +221,7 @@ function renderizar(): void {
   if (!registros.length) {
     corpo.innerHTML = html`
       <tr class="table__empty">
-        <td colspan="6">
+        <td colspan="5">
           <div class="empty">
             ${icone(ultimoErro ? 'circle-x' : 'shield-check', 'ic ic--xl')}
             <p class="empty__text">${raw(textoDoVazio())}</p>
@@ -258,19 +258,21 @@ function textoDoVazio(): string {
 }
 
 function linha(r: RegistroAuditoria): string {
-  const vazio = html`<span class="table__muted">&mdash;</span>`;
   const quando = dataHoraBR(r.created_at);
   const [data, hora] = quando.split(' ');
+  const rotuloAcao = r.acao.charAt(0) + r.acao.slice(1).toLowerCase();
 
   return html`
     <tr>
-      <td data-label="Quando" style="white-space:nowrap">
-        <div class="table__stack">
-          <span>${data ?? quando}</span>
-          <span class="table__sub">${hora ?? ''}</span>
-        </div>
+      <td data-label="Quando" class="audit-log__timestamp">
+        <time datetime="${r.created_at}">${data ?? quando} ${hora ?? ''}</time>
       </td>
-      <td data-label="Quem">
+      <td data-label="Ação">
+        <span class="pill ${raw(ACAO_PILL[r.acao] ?? 'pill--neutral')}">
+          ${icone(ACAO_ICONE[r.acao] ?? 'info', 'ic ic--sm')}${rotuloAcao}
+        </span>
+      </td>
+      <td data-label="Pessoa">
         ${raw(r.funcionario
           ? html`<div class="table__stack">
                    <span class="table__name">${r.funcionario.nome}</span>
@@ -280,24 +282,23 @@ function linha(r: RegistroAuditoria): string {
                  </div>`
           : html`<span class="table__muted">cadastro removido</span>`)}
       </td>
-      <td data-label="Ação">
-        <span class="pill ${raw(ACAO_PILL[r.acao] ?? 'pill--neutral')}">
-          ${icone(ACAO_ICONE[r.acao] ?? 'info', 'ic ic--sm')}${r.acao.charAt(0) + r.acao.slice(1).toLowerCase()}
-        </span>
-      </td>
-      <td data-label="Registro">
+      <td data-label="Evento">
         <div class="table__stack">
           <span class="table__name">${r.entidade_rotulo ?? `#${String(r.entidade_id ?? '')}`}</span>
           <span class="table__sub">${ENTIDADE_ROTULO[r.entidade] ?? r.entidade}</span>
+          ${raw(r.projeto
+            ? html`<span class="audit-log__project">${r.projeto.codigo}</span>`
+            : '')}
         </div>
       </td>
-      <td data-label="O que mudou">${raw(celulaDoDiff(r))}</td>
-      <td data-label="Projeto">
-        ${raw(r.projeto ? html`<span class="code">${r.projeto.codigo}</span>` : vazio)}
+      <td data-label="Detalhe">
+        <div class="audit-log__detail">
+          ${raw(celulaDoDiff(r))}
+          ${raw(r.ip ? html`<span class="audit-log__ip">IP ${r.ip}</span>` : '')}
+        </div>
       </td>
     </tr>`;
 }
-
 /**
  * A célula de diff.
  *

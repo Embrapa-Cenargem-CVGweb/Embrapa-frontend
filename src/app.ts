@@ -8,6 +8,13 @@ import { carregarEstado } from './data/estufas';
 import { aoPerderSessao } from './services/api';
 import { iniciarAcoes, registrarAcoes } from './lib/actions';
 import { alternarVisibilidadeSenha } from './lib/senha';
+import {
+  abrirEsqueci,
+  alternarSenhaPronta,
+  iniciarAcesso,
+  irParaEntrada,
+  voltarParaEntrada,
+} from './views/acesso';
 import { aoMudar } from './lib/bus';
 import { debounce, el, qsa, setText, show } from './lib/dom';
 import { abrirModal, aoFecharModal, fecharTodosModais, iniciarModais } from './lib/modal';
@@ -238,6 +245,11 @@ function registrarTodasAsAcoes(): void {
     },
     fechar: () => fecharTodosModais(),
     'alternar-senha': (elemento) => alternarVisibilidadeSenha(elemento),
+    // telas publicas de senha (views/acesso.ts)
+    'abrir-esqueci': () => abrirEsqueci(),
+    'voltar-entrada': () => voltarParaEntrada(),
+    'ir-entrada': () => irParaEntrada(),
+    'alternar-senha-pronta': (elemento) => alternarSenhaPronta(elemento),
     'tentar-de-novo': () => repetirDepoisDaFalha(),
 
 
@@ -616,6 +628,10 @@ export function iniciarApp(): void {
       aviso(mensagem, 'info');
     }
   });
+
+  // Chegou pelo link do e-mail (/definir-senha?token=...): a tela de senha
+  // toma o lugar da entrada e nenhuma sessao e restaurada por cima.
+  if (iniciarAcesso()) return;
 
   iniciarAutenticacao(montarApp, desmontarApp);
 }

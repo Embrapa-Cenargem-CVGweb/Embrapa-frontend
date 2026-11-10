@@ -3,13 +3,9 @@
 interface ImportMetaEnv {
   /** URL base da API Laravel, por exemplo http://localhost:8000/api. */
   readonly VITE_API_URL?: string;
-  /**
-   * Chave da LLM do assistente (Groq). Atenção: toda variável VITE_ vai para o
-   * bundle e fica legível no navegador — em produção, use um proxy no back-end.
-   */
-  readonly VITE_GROQ_API_KEY?: string;
-  /** Modelo da Groq usado pelo assistente. Padrão: llama-3.3-70b-versatile. */
-  readonly VITE_GROQ_MODEL?: string;
+  // Não existe VITE_GROQ_API_KEY de propósito: toda variável VITE_ entra no
+  // bundle e fica legível no navegador. A chave da LLM vive no back-end
+  // (GROQ_API_KEY) e o front só chama POST /api/assistente.
 }
 
 interface ImportMeta {
