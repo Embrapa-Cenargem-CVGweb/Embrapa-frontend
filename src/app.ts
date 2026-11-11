@@ -101,9 +101,16 @@ import {
 } from './views/login';
 import {
   abrirPainel,
+  ajustarZoom,
+  alternarPopover,
+  alternarProximas,
+  alternarTelaCheia,
+  centralizarMapa,
+  escolherResultado,
   fecharPainel,
   iniciarMapa,
   renderizarMarcadores,
+  sairDaTelaCheia,
   sincronizarMarcadores,
 } from './views/mapa';
 import {
@@ -181,12 +188,19 @@ function fecharMenu(): void {
    Entrada e saída da sessão
    =========================================================================== */
 
+/** "Bruno Lima" vira "BR": as duas primeiras letras do primeiro nome. */
+function iniciais(nome: string): string {
+  const primeiro = nome.trim().split(/\s+/)[0] ?? '';
+  return primeiro ? primeiro.slice(0, 2).toUpperCase() : '—';
+}
+
 function montarApp(usuario: Usuario): void {
   show(el('tela-entrada'), false);
   show(el('app'), true);
   mostrarChat(true);
 
   setText('conta-nome', usuario.nome);
+  setText('conta-iniciais', iniciais(usuario.nome));
   setText('conta-perfil', usuario.cargo);
   for (const id of ['nav-reservas', 'nav-projetos', 'nav-usuarios', 'nav-admin', 'nav-historico']) {
     show(el(id), usuario.admin);
@@ -218,6 +232,7 @@ async function carregarInventario(usuario: Usuario): Promise<void> {
 
 function desmontarApp(): void {
   esconderFalha();
+  sairDaTelaCheia();
   fecharTodosModais();
   fecharMenu();
   mostrarChat(false);
@@ -259,6 +274,15 @@ function registrarTodasAsAcoes(): void {
       if (id) abrirPainel(id);
     },
     'fechar-painel': () => fecharPainel(),
+    'mapa-resultado': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) escolherResultado(id);
+    },
+    'mapa-popover': (elemento) => alternarPopover(elemento),
+    'mapa-tela-cheia': () => alternarTelaCheia(),
+    'mapa-zoom': (elemento) => ajustarZoom(elemento.dataset.direcao ?? 'mais'),
+    'mapa-centralizar': () => centralizarMapa(),
+    'mapa-ver-todas': () => alternarProximas(),
     'sem-acao': () => {},
 
     // reservas
@@ -489,6 +513,13 @@ function ligarBuscas(): void {
   const buscaUsuarios = debounce((valor: string) => buscarUsuarios(valor));
   el<HTMLInputElement>('busca-usuarios')?.addEventListener('input', (ev) => {
     buscaUsuarios((ev.target as HTMLInputElement).value);
+  });
+
+  // Nos logs a busca vai ao servidor (a trilha é paginada), por isso espera
+  // a pessoa parar de digitar um pouco mais que as outras.
+  const buscaLogs = debounce((valor: string) => definirFiltroAuditoria('busca', valor), 350);
+  el<HTMLInputElement>('auditoria-busca')?.addEventListener('input', (ev) => {
+    buscaLogs((ev.target as HTMLInputElement).value);
   });
 
   const buscaProjetos = debounce((valor: string) => buscarProjetos(valor));

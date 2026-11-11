@@ -370,6 +370,33 @@ export function atualizarSituacaoFuncionario(id: number, ativo: boolean): Promis
   );
 }
 
+/**
+ * O que a API conta sobre o envio do link de acesso. `enviado` falso não é
+ * erro da chamada: o link foi gerado, só o e-mail é que não saiu — e nesse
+ * caso `link` vem junto para o administrador entregar por outro canal.
+ */
+export interface EnvioDoConvite {
+  enviado: boolean;
+  simulado?: boolean;
+  codigo?: string | null;
+  mensagem?: string;
+  link?: string;
+  enviado_para?: string;
+  pode_tentar_de_novo?: boolean;
+}
+
+/** Como está o envio de e-mail do servidor (aviso da tela de usuários). */
+export interface SituacaoDoEmail {
+  mailer: string;
+  remetente: string | null;
+  pronto: boolean;
+  avisos: string[];
+}
+
+export function getSituacaoDoEmail(): Promise<SituacaoDoEmail> {
+  return buscar('/acesso/email', 'a situação do envio de e-mail');
+}
+
 export function reenviarConvite(id: number): Promise<any> {
   return enviar('POST', `/funcionarios/${id}/convite`, undefined, 'Não foi possível enviar o convite.');
 }
@@ -599,10 +626,14 @@ export function removerMembro(projetoId: number, funcionarioId: number): Promise
 
 export interface RegistroAuditoria {
   id: number;
-  acao: 'CRIOU' | 'ALTEROU' | 'EXCLUIU' | 'RESTAUROU';
+  /** CRIOU, ALTEROU, EXCLUIU, ENTROU, SAIU, APROVOU, NEGADO... */
+  acao: string;
   entidade: string;
   entidade_id: number | null;
-  entidade_rotulo: string | null;
+  /** Texto curto que identifica o registro (código, nome...). */
+  rotulo: string | null;
+  /** Nome de quem fez, guardado na hora: sobrevive à remoção do cadastro. */
+  funcionario_nome?: string | null;
   alteracoes: Record<string, { de?: unknown; para?: unknown }> | null;
   ip?: string | null;
   created_at: string;
@@ -640,6 +671,7 @@ export function getAuditoria(filtros: {
   projeto_id?: number;
   de?: string;
   ate?: string;
+  busca?: string;
   per_page?: number;
   page?: number;
 } = {}): Promise<PaginaAuditoria> {
@@ -672,6 +704,8 @@ export interface FuncionarioApi {
   ativo?: boolean;
   /** ATIVO, CONVITE_PENDENTE (sem senha criada) ou INATIVO. */
   situacao?: string;
+  /** Estado do convite de quem ainda não criou a senha. */
+  convite?: import('../types').ConviteDoUsuario | null;
   /** Em quantos projetos a pessoa está na equipe. */
   projetos?: number;
   ultimo_acesso_em?: string | null;

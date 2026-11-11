@@ -86,6 +86,8 @@ export interface Reserva {
   quantidade: number;
   /** Código do projeto vinculado. */
   projeto: string;
+  /** Título do projeto, quando a API o devolve junto. */
+  projetoTitulo?: string;
   /** Para que o espaço será usado. */
   finalidade?: string;
   /** Observações livres. */
@@ -97,6 +99,14 @@ export interface Reserva {
 
 /** Situação do acesso de um usuário, como a API devolve. */
 export type SituacaoUsuario = 'ATIVO' | 'CONVITE_PENDENTE' | 'INATIVO';
+
+/** Estado do convite de primeiro acesso, como a API resume. */
+export interface ConviteDoUsuario {
+  /** ENVIADO, NAO_ENVIADO (o e-mail não saiu), VENCIDO ou SEM_CONVITE. */
+  estado: 'ENVIADO' | 'NAO_ENVIADO' | 'VENCIDO' | 'SEM_CONVITE';
+  mensagem: string;
+  erro_codigo?: string | null;
+}
 
 /** Usuário da sessão, montado a partir do funcionário devolvido em /login. */
 export interface Usuario {
@@ -120,6 +130,8 @@ export interface Usuario {
   ultimoAcesso?: string;
   /** Situação do acesso; sem senha criada fica CONVITE_PENDENTE. */
   situacao?: SituacaoUsuario;
+  /** Como está o convite de quem ainda não criou a senha. */
+  convite?: ConviteDoUsuario | null;
 }
 
 export interface StatusInfo {

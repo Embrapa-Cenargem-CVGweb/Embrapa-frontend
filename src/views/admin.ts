@@ -37,6 +37,7 @@ import { html, icone, juntar, raw } from '../lib/html';
 import { capacidade, dataBR, dataHoraBR, ocupacaoResumo, statusPill } from '../lib/format';
 import { abrirModal, confirmar, fecharModal, fecharTodosModais } from '../lib/modal';
 import { irParaSecao } from '../lib/navegacao';
+import { avatar, pintarStats } from '../lib/telas';
 import { aviso } from '../lib/toast';
 import {
   atualizarEspaco,
@@ -45,8 +46,10 @@ import {
   criarEspaco,
   getCargos,
   getPainel,
+  getSituacaoDoEmail,
   getTiposEspaco,
   type CargoApi,
+  type EnvioDoConvite,
   type DadosEspaco,
 } from '../services/api';
 import { cancelarNoDestino } from './reservas';
@@ -233,12 +236,28 @@ function celulaReservadoPor(id: string): string {
     </div>`;
 }
 
+/** Cor do anel ao lado do nome: as mesmas quatro da legenda do mapa. */
+function grupoDoAnel(status: string): string {
+  if (status === 'ocupada') return 'ocupada';
+  if (status === 'reservada') return 'reservada';
+  if (status === 'manutencao' || status === 'inativa') return 'manutencao';
+  return 'livre';
+}
+
 function renderizarEspacos(): void {
   const corpo = el('tbody-espacos');
   if (!corpo) return;
 
   const termo = buscaEspacos.trim().toLowerCase();
   const todos = Object.entries(ESTUFAS);
+
+  const situacoes = todos.map(([, e]) => e.status);
+  pintarStats('stats-espacos', [
+    { icone: 'warehouse', numero: todos.length, rotulo: 'Espaços' },
+    { icone: 'circle-check', numero: situacoes.filter((x) => x === 'livre' || x === 'parcial').length, rotulo: 'Com vaga hoje', tom: 'ok' },
+    { icone: 'user', numero: situacoes.filter((x) => x === 'ocupada' || x === 'reservada').length, rotulo: 'Ocupados ou reservados', tom: 'busy' },
+    { icone: 'wrench', numero: situacoes.filter((x) => x === 'manutencao' || x === 'inativa').length, rotulo: 'Manutenção ou inativos', tom: 'down' },
+  ]);
   const linhas = todos.filter(([id, e]) => {
     if (!termo) return true;
     const responsaveis = reservasDoEspaco(id).map((r) => r.pesquisador ?? '').join(' ');
@@ -266,7 +285,9 @@ function renderizarEspacos(): void {
     linhas.map(([id, e]) => html`
       <tr>
         <td data-label="Código"><span class="code">${e.codigo}</span></td>
-        <td data-label="Nome" class="table__name">${e.nome}</td>
+        <td data-label="Nome" class="table__name">
+          <span class="who" data-status="${grupoDoAnel(e.status)}"><span class="ring" aria-hidden="true"></span>${e.nome}</span>
+        </td>
         <td data-label="Tipo" class="table__muted">
           <span class="table__type">${icone(e.icon, 'ic ic--sm')}${e.tipo}</span>
         </td>
@@ -873,6 +894,13 @@ function renderizarReservas(): void {
   const pendentes = base.filter((r) => r.status === 'pendente').length;
   atualizarBadgePendentes(pendentes);
 
+  pintarStats('stats-reservas', [
+    { icone: 'calendar-days', numero: base.length, rotulo: 'Em aberto' },
+    { icone: 'clock', numero: pendentes, rotulo: 'Aguardando aprovação', tom: 'busy' },
+    { icone: 'circle-check', numero: base.filter((r) => r.status === 'ativa').length, rotulo: 'Aprovadas', tom: 'ok' },
+    { icone: 'ban', numero: reservas.filter((r) => r.status === 'cancelada').length, rotulo: 'Canceladas', tom: 'down' },
+  ]);
+
   const termo = buscaReservas.trim().toLowerCase();
   const filtrando = Boolean(termo) || filtroReservas !== 'todas';
 
@@ -917,7 +945,7 @@ function linhaDeReserva(r: Reserva): string {
       <td data-label="Espaço" class="table__name">${nome}</td>
       <td data-label="Responsável">
         ${raw(r.pesquisador
-          ? html`${r.pesquisador}`
+          ? html`<span class="who">${avatar(r.pesquisador)}${r.pesquisador}</span>`
           : html`<span class="table__muted">não informado</span>`)}
       </td>
       <td data-label="Quantidade">${capacidade(r.quantidade, estufa?.unidade ?? 'VASO')}</td>
@@ -1063,7 +1091,17 @@ function renderizarUsuarios(): void {
   const todos = listarUsuarios();
   const eu = usuarioAtual();
 
-  pintarBadge('badge-sem-senha', todos.filter((u) => u.situacao === 'CONVITE_PENDENTE').length);
+  const semSenha = todos.filter((u) => u.situacao === 'CONVITE_PENDENTE');
+  pintarBadge('badge-sem-senha', semSenha.length);
+
+  // Convite que não chegou é o que pede ação do administrador: reenviar.
+  const semEmail = semSenha.filter((u) => u.convite && u.convite.estado !== 'ENVIADO').length;
+  pintarStats('stats-usuarios', [
+    { icone: 'users', numero: todos.length, rotulo: 'Usuários' },
+    { icone: 'shield-user', numero: todos.filter((u) => u.admin).length, rotulo: 'Administradores', tom: 'booked' },
+    { icone: 'clock', numero: semSenha.length, rotulo: 'Aguardando criar a senha', tom: 'busy' },
+    { icone: 'send-horizontal', numero: semEmail, rotulo: 'Convites que não chegaram', tom: semEmail ? 'down' : undefined },
+  ]);
 
   const termo = buscaUsuarios.trim().toLowerCase();
   const filtrando = Boolean(termo) || filtroUsuarios !== 'todos';
@@ -1115,20 +1153,23 @@ function linhaDeUsuario(u: Usuario, eu: Usuario | null): string {
   return html`
     <tr class="${raw(inativo ? 'is-off' : '')}">
       <td data-label="Nome completo">
-        <div class="table__stack">
-          <span class="table__name">
-            ${u.nome}
-            ${raw(souEu ? html`<span class="pill pill--ok">você</span>` : '')}
-          </span>
-          ${raw(u.projetos
-            ? html`<span class="table__sub">
-                     ${String(u.projetos)} ${u.projetos === 1 ? 'projeto' : 'projetos'}
-                   </span>`
-            : '')}
+        <div class="who">
+          ${avatar(u.nome)}
+          <div class="table__stack">
+            <span class="table__name">
+              ${u.nome}
+              ${raw(souEu ? html`<span class="pill pill--ok">você</span>` : '')}
+            </span>
+            ${raw(u.projetos
+              ? html`<span class="table__sub">
+                       ${String(u.projetos)} ${u.projetos === 1 ? 'projeto' : 'projetos'}
+                     </span>`
+              : '')}
+          </div>
         </div>
       </td>
       <td data-label="E-mail" class="table__truncate" title="${u.email ?? ''}">
-        ${raw(u.email ? html`${u.email}` : vazio)}
+        ${raw(u.email ? html`<span class="cell-icon">${icone('send-horizontal', 'ic ic--sm')}${u.email}</span>` : vazio)}
       </td>
       <td data-label="Usuário"><span class="code">${u.login}</span></td>
       <td data-label="Matrícula">${raw(u.matricula ? html`${u.matricula}` : vazio)}</td>
@@ -1149,8 +1190,8 @@ function linhaDeUsuario(u: Usuario, eu: Usuario | null): string {
           ${raw(semSenha
             ? html`<button type="button" class="btn btn--quiet btn--sm"
                     data-action="reenviar-convite" data-id="${u.id}"
-                    title="Reenviar o link de criação de senha">
-                    ${icone('send-horizontal', 'ic ic--sm')}Convite
+                    title="${u.convite?.mensagem ?? 'Reenviar o link de criação de senha'}">
+                    ${icone('send-horizontal', 'ic ic--sm')}Reenviar convite
                   </button>`
             : '')}
           <button type="button" class="btn btn--quiet btn--sm btn--icon"
@@ -1159,9 +1200,11 @@ function linhaDeUsuario(u: Usuario, eu: Usuario | null): string {
             ${icone('wrench', 'ic ic--sm')}
           </button>
           ${raw(!souEu
-            ? html`<button type="button" class="btn btn--quiet btn--sm"
-                    data-action="alternar-acesso" data-id="${u.id}" data-ativo="${String(!inativo)}">
-                    ${icone(inativo ? 'circle-check' : 'ban', 'ic ic--sm')}${inativo ? 'Reativar' : 'Desativar'}
+            ? html`<button type="button" class="btn btn--quiet btn--sm btn--icon"
+                    data-action="alternar-acesso" data-id="${u.id}" data-ativo="${String(!inativo)}"
+                    title="${inativo ? 'Reativar o acesso' : 'Desativar o acesso'}"
+                    aria-label="${inativo ? 'Reativar' : 'Desativar'} o acesso de ${u.nome}">
+                    ${icone(inativo ? 'circle-check' : 'ban', 'ic ic--sm')}
                   </button>`
             : '')}
           ${raw(podeExcluir
@@ -1183,7 +1226,19 @@ function pillDoAcesso(u: Usuario): string {
   }
 
   if (u.situacao === 'CONVITE_PENDENTE') {
-    return html`<span class="pill pill--busy">${icone('clock', 'ic ic--sm')}Sem senha</span>`;
+    // "Sem senha" tem três histórias diferentes, e só uma delas é esperar.
+    const estado = u.convite?.estado;
+    const dica = u.convite?.mensagem ?? '';
+
+    if (estado === 'NAO_ENVIADO' || estado === 'SEM_CONVITE') {
+      return html`<span class="pill pill--down" title="${dica}">${icone('circle-x', 'ic ic--sm')}Sem senha · e-mail não saiu</span>`;
+    }
+
+    if (estado === 'VENCIDO') {
+      return html`<span class="pill pill--down" title="${dica}">${icone('clock', 'ic ic--sm')}Sem senha · convite vencido</span>`;
+    }
+
+    return html`<span class="pill pill--busy" title="${dica}">${icone('clock', 'ic ic--sm')}Sem senha · convite enviado</span>`;
   }
 
   return html`<span class="pill pill--ok">${icone('circle-check', 'ic ic--sm')}Ativo</span>`;
@@ -1278,12 +1333,68 @@ export async function confirmarNovoUsuario(): Promise<void> {
   renderizarUsuarios();
   fecharModal(el('modal-novo-usuario'));
 
+  // O cadastro deu certo, mas o e-mail não saiu: em vez de um aviso que some,
+  // um diálogo com o motivo e o link para entregar à pessoa.
+  if (resultado.convite && !resultado.convite.enviado) {
+    await mostrarLinkDoConvite(resultado.usuario?.nome ?? 'a pessoa', resultado.convite, 'Cadastro feito');
+    return;
+  }
+
   // A mensagem do back-end diz para onde o convite foi.
   aviso(
     resultado.mensagem
       ?? `${resultado.usuario?.nome ?? 'Usuário'} cadastrado; o convite de acesso foi enviado.`,
     'success',
   );
+}
+
+/**
+ * O e-mail do convite não saiu. O link continua valendo, então o administrador
+ * fica com ele na mão: o diálogo explica o que houve (rede, conta de e-mail em
+ * modo de teste, chave...) e copia o link para mandar por outro canal.
+ */
+async function mostrarLinkDoConvite(nome: string, convite: EnvioDoConvite, titulo: string): Promise<void> {
+  if (!convite.link) {
+    aviso(convite.mensagem ?? 'O e-mail do convite não saiu.', 'error');
+    return;
+  }
+
+  const copiar = await confirmar({
+    titulo: `${titulo}, mas o e-mail não saiu`,
+    mensagem: html`${convite.mensagem ?? 'O servidor não conseguiu enviar o e-mail.'}
+      <br /><br />O link abaixo é o mesmo do convite e vale por 48 horas: entregue-o a
+      <strong>${nome}</strong> por outro canal${convite.pode_tentar_de_novo ? ', ou tente reenviar daqui a pouco' : ''}.
+      <input class="linkbox" type="text" readonly value="${convite.link}" aria-label="Link do convite" />`,
+    icone: 'send-horizontal',
+    confirmar: 'Copiar link',
+    cancelar: 'Fechar',
+  });
+
+  if (!copiar) return;
+
+  try {
+    await navigator.clipboard.writeText(convite.link);
+    aviso('Link copiado. Entregue-o à pessoa para ela criar a senha.', 'success');
+  } catch {
+    // Sem permissão de área de transferência (http, aba em segundo plano).
+    window.prompt('Copie o link do convite:', convite.link);
+  }
+}
+
+/** Aviso do topo da tela de usuários, com o que o servidor sabe do e-mail. */
+async function atualizarAvisoDoEmail(): Promise<void> {
+  const caixa = el('aviso-email');
+  const lista = el('aviso-email-lista');
+  if (!caixa || !lista) return;
+
+  try {
+    const situacao = await getSituacaoDoEmail();
+    lista.innerHTML = juntar(situacao.avisos.map((texto) => html`<li>${texto}</li>`));
+    show(caixa, !situacao.pronto);
+  } catch {
+    // Sem a resposta, não afirma nada: melhor sem aviso que um aviso errado.
+    show(caixa, false);
+  }
 }
 
 /* ===========================================================================
@@ -1387,15 +1498,35 @@ export async function confirmarEdicaoUsuario(): Promise<void> {
   aviso(`${nome} salvo.`, 'success');
 }
 
+/** Convites em envio agora: segura o clique duplo no mesmo botão. */
+const convitesEmEnvio = new Set<string>();
+
 export async function reenviarConviteDoUsuario(id: string): Promise<void> {
-  const resultado = await reenviarConviteUsuario(id);
+  if (convitesEmEnvio.has(id)) return;
+  convitesEmEnvio.add(id);
+
+  const botao = document.querySelector<HTMLButtonElement>(`[data-action="reenviar-convite"][data-id="${id}"]`);
+  if (botao) {
+    botao.disabled = true;
+    botao.setAttribute('aria-busy', 'true');
+  }
+  aviso('Enviando o convite…', 'info');
+
+  const resultado = await reenviarConviteUsuario(id).finally(() => convitesEmEnvio.delete(id));
+
+  renderizarUsuarios();
 
   if (!resultado.ok) {
     aviso(resultado.erro ?? 'Não foi possível enviar o convite.', 'error');
     return;
   }
 
-  renderizarUsuarios();
+  if (resultado.convite && !resultado.convite.enviado) {
+    const nome = listarUsuarios().find((u) => u.id === id)?.nome ?? 'a pessoa';
+    await mostrarLinkDoConvite(nome, resultado.convite, 'Link gerado');
+    return;
+  }
+
   aviso(resultado.mensagem ?? 'Convite enviado.', 'success');
 }
 
@@ -1503,6 +1634,7 @@ export function mostrarReservas(status?: FiltroReserva): void {
 export function mostrarUsuarios(): void {
   renderizarUsuarios();
   void atualizarUsuariosDaApi();
+  void atualizarAvisoDoEmail();
 }
 
 /* ===========================================================================

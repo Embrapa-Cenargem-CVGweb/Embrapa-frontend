@@ -20,6 +20,7 @@
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
 import { dataBR } from '../lib/format';
+import { avatar } from '../lib/telas';
 import { abrirModal, confirmar, fecharModal, trocarModal } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import {
@@ -55,6 +56,9 @@ interface ProjetoApi {
   funcionario_id?: number | null;
   status?: { id: number; descricao: string; encerrado?: boolean } | null;
   responsavel?: { id: number; nome: string } | null;
+  /** Quem está na equipe (id e nome), para os avatares do cartão. */
+  colaboradores?: { id: number; nome: string }[];
+  colaboradores_count?: number;
 }
 
 const PAPEL_ROTULO: Record<PapelEquipe, string> = {
@@ -134,11 +138,11 @@ async function carregarProjetos(): Promise<void> {
 }
 
 function renderizarProjetos(): void {
-  const corpo = el('tbody-projetos');
-  if (!corpo) return;
+  const lista = el('lista-projetos');
+  if (!lista) return;
 
   const termo = busca.trim().toLowerCase();
-  const linhas = projetos.filter(
+  const visiveis = projetos.filter(
     (p) =>
       !termo ||
       [p.codigo, p.titulo, p.responsavel?.nome, p.status?.descricao].some((campo) =>
@@ -146,77 +150,84 @@ function renderizarProjetos(): void {
       ),
   );
 
-  contar('conta-projetos', linhas.length, projetos.length, Boolean(termo));
+  contar('conta-projetos', visiveis.length, projetos.length, Boolean(termo));
 
-  if (!linhas.length) {
-    corpo.innerHTML = linhaVazia(
-      6,
-      'graduation-cap',
-      termo
-        ? `Nenhum projeto corresponde a “${busca}”.`
-        : 'Nenhum projeto cadastrado. Comece criando o primeiro.',
-    );
+  if (!visiveis.length) {
+    lista.innerHTML = html`
+      <div class="empty">
+        ${icone('graduation-cap', 'ic ic--xl')}
+        <p class="empty__text">${termo
+          ? `Nenhum projeto corresponde a “${busca}”.`
+          : 'Nenhum projeto cadastrado. Comece criando o primeiro.'}</p>
+      </div>`;
     return;
   }
 
-  corpo.innerHTML = juntar(linhas.map(linhaDeProjeto));
+  lista.innerHTML = juntar(visiveis.map(cartaoDeProjeto));
 }
 
-function linhaDeProjeto(p: ProjetoApi): string {
-  const vazio = html`<span class="table__muted">&mdash;</span>`;
+/** Quantos avatares da equipe o cartão mostra antes do "+N". */
+const AVATARES_NO_CARTAO = 4;
+
+/**
+ * Um projeto por cartão: situação, código, título, líder, período e a equipe.
+ * As ações são as mesmas que a tabela antiga tinha na última coluna.
+ */
+function cartaoDeProjeto(p: ProjetoApi): string {
   const encerrado = p.status?.encerrado ?? false;
+  const equipe = p.colaboradores ?? [];
+  const total = p.colaboradores_count ?? equipe.length;
+  const resto = total - Math.min(equipe.length, AVATARES_NO_CARTAO);
+
+  const periodo = p.data_inicio || p.data_fim
+    ? `${p.data_inicio ? dataBR(p.data_inicio) : '—'} a ${p.data_fim ? dataBR(p.data_fim) : 'sem fim'}`
+    : 'Sem período definido';
 
   return html`
-    <tr>
-      <td data-label="Código"><span class="code">${p.codigo}</span></td>
-      <td data-label="Projeto">
-        <div class="table__stack">
-          <span class="table__name">${p.titulo}</span>
-          ${raw(p.descricao
-            ? html`<span class="table__sub table__truncate">${p.descricao}</span>`
-            : '')}
-        </div>
-      </td>
-      <td data-label="Responsável">
-        ${raw(p.responsavel
-          ? html`<div class="table__stack">
-                   <span>${p.responsavel.nome}</span>
-                   <span class="table__sub">líder da equipe</span>
-                 </div>`
-          : vazio)}
-      </td>
-      <td data-label="Situação">
+    <article class="pcard" aria-label="Projeto ${p.codigo}">
+      <div class="pcard__top">
+        <span class="pcard__tile">${icone('graduation-cap')}</span>
         ${raw(p.status
           ? html`<span class="pill ${raw(encerrado ? 'pill--down' : 'pill--ok')}">
                    ${icone(encerrado ? 'ban' : 'circle-check', 'ic ic--sm')}${p.status.descricao}
                  </span>`
-          : vazio)}
-      </td>
-      <td data-label="Período" style="white-space:nowrap">
-        ${raw(p.data_inicio || p.data_fim
-          ? html`${p.data_inicio ? dataBR(p.data_inicio) : '—'} a
-                 ${p.data_fim ? dataBR(p.data_fim) : 'sem fim'}`
-          : vazio)}
-      </td>
-      <td data-label="Ações">
-        <div class="table__actions">
-          <button type="button" class="btn btn--quiet btn--sm"
-                  data-action="abrir-equipe" data-id="${p.id}">
-            ${icone('users', 'ic ic--sm')}Equipe e permissões
-          </button>
-          <button type="button" class="btn btn--quiet btn--sm btn--icon"
-                  data-action="editar-projeto" data-id="${p.id}"
-                  aria-label="Editar ${p.codigo}">
-            ${icone('wrench', 'ic ic--sm')}
-          </button>
-          <button type="button" class="btn btn--danger btn--sm btn--icon"
-                  data-action="excluir-projeto" data-id="${p.id}"
-                  aria-label="Excluir ${p.codigo}">
-            ${icone('trash-2', 'ic ic--sm')}
-          </button>
+          : html`<span class="pill pill--neutral">Sem situação</span>`)}
+      </div>
+
+      <div>
+        <span class="code">${p.codigo}</span>
+        <h3 class="pcard__title">${p.titulo}</h3>
+        <div class="pcard__meta">
+          <span>${p.responsavel ? `Líder: ${p.responsavel.nome}` : 'Sem líder definido'}</span>
+          <span>${periodo}</span>
         </div>
-      </td>
-    </tr>`;
+      </div>
+
+      <div class="pcard__team">
+        <span class="av-stack">
+          ${raw(juntar(equipe.slice(0, AVATARES_NO_CARTAO).map((m) => html`${avatar(m.nome)}`)))}
+          ${raw(resto > 0 ? html`<span class="av" aria-hidden="true">+${String(resto)}</span>` : '')}
+        </span>
+        <span>${String(total)} ${total === 1 ? 'pessoa na equipe' : 'pessoas na equipe'}</span>
+      </div>
+
+      <div class="pcard__actions">
+        <button type="button" class="btn btn--quiet btn--sm"
+                data-action="abrir-equipe" data-id="${p.id}">
+          ${icone('users', 'ic ic--sm')}Equipe e permissões
+        </button>
+        <button type="button" class="btn btn--quiet btn--sm btn--icon"
+                data-action="editar-projeto" data-id="${p.id}"
+                aria-label="Editar ${p.codigo}">
+          ${icone('wrench', 'ic ic--sm')}
+        </button>
+        <button type="button" class="btn btn--danger btn--sm btn--icon"
+                data-action="excluir-projeto" data-id="${p.id}"
+                aria-label="Excluir ${p.codigo}">
+          ${icone('trash-2', 'ic ic--sm')}
+        </button>
+      </div>
+    </article>`;
 }
 
 export function buscarProjetos(termo: string): void {

@@ -23,6 +23,7 @@ import {
   login as apiLogin,
   reenviarConvite,
   tokenSalvo,
+  type EnvioDoConvite,
   type FuncionarioApi,
 } from '../services/api';
 import type { PerfilUsuario, SituacaoUsuario, Usuario } from '../types';
@@ -64,6 +65,7 @@ function daApi(funcionario: FuncionarioApi): Usuario {
     ultimoAcesso: funcionario.ultimo_acesso_em ?? undefined,
     situacao: (funcionario.situacao as SituacaoUsuario | undefined)
       ?? (funcionario.ativo === false ? 'INATIVO' : 'ATIVO'),
+    convite: funcionario.convite ?? null,
   };
 }
 
@@ -86,6 +88,8 @@ export interface ResultadoCadastro {
   usuario?: Usuario;
   /** Mensagem do back-end, que diz para onde o convite foi. */
   mensagem?: string;
+  /** O que aconteceu com o e-mail do convite (saiu, não saiu, link manual). */
+  convite?: EnvioDoConvite;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -149,8 +153,9 @@ export async function cadastrarUsuario(
 
     return {
       ok: true,
-      usuario: resposta?.data ? daApi(resposta.data as FuncionarioApi) : undefined,
+      usuario: resposta?.id ? daApi(resposta as FuncionarioApi) : undefined,
       mensagem: resposta?.message,
+      convite: resposta?.convite as EnvioDoConvite | undefined,
     };
   } catch (erro) {
     return { ok: false, erro: erro instanceof Error ? erro.message : 'Não foi possível cadastrar.' };
@@ -248,7 +253,11 @@ export async function reenviarConviteUsuario(id: string): Promise<ResultadoCadas
   try {
     const resposta = await reenviarConvite(Number(id));
     await recarregarUsuarios();
-    return { ok: true, mensagem: resposta?.message ?? 'Convite enviado.' };
+    return {
+      ok: true,
+      mensagem: resposta?.message ?? 'Convite enviado.',
+      convite: resposta?.convite as EnvioDoConvite | undefined,
+    };
   } catch (erro) {
     return { ok: false, erro: erro instanceof Error ? erro.message : 'Não foi possível enviar o convite.' };
   }

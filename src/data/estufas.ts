@@ -71,7 +71,7 @@ interface ReservaApi {
   quantidade?: number;
   data_inicio?: string;
   data_fim?: string;
-  projeto?: { codigo?: string };
+  projeto?: { codigo?: string; titulo?: string };
   projeto_id?: number | string;
   funcionario?: { nome?: string };
   finalidade?: string;
@@ -170,6 +170,7 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
         dataFim: item.data_fim?.slice(0, 10) ?? '',
         quantidade: item.quantidade ?? 1,
         projeto: item.projeto?.codigo ?? String(item.projeto_id ?? ''),
+        projetoTitulo: item.projeto?.titulo ?? '',
         finalidade: item.finalidade ?? '',
         obs: item.obs ?? '',
         pesquisador: item.funcionario?.nome ?? '',

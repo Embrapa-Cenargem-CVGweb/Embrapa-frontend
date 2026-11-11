@@ -22,6 +22,7 @@
 import { el, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
 import { dataHoraBR } from '../lib/format';
+import { avatar } from '../lib/telas';
 import { aviso } from '../lib/toast';
 import { statusDoErro } from './falha';
 import {
@@ -43,6 +44,9 @@ const ENTIDADE_ROTULO: Record<string, string> = {
   Cargo: 'Cargo',
   StatusProjeto: 'Status de projeto',
   ConviteAcesso: 'Convite de acesso',
+  Sessao: 'Acesso ao sistema',
+  Acesso: 'Tentativa sem permissão',
+  Assistente: 'Pergunta ao assistente',
 };
 
 /** Campos como a tela os chama. O que não estiver aqui aparece como veio. */
@@ -68,17 +72,36 @@ const CAMPO_ROTULO: Record<string, string> = {
   localizacao: 'setor',
 };
 
-const ACAO_PILL: Record<string, string> = {
-  CRIOU: 'pill--booked',
-  ALTEROU: 'pill--busy',
-  EXCLUIU: 'pill--down',
+/**
+ * Cada ação da trilha: como se lê, com que cor e com que ícone. A lista
+ * acompanha as constantes de App\Models\Auditoria no back-end; uma ação que
+ * não estiver aqui aparece com o próprio nome, em cinza.
+ */
+const ACOES: Record<string, { rotulo: string; pill: string; icone: string }> = {
+  CRIOU: { rotulo: 'Criou', pill: 'pill--booked', icone: 'plus' },
+  ALTEROU: { rotulo: 'Alterou', pill: 'pill--busy', icone: 'wrench' },
+  EXCLUIU: { rotulo: 'Excluiu', pill: 'pill--down', icone: 'trash-2' },
+  ENTROU: { rotulo: 'Entrou', pill: 'pill--ok', icone: 'log-in' },
+  SAIU: { rotulo: 'Saiu', pill: 'pill--neutral', icone: 'log-out' },
+  FALHOU: { rotulo: 'Falhou', pill: 'pill--down', icone: 'circle-x' },
+  NEGADO: { rotulo: 'Acesso negado', pill: 'pill--down', icone: 'ban' },
+  ENVIOU: { rotulo: 'Enviou e-mail', pill: 'pill--booked', icone: 'send-horizontal' },
+  PEDIU_SENHA: { rotulo: 'Pediu nova senha', pill: 'pill--busy', icone: 'clock' },
+  DEFINIU_SENHA: { rotulo: 'Definiu a senha', pill: 'pill--ok', icone: 'shield-check' },
+  APROVOU: { rotulo: 'Aprovou', pill: 'pill--ok', icone: 'circle-check' },
+  CANCELOU: { rotulo: 'Cancelou', pill: 'pill--down', icone: 'calendar-x' },
+  ATIVOU: { rotulo: 'Reativou acesso', pill: 'pill--ok', icone: 'user-plus' },
+  DESATIVOU: { rotulo: 'Desativou acesso', pill: 'pill--down', icone: 'user-x' },
+  PERGUNTOU: { rotulo: 'Perguntou', pill: 'pill--neutral', icone: 'message-circle' },
 };
 
-const ACAO_ICONE: Record<string, string> = {
-  CRIOU: 'calendar-plus',
-  ALTEROU: 'wrench',
-  EXCLUIU: 'trash-2',
-};
+function acaoDe(codigo: string): { rotulo: string; pill: string; icone: string } {
+  return ACOES[codigo] ?? {
+    rotulo: codigo.charAt(0) + codigo.slice(1).toLowerCase().replace(/_/g, ' '),
+    pill: 'pill--neutral',
+    icone: 'info',
+  };
+}
 
 /** Quantos campos alterados a célula mostra antes de resumir o resto. */
 const CAMPOS_VISIVEIS = 2;
@@ -90,10 +113,11 @@ interface Filtros {
   projeto_id: string;
   de: string;
   ate: string;
+  busca: string;
 }
 
 const VAZIO: Filtros = {
-  entidade: '', acao: '', funcionario_id: '', projeto_id: '', de: '', ate: '',
+  entidade: '', acao: '', funcionario_id: '', projeto_id: '', de: '', ate: '', busca: '',
 };
 
 let filtros: Filtros = { ...VAZIO };
@@ -112,6 +136,10 @@ export function renderizarHistorico(): void {
     filtros = { ...VAZIO };
     paginaAtual = 1;
   }
+
+  // As opções dos filtros são o que já apareceu na trilha, e ela cresce a
+  // cada ação: relê a cada visita em vez de guardar a primeira resposta.
+  catalogo = null;
 
   void carregar();
 }
@@ -137,6 +165,7 @@ async function carregar(): Promise<void> {
       projeto_id: filtros.projeto_id ? Number(filtros.projeto_id) : undefined,
       de: filtros.de || undefined,
       ate: filtros.ate || undefined,
+      busca: filtros.busca.trim() || undefined,
       page: paginaAtual,
     });
   } catch (erro) {
@@ -179,7 +208,7 @@ function pintarFiltros(dados: FiltrosAuditoria): void {
 
   encher('auditoria-acao', 'Qualquer ação', dados.acoes.map((a) => ({
     valor: a,
-    rotulo: a.charAt(0) + a.slice(1).toLowerCase(),
+    rotulo: acaoDe(a).rotulo,
   })));
 
   encher('auditoria-pessoa', 'Qualquer pessoa', dados.funcionarios.map((f) => ({
@@ -260,7 +289,10 @@ function textoDoVazio(): string {
 function linha(r: RegistroAuditoria): string {
   const quando = dataHoraBR(r.created_at);
   const [data, hora] = quando.split(' ');
-  const rotuloAcao = r.acao.charAt(0) + r.acao.slice(1).toLowerCase();
+  const acao = acaoDe(r.acao);
+  // O nome guardado na hora vale mesmo sem o cadastro (pessoa removida,
+  // tentativa de entrada com usuário que não existe, tarefa do sistema).
+  const quem = r.funcionario?.nome ?? r.funcionario_nome ?? '';
 
   return html`
     <tr>
@@ -268,23 +300,24 @@ function linha(r: RegistroAuditoria): string {
         <time datetime="${r.created_at}">${data ?? quando} ${hora ?? ''}</time>
       </td>
       <td data-label="Ação">
-        <span class="pill ${raw(ACAO_PILL[r.acao] ?? 'pill--neutral')}">
-          ${icone(ACAO_ICONE[r.acao] ?? 'info', 'ic ic--sm')}${rotuloAcao}
-        </span>
+        <span class="pill ${raw(acao.pill)}">${icone(acao.icone, 'ic ic--sm')}${acao.rotulo}</span>
       </td>
       <td data-label="Pessoa">
-        ${raw(r.funcionario
-          ? html`<div class="table__stack">
-                   <span class="table__name">${r.funcionario.nome}</span>
-                   ${raw(r.funcionario.nick
-                     ? html`<span class="table__sub">${r.funcionario.nick}</span>`
-                     : '')}
+        ${raw(quem
+          ? html`<div class="who">
+                   ${avatar(quem)}
+                   <div class="table__stack">
+                     <span class="table__name">${quem}</span>
+                     ${raw(r.funcionario?.nick
+                       ? html`<span class="table__sub">${r.funcionario.nick}</span>`
+                       : r.funcionario ? '' : html`<span class="table__sub">sem cadastro</span>`)}
+                   </div>
                  </div>`
-          : html`<span class="table__muted">cadastro removido</span>`)}
+          : html`<span class="table__muted">Sistema</span>`)}
       </td>
       <td data-label="Evento">
         <div class="table__stack">
-          <span class="table__name">${r.entidade_rotulo ?? `#${String(r.entidade_id ?? '')}`}</span>
+          <span class="table__name">${r.rotulo ?? (r.entidade_id ? `#${String(r.entidade_id)}` : ENTIDADE_ROTULO[r.entidade] ?? r.entidade)}</span>
           <span class="table__sub">${ENTIDADE_ROTULO[r.entidade] ?? r.entidade}</span>
           ${raw(r.projeto
             ? html`<span class="audit-log__project">${r.projeto.codigo}</span>`
@@ -341,8 +374,9 @@ function linhaDoDiff(campo: string, valores: { de?: unknown; para?: unknown } | 
     <div class="diff__item">
       <span class="diff__campo">${CAMPO_ROTULO[campo] ?? campo}</span>
       <span class="diff__valores">
-        <span class="diff__de">${de}</span>
-        ${icone('arrow-right', 'ic ic--sm diff__seta')}
+        ${raw(valores && 'de' in valores
+          ? html`<span class="diff__de">${de}</span>${icone('arrow-right', 'ic ic--sm diff__seta')}`
+          : '')}
         <span class="diff__para">${para}</span>
       </span>
     </div>`;
@@ -398,7 +432,7 @@ export function limparFiltrosAuditoria(): void {
     const select = el<HTMLSelectElement>(id);
     if (select) select.value = '';
   }
-  for (const id of ['auditoria-de', 'auditoria-ate']) {
+  for (const id of ['auditoria-de', 'auditoria-ate', 'auditoria-busca']) {
     const campo = el<HTMLInputElement>(id);
     if (campo) campo.value = '';
   }

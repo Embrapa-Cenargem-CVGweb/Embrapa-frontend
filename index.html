@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/styles/login.css" />
   <link rel="stylesheet" href="/styles/map.css" />
   <link rel="stylesheet" href="/styles/admin.css" />
+  <link rel="stylesheet" href="/styles/telas.css" />
   <link rel="stylesheet" href="/styles/chat.css" />
 
   <script type="module" src="/src/main.ts"></script>
@@ -79,6 +80,14 @@
 <symbol id="i-message-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></symbol>
 <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8" /> <rect width="16" height="12" x="4" y="8" rx="2" /> <path d="M2 14h2" /> <path d="M20 14h2" /> <path d="M15 13v2" /> <path d="M9 13v2" /></symbol>
 <symbol id="i-send-horizontal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z" /> <path d="M6 12h16" /></symbol>
+<symbol id="i-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6" /></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol>
+<symbol id="i-funnel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></symbol>
+<symbol id="i-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3" /> <path d="M21 8V5a2 2 0 0 0-2-2h-3" /> <path d="M3 16v3a2 2 0 0 0 2 2h3" /> <path d="M16 21h3a2 2 0 0 0 2-2v-3" /></symbol>
+<symbol id="i-minimize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3" /> <path d="M21 8h-3a2 2 0 0 1-2-2V3" /> <path d="M3 16h3a2 2 0 0 1 2 2v3" /> <path d="M16 21v-3a2 2 0 0 1 2-2h3" /></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /></symbol>
+<symbol id="i-navigation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11" /></symbol>
 </svg>
 <!-- icons:end -->
 
@@ -113,8 +122,8 @@
       </p>
 
       <div class="field">
-        <label class="field__label" for="entrada-usuario">E-mail</label>
-        <input class="input" type="email" id="entrada-usuario" name="email"
+        <label class="field__label" for="entrada-usuario">E-mail ou usuário</label>
+        <input class="input" type="text" id="entrada-usuario" name="email"
                autocomplete="username" autocapitalize="none" spellcheck="false" required />
       </div>
 
@@ -341,24 +350,24 @@
         <span>Usuários</span>
       </button>
       <button type="button" class="nav__item" id="nav-admin" data-action="ver" data-view="admin" hidden>
-        <svg class="ic" aria-hidden="true"><use href="#i-shield-user" /></svg>
-        <span>Administração</span>
+        <svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg>
+        <span>Espaços</span>
       </button>
       <button type="button" class="nav__item" id="nav-historico" data-action="ver" data-view="historico" hidden>
         <svg class="ic" aria-hidden="true"><use href="#i-shield-check" /></svg>
-        <span>Histórico</span>
+        <span>Logs</span>
       </button>
     </nav>
 
     <div class="sidebar__footer">
       <button type="button" class="account" id="conta-btn"
               data-action="alternar-menu" aria-expanded="false" aria-controls="conta-menu">
-        <span class="account__avatar"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg></span>
+        <span class="account__avatar" id="conta-iniciais" aria-hidden="true">&mdash;</span>
         <span class="account__text">
           <span class="account__name" id="conta-nome">&mdash;</span>
           <span class="account__role" id="conta-perfil">&mdash;</span>
         </span>
-        <svg class="ic ic--sm account__caret" aria-hidden="true"><use href="#i-ellipsis-vertical" /></svg>
+        <svg class="ic ic--sm account__caret" aria-hidden="true"><use href="#i-chevron-up" /></svg>
       </button>
 
       <div class="menu" id="conta-menu" hidden>
@@ -381,121 +390,220 @@
     <section class="view is-active" id="view-mapa" aria-labelledby="titulo-mapa">
       <h1 class="sr-only" id="titulo-mapa">Mapa dos espaços experimentais</h1>
 
-      <div class="map">
-        <picture>
-          <source srcset="/assets/MapEstufa.webp" type="image/webp" />
-          <img class="map__photo" id="map-foto" src="/assets/MapEstufa.jpg"
-               width="1296" height="1162" fetchpriority="high" decoding="async"
-               alt="Vista aérea do campus do Cenargen. Os espaços aparecem como marcadores sobre a foto e também estão listados na tabela da área de administração." />
-        </picture>
+      <div class="map" id="mapa" data-sem-nomes>
 
-        <div class="map__fallback" id="map-fallback" hidden>
-          <svg class="ic ic--xl" aria-hidden="true"><use href="#i-image-off" /></svg>
-          <p>A foto aérea não carregou. Os marcadores continuam clicáveis nas posições salvas.</p>
+        <!-- Foto e marcadores ficam num palco só, que é o que o zoom e o
+             arrasto movem: os dois andam sempre juntos. -->
+        <div class="map__viewport" id="map-viewport">
+          <div class="map__stage" id="map-palco">
+            <picture>
+              <source srcset="/assets/MapEstufa.webp" type="image/webp" />
+              <img class="map__photo" id="map-foto" src="/assets/MapEstufa.jpg"
+                   width="1296" height="1162" fetchpriority="high" decoding="async" draggable="false"
+                   alt="Vista aérea do campus do Cenargen. Os espaços aparecem como marcadores sobre a foto e também estão listados na tabela da área de administração." />
+            </picture>
+
+            <div class="map__fallback" id="map-fallback" hidden>
+              <svg class="ic ic--xl" aria-hidden="true"><use href="#i-image-off" /></svg>
+              <p>A foto aérea não carregou. Os marcadores continuam clicáveis nas posições salvas.</p>
+            </div>
+
+            <div class="map__markers" id="map-marcadores"></div>
+          </div>
         </div>
 
-        <div class="map__markers" id="map-marcadores"></div>
+        <!-- Busca -->
+        <div class="map-search" id="map-busca-caixa" role="search">
+          <svg class="ic map-search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+          <input class="map-search__input" id="map-busca" type="search" autocomplete="off" spellcheck="false"
+                 placeholder="Buscar estufa, código ou projeto…"
+                 role="combobox" aria-label="Buscar estufa, código ou projeto"
+                 aria-expanded="false" aria-controls="map-busca-lista" aria-autocomplete="list" />
+          <span class="map-search__keys" id="map-busca-atalho" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+          <ul class="map-search__list" id="map-busca-lista" role="listbox" aria-label="Espaços encontrados" hidden></ul>
+        </div>
 
-        <div class="legend">
+        <!-- Camadas, filtro e tela cheia -->
+        <div class="map-tools">
+          <div class="map-tools__item">
+            <button type="button" class="map-btn" id="map-btn-camadas" data-action="mapa-popover" data-alvo="map-pop-camadas"
+                    aria-label="Camadas do mapa" aria-expanded="false" aria-controls="map-pop-camadas">
+              <svg class="ic" aria-hidden="true"><use href="#i-layers" /></svg>
+            </button>
+            <div class="map-pop" id="map-pop-camadas" hidden>
+              <h2 class="map-pop__title">Camadas</h2>
+              <label class="map-pop__opt">
+                <input type="checkbox" data-camada="marcadores" checked />
+                Marcadores
+              </label>
+              <label class="map-pop__opt">
+                <input type="checkbox" data-camada="nomes" />
+                Nomes dos espaços
+              </label>
+              <label class="map-pop__opt">
+                <input type="checkbox" data-camada="legenda" checked />
+                Legenda
+              </label>
+            </div>
+          </div>
+
+          <div class="map-tools__item">
+            <button type="button" class="map-btn" id="map-btn-filtro" data-action="mapa-popover" data-alvo="map-pop-filtro"
+                    aria-label="Filtrar por disponibilidade" aria-expanded="false" aria-controls="map-pop-filtro">
+              <svg class="ic" aria-hidden="true"><use href="#i-funnel" /></svg>
+            </button>
+            <div class="map-pop" id="map-pop-filtro" hidden>
+              <h2 class="map-pop__title">Mostrar no mapa</h2>
+              <label class="map-pop__opt" data-status="livre">
+                <input type="checkbox" data-filtro="livre" checked />
+                <span class="ring" aria-hidden="true"></span>
+                Livre
+                <span class="map-pop__count" id="map-conta-livre">0</span>
+              </label>
+              <label class="map-pop__opt" data-status="ocupada">
+                <input type="checkbox" data-filtro="ocupada" checked />
+                <span class="ring" aria-hidden="true"></span>
+                Ocupada
+                <span class="map-pop__count" id="map-conta-ocupada">0</span>
+              </label>
+              <label class="map-pop__opt" data-status="reservada">
+                <input type="checkbox" data-filtro="reservada" checked />
+                <span class="ring" aria-hidden="true"></span>
+                Reservada
+                <span class="map-pop__count" id="map-conta-reservada">0</span>
+              </label>
+              <label class="map-pop__opt" data-status="manutencao">
+                <input type="checkbox" data-filtro="manutencao" checked />
+                <span class="ring" aria-hidden="true"></span>
+                Manutenção
+                <span class="map-pop__count" id="map-conta-manutencao">0</span>
+              </label>
+            </div>
+          </div>
+
+          <button type="button" class="map-btn" id="map-btn-tela-cheia" data-action="mapa-tela-cheia"
+                  aria-label="Tela cheia" aria-pressed="false">
+            <svg class="ic" aria-hidden="true"><use href="#i-maximize" /></svg>
+          </button>
+        </div>
+
+        <!-- Legenda -->
+        <div class="legend" id="map-legenda">
           <h2 class="legend__title">Disponibilidade</h2>
           <ul class="legend__list">
-            <li class="legend__item" data-status="livre">
-              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-check" /></svg></span>
-              Livre
-            </li>
-            <li class="legend__item" data-status="ocupada">
-              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg></span>
-              Ocupada
-            </li>
-            <li class="legend__item" data-status="reservada">
-              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-check" /></svg></span>
-              Reservada
-            </li>
-            <li class="legend__item" data-status="manutencao">
-              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-wrench" /></svg></span>
-              Manutenção
-            </li>
+            <li class="legend__item" data-status="livre"><span class="ring" aria-hidden="true"></span>Livre</li>
+            <li class="legend__item" data-status="ocupada"><span class="ring" aria-hidden="true"></span>Ocupada</li>
+            <li class="legend__item" data-status="reservada"><span class="ring" aria-hidden="true"></span>Reservada</li>
+            <li class="legend__item" data-status="manutencao"><span class="ring" aria-hidden="true"></span>Manutenção</li>
           </ul>
+        </div>
+
+        <!-- Zoom e recentralizar -->
+        <div class="map-zoom">
+          <div class="map-zoom__group">
+            <button type="button" class="map-btn" id="map-zoom-mais" data-action="mapa-zoom" data-direcao="mais" aria-label="Aproximar">
+              <svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg>
+            </button>
+            <button type="button" class="map-btn" id="map-zoom-menos" data-action="mapa-zoom" data-direcao="menos" aria-label="Afastar">
+              <svg class="ic" aria-hidden="true"><use href="#i-minus" /></svg>
+            </button>
+          </div>
+          <button type="button" class="map-btn" data-action="mapa-centralizar" aria-label="Recentralizar o mapa">
+            <svg class="ic" aria-hidden="true"><use href="#i-navigation" /></svg>
+          </button>
         </div>
 
         <!-- Ficha do espaço. Fica fora da ordem de tabulação enquanto fechada. -->
         <aside class="panel" id="painel" hidden aria-labelledby="painel-nome" tabindex="-1">
-          <div class="panel__head">
+          <button type="button" class="close-btn panel__close" data-action="fechar-painel" aria-label="Fechar ficha do espaço">
+            <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+          </button>
+
+          <header class="panel__head">
+            <span class="panel__tile" aria-hidden="true"><svg class="ic"><use href="#i-warehouse" /></svg></span>
             <div class="panel__heading">
               <div class="panel__code" id="painel-codigo">&mdash;</div>
               <h2 class="panel__name" id="painel-nome">&mdash;</h2>
-              <div class="panel__type" id="painel-tipo">&mdash;</div>
-              <div class="panel__status" id="painel-status"></div>
             </div>
-            <button type="button" class="close-btn" data-action="fechar-painel" aria-label="Fechar ficha do espaço">
-              <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
-            </button>
-          </div>
+            <div class="panel__status" id="painel-status"></div>
+          </header>
 
           <div class="panel__body">
-            <p class="panel__desc" id="painel-descricao">&mdash;</p>
+            <div class="panel__photo" id="painel-foto" role="img" aria-label="Vista aérea do espaço"></div>
 
-            <dl class="specs">
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-map-pin" /></svg>
-                <dt class="specs__term">Setor</dt>
-                <dd class="specs__value" id="painel-setor">&mdash;</dd>
+            <div class="facts">
+              <dl class="facts__list">
+                <div class="facts__row">
+                  <svg class="ic facts__icon" aria-hidden="true"><use href="#i-layers" /></svg>
+                  <div>
+                    <dt class="facts__term">Tipo</dt>
+                    <dd class="facts__value" id="painel-tipo">&mdash;</dd>
+                  </div>
+                </div>
+                <div class="facts__row">
+                  <svg class="ic facts__icon" aria-hidden="true"><use href="#i-ruler" /></svg>
+                  <div>
+                    <dt class="facts__term">Área</dt>
+                    <dd class="facts__value" id="painel-area">&mdash;</dd>
+                  </div>
+                </div>
+              </dl>
+
+              <div class="gauge">
+                <h3 class="gauge__title" id="painel-capacidade-titulo">Capacidade</h3>
+                <div class="gauge__body">
+                  <div class="gauge__ring">
+                    <svg viewBox="0 0 36 36" aria-hidden="true">
+                      <circle class="gauge__track" cx="18" cy="18" r="15.9155" />
+                      <circle class="gauge__arc" id="painel-arco" cx="18" cy="18" r="15.9155" stroke-dasharray="0 100" />
+                    </svg>
+                    <span class="gauge__num" id="painel-capacidade">&mdash;</span>
+                  </div>
+                  <ul class="gauge__legend">
+                    <li><span class="gauge__dot gauge__dot--uso" aria-hidden="true"></span><span id="painel-em-uso">&mdash;</span></li>
+                    <li><span class="gauge__dot" aria-hidden="true"></span><span id="painel-disponiveis">&mdash;</span></li>
+                  </ul>
+                </div>
               </div>
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-ruler" /></svg>
-                <dt class="specs__term">Área</dt>
-                <dd class="specs__value" id="painel-area">&mdash;</dd>
+            </div>
+
+            <dl class="rows">
+              <div class="rows__row">
+                <svg class="ic rows__icon" aria-hidden="true"><use href="#i-sprout" /></svg>
+                <dt class="rows__term">Projeto atual</dt>
+                <dd class="rows__value" id="painel-projeto">&mdash;</dd>
               </div>
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-grid-3x3" /></svg>
-                <dt class="specs__term">Bancadas</dt>
-                <dd class="specs__value" id="painel-bancadas">&mdash;</dd>
+              <div class="rows__row">
+                <svg class="ic rows__icon" aria-hidden="true"><use href="#i-user" /></svg>
+                <dt class="rows__term">Responsável</dt>
+                <dd class="rows__value" id="painel-responsavel">&mdash;</dd>
               </div>
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-thermometer" /></svg>
-                <dt class="specs__term">Condições médias</dt>
-                <dd class="specs__value" id="painel-condicoes">&mdash;</dd>
-              </div>
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-clock" /></svg>
-                <dt class="specs__term">Disponibilidade</dt>
-                <dd class="specs__value" id="painel-disponibilidade">&mdash;</dd>
+              <div class="rows__row">
+                <svg class="ic rows__icon" aria-hidden="true"><use href="#i-calendar-days" /></svg>
+                <dt class="rows__term">Período da ocupação</dt>
+                <dd class="rows__value" id="painel-periodo">&mdash;</dd>
               </div>
             </dl>
 
-            <div class="pots" id="painel-vasos" hidden>
-              <h3 class="pots__title">
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-flask-conical" /></svg>
-                Cabe cerca de
-              </h3>
-              <div class="pots__grid">
-                <div class="pots__cell">
-                  <div class="pots__num" id="painel-vaso-3">&mdash;</div>
-                  <div class="pots__unit">vasos 3 cm</div>
-                </div>
-                <div class="pots__cell">
-                  <div class="pots__num" id="painel-vaso-5">&mdash;</div>
-                  <div class="pots__unit">vasos 5 cm</div>
-                </div>
-                <div class="pots__cell">
-                  <div class="pots__num" id="painel-vaso-10">&mdash;</div>
-                  <div class="pots__unit">vasos 10 cm</div>
-                </div>
+            <section class="upcoming" aria-labelledby="painel-proximas-titulo">
+              <div class="upcoming__head">
+                <h3 class="upcoming__title" id="painel-proximas-titulo">
+                  <svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg>
+                  Próximas reservas
+                </h3>
+                <button type="button" class="upcoming__all" id="painel-ver-todas" data-action="mapa-ver-todas"
+                        aria-expanded="false" aria-controls="painel-proximas" hidden>
+                  <span id="painel-ver-todas-rotulo">Ver todas</span>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+                </button>
               </div>
-            </div>
-
-            <div class="linked" id="painel-reserva" hidden>
-              <h3 class="linked__title">
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-check" /></svg>
-                Reserva vinculada
-              </h3>
-              <p class="linked__project" id="painel-reserva-projeto">&mdash;</p>
-              <p class="linked__meta" id="painel-reserva-meta">&mdash;</p>
-            </div>
+              <ul class="upcoming__list" id="painel-proximas"></ul>
+              <p class="upcoming__empty" id="painel-proximas-vazio" hidden>Nenhuma reserva de hoje em diante.</p>
+            </section>
           </div>
 
           <div class="panel__foot">
-            <button type="button" class="btn btn--primary btn--block" id="painel-acao"></button>
+            <button type="button" class="btn btn--primary btn--block panel__cta" id="painel-acao"></button>
           </div>
         </aside>
       </div>
@@ -507,8 +615,8 @@
 
         <div class="page-head">
           <div>
-            <h1 class="page-head__title" id="titulo-admin">Administração</h1>
-            <p class="page-head__desc">Estufas e casas de vegetação do Cenargen</p>
+            <h1 class="page-head__title" id="titulo-admin">Espaços</h1>
+            <p class="page-head__desc">As estufas e casas de vegetação do Cenargen</p>
           </div>
 
           <div class="page-head__actions">
@@ -521,11 +629,12 @@
 
         <!-- Esta tela ficou só com os espaços: reservas, projetos e usuários
              viraram seções próprias no menu. -->
+        <div class="stats" id="stats-espacos" aria-label="Resumo dos espaços"></div>
+
         <div class="section" id="sec-espacos">
           <div class="section__head">
             <h2 class="section__title">
-              <svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg>
-              Espaços
+              Casas de vegetação
               <span class="count" id="conta-espacos">0</span>
             </h2>
             <div class="section__tools">
@@ -582,6 +691,8 @@
             <p class="page-head__desc">Aprovar, acompanhar e cancelar</p>
           </div>
         </div>
+
+        <div class="stats" id="stats-reservas" aria-label="Resumo das reservas"></div>
 
         <div class="section" id="sec-reservas">
           <div class="section__head">
@@ -651,7 +762,7 @@
 
           <div class="page-head__actions">
             <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-projeto">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-plus" /></svg>
               Novo projeto
             </button>
           </div>
@@ -678,22 +789,7 @@
             </div>
           </div>
 
-          <div class="table-wrap">
-            <table class="table">
-              <caption class="sr-only">Projetos de pesquisa, com responsavel, situacao, periodo e acesso a equipe</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Codigo</th>
-                  <th scope="col">Projeto</th>
-                  <th scope="col">Responsavel</th>
-                  <th scope="col">Situacao</th>
-                  <th scope="col">Periodo</th>
-                  <th scope="col">Acoes</th>
-                </tr>
-              </thead>
-              <tbody id="tbody-projetos"></tbody>
-            </table>
-          </div>
+          <div class="pcards" id="lista-projetos" aria-label="Projetos de pesquisa"></div>
         </div>
 
       </div>
@@ -709,7 +805,7 @@
         <div class="page-head">
           <div>
             <h1 class="page-head__title" id="titulo-usuarios">Usuários</h1>
-            <p class="page-head__desc">Quem tem acesso ao sistema</p>
+            <p class="page-head__desc">Quem tem acesso ao sistema — o primeiro acesso é por convite no e-mail</p>
           </div>
 
           <div class="page-head__actions">
@@ -719,6 +815,15 @@
             </button>
           </div>
         </div>
+
+        <!-- O servidor avisa aqui quando o envio de e-mail tem pendência
+             (modo de teste da Resend, chave faltando, modo de registro). -->
+        <div class="banner" id="aviso-email" role="status" hidden>
+          <svg class="ic" aria-hidden="true"><use href="#i-info" /></svg>
+          <ul id="aviso-email-lista"></ul>
+        </div>
+
+        <div class="stats" id="stats-usuarios" aria-label="Resumo dos usuários"></div>
 
         <div class="section" id="sec-usuarios">
           <div class="section__head">
@@ -785,9 +890,8 @@
       <div class="pagina audit-page">
         <div class="page-head">
           <div>
-            <p class="audit-kicker">OBSERVABILIDADE</p>
-            <h1 class="page-head__title" id="titulo-historico">Log de atividade</h1>
-            <p class="page-head__desc">Ações e alterações registradas no sistema</p>
+            <h1 class="page-head__title" id="titulo-historico">Logs</h1>
+            <p class="page-head__desc">Tudo o que foi feito no sistema: quem, o quê e quando</p>
           </div>
           <div class="page-head__actions">
             <button type="button" class="btn btn--quiet btn--sm" id="auditoria-limpar"
@@ -800,6 +904,14 @@
 
         <div class="section audit-section" id="sec-auditoria">
           <div class="audit-filters" aria-label="Filtros principais do log">
+            <div class="field audit-search">
+              <label class="field__label" for="auditoria-busca">Buscar</label>
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="auditoria-busca"
+                       placeholder="Buscar por pessoa, registro ou tipo (ex.: Ana, R012, Reserva)" />
+              </div>
+            </div>
             <div class="field">
               <label class="field__label" for="auditoria-acao">Ação</label>
               <select class="select" id="auditoria-acao" data-change="filtro-auditoria" data-campo="acao"></select>

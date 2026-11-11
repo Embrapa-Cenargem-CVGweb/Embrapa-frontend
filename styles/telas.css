@@ -1,0 +1,371 @@
+/* ===========================================================================
+   CVGWeb · Telas de gestão
+   Reservas, Projetos, Usuários, Espaços e Logs no mesmo desenho: cabeçalho,
+   faixa de números, e um cartão branco com as ferramentas em cima e a tabela
+   (ou os cartões) embaixo. Tudo com os tokens de tokens.css.
+
+   As regras de `.section` daqui valem só dentro de uma tela (`.view`): a
+   mesma classe é usada dentro de modais, que continuam como eram.
+   =========================================================================== */
+
+.view .pagina,
+.view .admin {
+  gap: var(--s-5);
+  padding: var(--s-6) var(--s-7);
+  overflow-y: auto;
+}
+
+.view .page-head {
+  padding-bottom: var(--s-5);
+}
+
+.view .page-head__title {
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
+}
+
+.view .page-head__desc {
+  font-size: var(--text-md);
+}
+
+.view .page-head .btn {
+  min-height: 2.5rem;
+  padding: 0 var(--s-4);
+  font-size: var(--text-sm);
+}
+
+/* --- Faixa de números ---------------------------------------------------- */
+
+.stats {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--s-4);
+}
+
+.stats:empty {
+  display: none;
+}
+
+.stat {
+  display: flex;
+  gap: var(--s-4);
+  align-items: center;
+  padding: var(--s-4) var(--s-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-1);
+}
+
+.stat__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--fg-2);
+  background: var(--surface-3);
+  border-radius: var(--r-lg);
+}
+
+.stat__tile .ic {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
+.stat[data-tone="ok"] .stat__tile { color: var(--ok-soft-fg); background: var(--ok-soft); }
+.stat[data-tone="busy"] .stat__tile { color: var(--busy-soft-fg); background: var(--busy-soft); }
+.stat[data-tone="booked"] .stat__tile { color: var(--booked-soft-fg); background: var(--booked-soft); }
+.stat[data-tone="down"] .stat__tile { color: var(--down-soft-fg); background: var(--down-soft); }
+
+.stat__num {
+  font-size: var(--text-xl);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--fg);
+}
+
+.stat__label {
+  margin-top: var(--s-1);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+/* --- O cartão da seção --------------------------------------------------- */
+
+.view .section {
+  /* Com a faixa de números em cima, a tabela precisa de altura própria: a
+     página rola inteira em vez de espremer a lista. */
+  flex: 1 0 auto;
+  min-height: 20rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-1);
+}
+
+.view .section__head {
+  padding: var(--s-4) var(--s-5);
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.view .section .table-wrap {
+  flex: 1 1 auto;
+  background: none;
+  border: 0;
+  border-radius: 0 0 var(--r-xl) var(--r-xl);
+}
+
+.view .table th {
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--surface);
+}
+
+.view .table td {
+  padding: var(--s-3) var(--s-4);
+}
+
+/* Reserva esperando aprovação: a linha inteira ganha o tom de pendência. */
+.view .table tr.is-pending td {
+  background: var(--busy-soft);
+}
+
+/* --- Pessoa: avatar com iniciais + nome ---------------------------------- */
+
+.av {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.875rem;
+  height: 1.875rem;
+  font-size: var(--text-2xs);
+  font-weight: var(--fw-semibold);
+  color: var(--nav-avatar-fg);
+  background: var(--surface-3);
+  border: 2px solid var(--surface);
+  border-radius: var(--r-pill);
+}
+
+.av-stack {
+  display: flex;
+}
+
+.av-stack .av + .av {
+  margin-left: calc(var(--s-2) * -1);
+}
+
+.who {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  min-width: 0;
+}
+
+/* Nome de pessoa não quebra no meio; quem cede largura são as outras colunas. */
+.who .table__name {
+  white-space: nowrap;
+}
+
+.view .table__actions {
+  flex-wrap: nowrap;
+}
+
+.cell-icon {
+  display: inline-flex;
+  gap: var(--s-2);
+  align-items: center;
+  color: var(--fg-2);
+}
+
+.cell-icon .ic {
+  color: var(--fg-muted);
+}
+
+/* --- Aviso no topo da tela (ex.: e-mail em modo de teste) ----------------- */
+
+.banner {
+  display: flex;
+  flex: none;
+  gap: var(--s-3);
+  align-items: flex-start;
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--text-sm);
+  color: var(--busy-soft-fg);
+  background: var(--busy-soft);
+  border: 1px solid var(--busy);
+  border-radius: var(--r-lg);
+}
+
+.banner[hidden] {
+  display: none;
+}
+
+.banner .ic {
+  margin-top: 2px;
+}
+
+.banner ul {
+  display: grid;
+  gap: var(--s-1);
+  list-style: none;
+}
+
+/* --- Link de convite para copiar ----------------------------------------- */
+
+.linkbox {
+  display: block;
+  width: 100%;
+  padding: var(--s-2) var(--s-3);
+  margin-top: var(--s-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg);
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+/* --- Projetos em cartões -------------------------------------------------- */
+
+.pcards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: var(--s-4);
+  align-content: start;
+  padding: var(--s-5);
+}
+
+.pcards .empty {
+  grid-column: 1 / -1;
+}
+
+.pcard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+
+.pcard:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-2);
+}
+
+.pcard__top {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.pcard__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--r-lg);
+}
+
+.pcard__title {
+  margin-top: 2px;
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.pcard__meta {
+  display: grid;
+  gap: 2px;
+  margin-top: var(--s-1);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.pcard__team {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--s-3);
+  margin-top: auto;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  border-top: 1px solid var(--line);
+}
+
+.pcard__actions {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.pcard__actions .btn:first-child {
+  flex: 1;
+}
+
+/* --- Logs ---------------------------------------------------------------- */
+
+.view .audit-section {
+  gap: 0;
+}
+
+/* Dentro do cartão da seção os filtros não precisam de moldura própria. */
+.view .audit-filters,
+.view .audit-filters__extra {
+  padding: var(--s-4) var(--s-5);
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.view .audit-filters__advanced {
+  padding: 0 var(--s-5) var(--s-3);
+}
+
+.view .audit-filters__extra {
+  padding-inline: 0;
+}
+
+.view .audit-log__head {
+  padding: var(--s-3) var(--s-5);
+  border-top: 1px solid var(--line);
+}
+
+.view .audit-log__wrap {
+  border-radius: 0 0 var(--r-xl) var(--r-xl);
+}
+
+.view .audit-search .search {
+  width: 100%;
+}
+
+.view .audit-search .search .input {
+  width: 100%;
+}
+
+.audit-search {
+  grid-column: 1 / -1;
+}
+
+@media (width <= 48rem) {
+  .view .pagina,
+  .view .admin {
+    padding: var(--s-4);
+  }
+}
