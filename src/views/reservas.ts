@@ -81,20 +81,33 @@ async function garantirProjetos(): Promise<ProjetoDoCampo[]> {
   return projetosDoCampo;
 }
 
-/** Enche o datalist do campo de projeto: o código sugere, o título explica. */
+/**
+ * Enche o select de projeto só com o nome: o código é interno e ninguém
+ * precisa digitá-lo. O valor de cada opção é o id do projeto.
+ *
+ * Antes era um campo livre com <datalist id="lista-projetos">, mas a tela de
+ * Projetos tem uma lista com o mesmo id antes no HTML: as sugestões iam para
+ * o lugar errado e o campo ficava sem nenhuma.
+ */
 function pintarProjetos(lista: ProjetoDoCampo[]): void {
-  const sugestoes = el('lista-projetos');
+  const select = el<HTMLSelectElement>('reservar-projeto');
   const ajuda = el('reservar-projeto-ajuda');
 
-  if (sugestoes) {
-    sugestoes.innerHTML = '';
-    for (const p of lista) {
-      const opcao = document.createElement('option');
-      opcao.value = p.codigo;
-      opcao.label = p.titulo;
-      opcao.textContent = p.titulo;
-      sugestoes.appendChild(opcao);
-    }
+  if (select) {
+    // O que já estava escolhido (ou veio do rascunho antes da lista chegar).
+    const escolhido = select.value || select.dataset.desejado || '';
+    const ordenada = [...lista].sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR'));
+
+    select.innerHTML = '';
+    select.append(new Option(ordenada.length ? 'Selecione o projeto' : 'Nenhum projeto disponível', ''));
+    select.options[0].disabled = true;
+    for (const p of ordenada) select.append(new Option(p.titulo, String(p.id)));
+
+    // Um projeto só: já vem escolhido.
+    select.value = ordenada.some((p) => String(p.id) === escolhido)
+      ? escolhido
+      : ordenada.length === 1 ? String(ordenada[0].id) : '';
+    delete select.dataset.desejado;
   }
 
   if (ajuda) {
@@ -184,7 +197,6 @@ const CAMPOS_RASCUNHO = [
   'reservar-quantidade',
   'reservar-projeto',
   'reservar-finalidade',
-  'reservar-obs',
 ] as const;
 
 interface Rascunho {
@@ -253,9 +265,11 @@ function restaurarRascunho(estufaId: string): boolean {
     // Data que já passou não volta: o campo tem min = hoje e ficaria inválida.
     if ((id === 'reservar-data-inicio' || id === 'reservar-data-fim') && guardado < hoje) continue;
 
-    const campo = el<HTMLInputElement>(id);
+    const campo = el<HTMLInputElement | HTMLSelectElement>(id);
     if (!campo) continue;
     campo.value = guardado;
+    // Select cujas opções ainda não chegaram: guarda para pintarProjetos.
+    if (campo instanceof HTMLSelectElement) campo.dataset.desejado = guardado;
     restaurou = true;
   }
 
@@ -420,7 +434,6 @@ export async function confirmarReserva(): Promise<void> {
   const fim = valor('reservar-data-fim');
   const projeto = valor('reservar-projeto');
   const finalidade = valor('reservar-finalidade');
-  const obs = valor('reservar-obs');
   const quantidade = numero('reservar-quantidade');
 
   if (!inicio || !fim || !finalidade) {
@@ -428,16 +441,14 @@ export async function confirmarReserva(): Promise<void> {
     return;
   }
 
-  const campoProjeto = el<HTMLInputElement>('reservar-projeto');
+  const campoProjeto = el<HTMLSelectElement>('reservar-projeto');
   const projetoEscolhido = acharProjeto(projeto);
 
   if (!projetoEscolhido) {
     campoProjeto?.setAttribute('aria-invalid', 'true');
     campoProjeto?.focus();
     aviso(
-      projeto
-        ? `Não achei o projeto "${projeto}". Escolha um da lista que aparece ao digitar.`
-        : 'Informe o projeto da reserva.',
+      'Escolha para qual projeto é a reserva.',
       'error',
     );
     return;
@@ -468,7 +479,7 @@ export async function confirmarReserva(): Promise<void> {
 
   try {
     const mensagem = await reservarNaApi(espacoDaReserva, {
-      inicio, fim, projeto: String(projetoEscolhido.id), finalidade, obs, quantidade,
+      inicio, fim, projeto: String(projetoEscolhido.id), finalidade, quantidade,
     });
     aviso(mensagem, 'success');
   } catch (erro) {
@@ -497,7 +508,6 @@ interface DadosReserva {
   fim: string;
   projeto: string;
   finalidade: string;
-  obs: string;
   quantidade: number;
 }
 
@@ -512,7 +522,6 @@ async function reservarNaApi(estufaId: string, dados: DadosReserva): Promise<str
     data_inicio: dados.inicio,
     data_fim: dados.fim,
     finalidade: dados.finalidade,
-    obs: dados.obs || undefined,
     // O select guarda o id do projeto; a reserva precisa dele para a permissão.
     projeto_id: Number(dados.projeto),
   });
@@ -535,7 +544,10 @@ export function verReserva(id: string): void {
   reservaAberta = id;
 
   setText('ver-reserva-titulo', estufa ? estufa.nome : reserva.estufaId);
-  setText('ver-reserva-descricao', estufa ? `${estufa.codigo} · ${estufa.tipo}` : 'Espaço não encontrado');
+  setText(
+    'ver-reserva-descricao',
+    estufa ? [estufa.codigo, estufa.tipo].filter(Boolean).join(' · ') : 'Espaço não encontrado',
+  );
   setText('ver-reserva-codigo', reserva.id);
   setText('ver-reserva-inicio', dataBR(reserva.data));
   setText('ver-reserva-fim', dataBR(reserva.dataFim));
@@ -647,7 +659,6 @@ export function abrirEditarReserva(codigo: string): void {
   preencher('editar-reserva-fim', reserva.dataFim);
   preencher('editar-reserva-quantidade', String(reserva.quantidade));
   preencher('editar-reserva-finalidade', reserva.finalidade ?? '');
-  preencher('editar-reserva-obs', reserva.obs ?? '');
 
   // O datalist de finalidades é o mesmo do formulário de nova reserva; sem
   // isto ele chegaria vazio para quem abre a edição sem ter reservado antes.
@@ -767,7 +778,6 @@ export async function confirmarEdicaoReserva(): Promise<void> {
       data_fim: fim,
       quantidade,
       finalidade,
-      obs: valor('editar-reserva-obs') || null,
     });
 
     // O back-end diz se a alteração devolveu a reserva para a fila.

@@ -36,6 +36,7 @@ import {
   excluirProjeto,
   getCatalogoPermissoes,
   getEquipe,
+  getPessoasOpcoes,
   getProjetos,
   getStatusProjeto,
   recusarProjeto,
@@ -45,6 +46,7 @@ import {
   type MembroEquipe,
   type PapelEquipe,
   type PermissaoProjeto,
+  type PessoaOpcao,
   type SituacaoProjeto,
   type StatusProjetoApi,
 } from '../services/api';
@@ -70,6 +72,18 @@ interface ProjetoApi {
   situacao?: SituacaoProjeto;
   motivo_recusa?: string | null;
   aprovador?: { id: number; nome: string } | null;
+  /** A pessoa logada está na equipe (ou é a autora). Todos veem todos os projetos. */
+  participo?: boolean;
+  sou_lider?: boolean;
+  /** Pode chamar gente para a equipe (líder, adm, equipe.adicionar). */
+  posso_convidar?: boolean;
+  /** O líder está com o acesso ativo. Falso só em dado antigo: hoje desativar exige passar a liderança. */
+  lider_ativo?: boolean;
+}
+
+/** Projeto de outra pessoa: dá para ver, não para mexer. O adm mexe em todos. */
+function deFora(p: ProjetoApi): boolean {
+  return !ehAdmin() && p.participo === false;
 }
 
 /** Proposta ainda não decidida pela administração. */
@@ -92,10 +106,30 @@ let projetos: ProjetoApi[] = [];
 let statusProjeto: StatusProjetoApi[] = [];
 let catalogo: CatalogoPermissoes | null = null;
 let busca = '';
+/** Recorte da lista: todos, os meus (participo) ou os de outras pessoas. */
+type FiltroProjetos = 'todos' | 'meus' | 'outros';
+let filtroProjetos: FiltroProjetos = 'todos';
+
+const TITULO_FILTRO: Record<FiltroProjetos, string> = {
+  todos: 'Todos',
+  meus: 'Meus projetos',
+  outros: 'De outras pessoas',
+};
+
+export function filtrarProjetos(filtro: FiltroProjetos): void {
+  filtroProjetos = filtro;
+  for (const chip of qsa('[data-action="filtrar-projetos"]')) {
+    chip.setAttribute('aria-checked', String(chip.dataset.filtro === filtro));
+  }
+  setText('titulo-filtro-projetos', TITULO_FILTRO[filtro]);
+  renderizarProjetos();
+}
 
 /** Projeto aberto na tela de equipe. */
 let projetoAberto: ProjetoApi | null = null;
 let equipe: MembroEquipe[] = [];
+/** Equipe aberta de um projeto de outra pessoa: só para ver. */
+let equipeSoLeitura = false;
 /** Projeto em edição no formulário; null = projeto novo. */
 let projetoEmEdicao: ProjetoApi | null = null;
 /** Membro aberto na tela de permissões. */
@@ -134,27 +168,51 @@ export function mostrarProjetos(): void {
   // A lista é de todo mundo: o back-end devolve ao pesquisador só os projetos
   // em que ele está (e as propostas dele), e sem esta tela ele não teria como
   // saber qual projeto informar na hora de reservar.
+  //
+  // Volta à tela: mostra na hora o que já foi lido e atualiza por trás, em vez
+  // de deixar a tela vazia esperando a rede.
+  if (jaLeuProjetos) renderizarProjetos();
+  else pintarLendoProjetos();
   void carregarProjetos();
 }
 
-/** Lê projetos, status e catálogo de permissões. Os três alimentam esta tela. */
-async function carregarProjetos(): Promise<void> {
+/** Já houve uma leitura de projetos nesta sessão (a lista em memória vale). */
+let jaLeuProjetos = false;
+
+function pintarLendoProjetos(): void {
+  const lista = el('lista-projetos');
+  if (!lista || lista.children.length) return;
+  lista.innerHTML = html`
+    <div class="empty">
+      ${icone('clock', 'ic ic--xl')}
+      <p class="empty__text">Lendo os projetos&hellip;</p>
+    </div>`;
+}
+
+/**
+ * Lê projetos e status (a lista) e, em paralelo, catálogo de permissões e
+ * pessoas (os modais). A lista é desenhada assim que chega, sem esperar os
+ * outros; quem chama com `await` (depois de salvar algo) recebe tudo pronto.
+ * Também serve de pré-carga logo depois do login.
+ */
+export async function carregarProjetos(): Promise<void> {
+  // Falhar aqui não impede ver os projetos: nenhum dos dois derruba a tela.
+  const auxiliares = Promise.all([
+    catalogo ? null : getCatalogoPermissoes().then((c) => { catalogo = c; }).catch(() => undefined),
+    recarregarUsuarios().catch(() => undefined),
+  ]);
+
   try {
     const [lista, status] = await Promise.all([getProjetos(), getStatusProjeto()]);
     projetos = (lista?.data ?? lista ?? []) as ProjetoApi[];
     statusProjeto = status;
+    jaLeuProjetos = true;
   } catch (erro) {
     aviso(erroDe(erro, 'Não foi possível ler os projetos.'), 'error');
   }
 
-  // Catálogo e lista de pessoas são usados pelos modais filhos; falhar aqui não
-  // impede ver os projetos, então nenhum dos dois derruba a tela.
-  if (!catalogo) {
-    catalogo = await getCatalogoPermissoes().catch(() => null);
-  }
-  await recarregarUsuarios().catch(() => undefined);
-
   renderizarProjetos();
+  await auxiliares;
 }
 
 function renderizarProjetos(): void {
@@ -162,7 +220,9 @@ function renderizarProjetos(): void {
   if (!lista) return;
 
   const termo = busca.trim().toLowerCase();
-  const visiveis = projetos.filter(
+  const doFiltro = projetos.filter((p) =>
+    filtroProjetos === 'todos' || (filtroProjetos === 'meus' ? !deFora(p) : deFora(p)));
+  const visiveis = doFiltro.filter(
     (p) =>
       !termo ||
       [p.codigo, p.titulo, p.responsavel?.nome, p.status?.descricao].some((campo) =>
@@ -170,7 +230,7 @@ function renderizarProjetos(): void {
       ),
   );
 
-  contar('conta-projetos', visiveis.length, projetos.length, Boolean(termo));
+  contar('conta-projetos', visiveis.length, doFiltro.length, Boolean(termo));
 
   if (!visiveis.length) {
     lista.innerHTML = html`
@@ -178,7 +238,11 @@ function renderizarProjetos(): void {
         ${icone('graduation-cap', 'ic ic--xl')}
         <p class="empty__text">${termo
           ? `Nenhum projeto corresponde a “${busca}”.`
-          : 'Nenhum projeto cadastrado. Comece criando o primeiro.'}</p>
+          : filtroProjetos === 'meus'
+            ? 'Você ainda não participa de nenhum projeto. Proponha um ou aceite um convite.'
+            : filtroProjetos === 'outros'
+              ? 'Nenhum projeto de outras pessoas por enquanto.'
+              : 'Nenhum projeto cadastrado. Comece criando o primeiro.'}</p>
       </div>`;
     return;
   }
@@ -228,11 +292,23 @@ function cartaoDeProjeto(p: ProjetoApi): string {
     ? `${p.data_inicio ? dataBR(p.data_inicio) : '—'} a ${p.data_fim ? dataBR(p.data_fim) : 'sem fim'}`
     : 'Sem período definido';
 
+  const alheio = deFora(p);
+  const semLider = ehAdmin() && p.lider_ativo === false
+    ? html`<span class="pill pill--down">${icone('ban', 'ic ic--sm')}Sem líder ativo</span>`
+    : '';
+  const meuPapel = alheio
+    ? html`<span class="pill pill--neutral">${icone('eye', 'ic ic--sm')}Só leitura</span>`
+    : p.sou_lider
+      ? html`<span class="pill pill--booked">Você é líder</span>`
+      : p.participo
+        ? html`<span class="pill pill--neutral">Você participa</span>`
+        : '';
+
   return html`
-    <article class="pcard" aria-label="Projeto ${p.codigo}">
+    <article class="pcard ${raw(alheio ? 'pcard--alheio' : '')}" aria-label="Projeto ${p.titulo}">
       <div class="pcard__top">
         <span class="pcard__tile">${icone('graduation-cap')}</span>
-        ${raw(selo(p, encerrado))}
+        <span class="pcard__selos">${raw(selo(p, encerrado))}${raw(semLider)}${raw(meuPapel)}</span>
       </div>
 
       ${raw(p.situacao === 'RECUSADO' && p.motivo_recusa
@@ -245,6 +321,7 @@ function cartaoDeProjeto(p: ProjetoApi): string {
       <div>
         <span class="code">${p.codigo}</span>
         <h3 class="pcard__title">${p.titulo}</h3>
+        ${raw(p.descricao ? html`<p class="pcard__desc">${p.descricao}</p>` : '')}
         <div class="pcard__meta">
           <span>${p.responsavel ? `Líder: ${p.responsavel.nome}` : 'Sem líder definido'}</span>
           <span>${periodo}</span>
@@ -271,9 +348,15 @@ function cartaoDeProjeto(p: ProjetoApi): string {
               ${icone('ban', 'ic ic--sm')}Recusar
             </button>`
           : html`
+            ${raw(p.posso_convidar
+              ? html`<button type="button" class="btn btn--primary btn--sm"
+                             data-action="abrir-convidar" data-id="${p.id}" data-titulo="${p.titulo}">
+                       ${icone('user-plus', 'ic ic--sm')}Convidar
+                     </button>`
+              : '')}
             <button type="button" class="btn btn--quiet btn--sm"
                     data-action="abrir-equipe" data-id="${p.id}">
-              ${icone('users', 'ic ic--sm')}Equipe e permissões
+              ${icone('users', 'ic ic--sm')}${alheio ? 'Ver equipe' : 'Equipe e permissões'}
             </button>`)}
 
         ${raw(ehAdmin() || souODono(p)
@@ -312,9 +395,15 @@ export function limparBuscaDeProjetos(): void {
    Cadastro do projeto
    =========================================================================== */
 
+/** Pessoas que podem entrar como participantes (lidas na 1ª abertura). */
+let pessoasOpcoes: PessoaOpcao[] = [];
+/** Participantes escolhidos no formulário de projeto novo. */
+let participantes: number[] = [];
+
 export function abrirNovoProjeto(): void {
   projetoEmEdicao = null;
   prepararFormulario();
+  prepararParticipantes();
 
   // Pesquisador propõe; administração cria direto. A palavra muda porque o
   // resultado muda: a proposta dele ainda vai esperar o aval de alguém.
@@ -332,10 +421,9 @@ export function abrirEditarProjeto(id: string): void {
   projetoEmEdicao = projeto;
   prepararFormulario();
 
-  setText('proj-dialogo-titulo', `Editar ${projeto.codigo}`);
+  setText('proj-dialogo-titulo', `Editar ${projeto.titulo}`);
   setText('proj-enviar-texto', 'Salvar');
 
-  definirValor('proj-codigo', projeto.codigo);
   definirValor('proj-titulo', projeto.titulo);
   definirValor('proj-descricao', projeto.descricao ?? '');
   definirValor('proj-inicio', projeto.data_inicio ?? '');
@@ -349,7 +437,7 @@ export function abrirEditarProjeto(id: string): void {
 /** A lista é tela, não modal: o formulário abre por cima dela. */
 function irParaFormulario(): void {
   abrirModal('modal-projeto');
-  el<HTMLInputElement>('proj-codigo')?.focus();
+  el<HTMLInputElement>('proj-titulo')?.focus();
 }
 
 function prepararFormulario(): void {
@@ -362,6 +450,89 @@ function prepararFormulario(): void {
   // é o responsável e o status inicial vem do back-end.
   show(el('proj-status')?.closest('.field') ?? null, ehAdmin());
   show(el('proj-responsavel')?.closest('.field') ?? null, ehAdmin());
+
+  // Participantes só na criação; depois, a equipe é mexida em "Equipe".
+  participantes = [];
+  show(el('proj-participantes-campo'), false);
+}
+
+/* ---------------------------------------------------------------------------
+   Participantes do projeto novo
+   --------------------------------------------------------------------------- */
+
+function prepararParticipantes(): void {
+  show(el('proj-participantes-campo'), true);
+  pintarParticipantes();
+
+  const select = el<HTMLSelectElement>('proj-participante');
+  if (select) {
+    select.onchange = () => {
+      const id = Number(select.value);
+      if (id && !participantes.includes(id)) participantes.push(id);
+      pintarParticipantes();
+      select.focus();
+    };
+  }
+
+  // Trocar o responsável (adm) tira ele dos participantes: ele já é o líder.
+  const responsavel = el<HTMLSelectElement>('proj-responsavel');
+  if (responsavel) responsavel.onchange = () => pintarParticipantes();
+
+  const lista = el('proj-participantes');
+  if (lista) {
+    lista.onclick = (ev) => {
+      const botao = (ev.target as Element).closest<HTMLElement>('[data-remover-participante]');
+      if (!botao) return;
+      participantes = participantes.filter((id) => id !== Number(botao.dataset.removerParticipante));
+      pintarParticipantes();
+      el<HTMLSelectElement>('proj-participante')?.focus();
+    };
+  }
+
+  // A lista de pessoas é lida uma vez e reaproveitada; chega por trás.
+  if (!pessoasOpcoes.length) {
+    void getPessoasOpcoes()
+      .then((lista) => {
+        pessoasOpcoes = lista;
+        pintarParticipantes();
+      })
+      .catch(() => undefined);
+  }
+}
+
+function pintarParticipantes(): void {
+  const select = el<HTMLSelectElement>('proj-participante');
+  const lista = el('proj-participantes');
+  if (!select || !lista) return;
+
+  // Quem cria já entra como líder: não aparece como participante.
+  const responsavel = ehAdmin() ? Number(valorDe('proj-responsavel')) : Number(usuarioAtual()?.id);
+  participantes = participantes.filter((id) => id !== responsavel);
+
+  const disponiveis = pessoasOpcoes.filter((p) => p.id !== responsavel && !participantes.includes(p.id));
+
+  select.innerHTML = juntar([
+    html`<option value="">${pessoasOpcoes.length ? 'Adicionar pessoa…' : 'Lendo as pessoas…'}</option>`,
+    ...disponiveis.map(
+      (p) => html`<option value="${p.id}">${p.nome}${p.cargo ? ` — ${p.cargo}` : ''}</option>`,
+    ),
+  ]);
+  select.value = '';
+
+  lista.innerHTML = juntar(
+    participantes.map((id) => {
+      const pessoa = pessoasOpcoes.find((p) => p.id === id);
+      const nome = pessoa?.nome ?? `Pessoa ${id}`;
+      return html`
+        <li class="pessoas__item">
+          ${nome}${raw(pessoa?.cargo ? html`<span class="pessoas__cargo">· ${pessoa.cargo}</span>` : '')}
+          <button type="button" class="pessoas__remover" data-remover-participante="${id}"
+                  aria-label="Tirar ${nome} dos participantes">
+            ${icone('x', 'ic ic--sm')}
+          </button>
+        </li>`;
+    }),
+  );
 }
 
 function pintarStatus(): void {
@@ -404,15 +575,16 @@ function mostrarErro(mensagem: string | null): void {
 }
 
 export async function confirmarProjeto(): Promise<void> {
-  const codigo = valorDe('proj-codigo');
   const titulo = valorDe('proj-titulo');
+  const descricao = valorDe('proj-descricao');
   const status = valorDe('proj-status');
   const responsavel = valorDe('proj-responsavel');
   const inicio = valorDe('proj-inicio');
   const fim = valorDe('proj-fim');
 
-  if (!codigo || !titulo) {
-    mostrarErro('Código e título são obrigatórios.');
+  if (!titulo || !descricao) {
+    mostrarErro('Informe o nome do projeto e o que ele vai fazer.');
+    (titulo ? el('proj-descricao') : el('proj-titulo'))?.focus();
     return;
   }
 
@@ -427,15 +599,16 @@ export async function confirmarProjeto(): Promise<void> {
   }
 
   const dados: DadosProjeto = {
-    codigo,
     titulo,
-    descricao: valorDe('proj-descricao') || null,
+    descricao,
     data_inicio: inicio || null,
     data_fim: fim || null,
     // Em branco só acontece na proposta: o back-end usa o status inicial e
     // põe quem propôs como responsável.
     status_projeto_id: status ? Number(status) : null,
     funcionario_id: responsavel ? Number(responsavel) : null,
+    // Só na criação: na edição a equipe é mexida em "Equipe e permissões".
+    ...(projetoEmEdicao ? {} : { colaboradores: [...participantes] }),
   };
 
   try {
@@ -452,11 +625,11 @@ export async function confirmarProjeto(): Promise<void> {
   await recarregarContexto();
 
   if (!criado) {
-    aviso(`Projeto ${codigo} salvo.`, 'success');
+    aviso(`Projeto ${titulo} salvo.`, 'success');
   } else if (ehAdmin()) {
-    aviso(`Projeto ${codigo} criado.`, 'success');
+    aviso(`Projeto ${titulo} criado.`, 'success');
   } else {
-    aviso(`Proposta ${codigo} enviada. A administração vai avaliar.`, 'success');
+    aviso(`Proposta ${titulo} enviada. A administração vai avaliar.`, 'success');
   }
 }
 
@@ -579,9 +752,16 @@ export function abrirEquipe(id: string): void {
 
   projetoAberto = projeto;
   equipe = [];
+  equipeSoLeitura = deFora(projeto);
 
-  setText('equipe-projeto-nome', `Equipe de ${projeto.codigo}`);
-  setText('equipe-projeto-desc', projeto.titulo);
+  setText('equipe-projeto-nome', `Equipe de ${projeto.titulo}`);
+  setText(
+    'equipe-projeto-desc',
+    equipeSoLeitura
+      ? 'Você não faz parte deste projeto: dá para ver a equipe, não para mexer.'
+      : projeto.descricao ?? projeto.titulo,
+  );
+  show(el('form-equipe-membro'), !equipeSoLeitura);
 
   abrirModal('modal-equipe');
 
@@ -643,9 +823,41 @@ function pintarCandidatos(): void {
   select.disabled = candidatos.length === 0;
 }
 
+/**
+ * Quem muda o papel na equipe: o líder do projeto e o admin, nunca o próprio
+ * (o back-end recusa os demais). A linha do líder não tem seletor: a liderança
+ * passa marcando OUTRA pessoa como líder, para o projeto nunca ficar sem.
+ */
+function podeMudarPapelDe(m: MembroEquipe): boolean {
+  if (m.lider) return false;
+  if (ehAdmin()) return true;
+  return Boolean(projetoAberto?.sou_lider) && String(m.id) !== String(usuarioAtual()?.id);
+}
+
 function linhaDeMembro(m: MembroEquipe): string {
   const vazio = html`<span class="table__muted">&mdash;</span>`;
   const quantas = m.permissoes.length;
+
+  if (equipeSoLeitura) {
+    return html`
+      <tr class="${raw(m.ativo ? '' : 'is-off')}">
+        <td data-label="Membro">
+          <div class="table__stack">
+            <span class="table__name">
+              ${m.nome}
+              ${raw(m.lider ? html`<span class="pill pill--booked">líder</span>` : '')}
+            </span>
+            <span class="table__sub">${m.cargo ?? 'sem cargo'}</span>
+          </div>
+        </td>
+        <td data-label="Papel">${m.papel ? PAPEL_ROTULO[m.papel] : '—'}</td>
+        <td data-label="Função">${raw(m.funcao ? html`${m.funcao}` : vazio)}</td>
+        <td data-label="Permissões">${raw(quantas
+          ? html`${String(quantas)} ${quantas === 1 ? 'permissão' : 'permissões'}`
+          : html`só leitura`)}</td>
+        <td data-label="Ações">${raw(vazio)}</td>
+      </tr>`;
+  }
 
   return html`
     <tr class="${raw(m.ativo ? '' : 'is-off')}">
@@ -655,20 +867,22 @@ function linhaDeMembro(m: MembroEquipe): string {
             ${m.nome}
             ${raw(m.lider ? html`<span class="pill pill--booked">líder</span>` : '')}
           </span>
-          <span class="table__sub">${m.cargo ?? 'sem cargo'}${m.nick ? ` · ${m.nick}` : ''}</span>
+          <span class="table__sub">${m.cargo ?? 'sem cargo'}${m.email ? ` · ${m.email}` : ''}</span>
         </div>
       </td>
       <td data-label="Papel">
-        <select class="select select--sm" data-change="papel-membro" data-id="${m.id}"
-                aria-label="Papel de ${m.nome} no projeto">
-          ${raw(juntar(
-            (Object.keys(PAPEL_ROTULO) as PapelEquipe[]).map(
-              (papel) => html`<option value="${papel}" ${raw(m.papel === papel ? 'selected' : '')}>
-                                ${PAPEL_ROTULO[papel]}
-                              </option>`,
-            ),
-          ))}
-        </select>
+        ${raw(podeMudarPapelDe(m)
+          ? html`<select class="select select--sm" data-change="papel-membro" data-id="${m.id}"
+                         aria-label="Papel de ${m.nome} no projeto">
+                   ${raw(juntar(
+                     (Object.keys(PAPEL_ROTULO) as PapelEquipe[]).map(
+                       (papel) => html`<option value="${papel}" ${raw(m.papel === papel ? 'selected' : '')}>
+                                         ${PAPEL_ROTULO[papel]}
+                                       </option>`,
+                     ),
+                   ))}
+                 </select>`
+          : html`${m.papel ? PAPEL_ROTULO[m.papel] : '—'}`)}
       </td>
       <td data-label="Função">${raw(m.funcao ? html`${m.funcao}` : vazio)}</td>
       <td data-label="Permissões">
@@ -735,6 +949,24 @@ export async function alterarPapelMembro(id: string, papel: string): Promise<voi
   const membro = equipe.find((m) => String(m.id) === id);
   if (!membro) return;
 
+  // Passar a liderança tira o papel de quem lidera hoje: confirma antes.
+  if (papel === 'LIDER') {
+    const atual = equipe.find((m) => m.lider);
+    const souEu = atual && String(atual.id) === String(usuarioAtual()?.id);
+    const ok = await confirmar({
+      titulo: `Passar a liderança para ${membro.nome}?`,
+      mensagem: html`<strong>${membro.nome}</strong> passa a liderar o projeto e recebe o
+        necessário para conduzi-lo. ${souEu ? 'Você' : atual?.nome ?? 'O líder atual'}
+        continua na equipe como pesquisador.`,
+      icone: 'shield-user',
+      confirmar: 'Passar a liderança',
+    });
+    if (!ok) {
+      renderizarEquipe();
+      return;
+    }
+  }
+
   try {
     await atualizarMembro(projetoAberto.id, membro.id, { papel: papel as PapelEquipe });
   } catch (erro) {
@@ -743,14 +975,16 @@ export async function alterarPapelMembro(id: string, papel: string): Promise<voi
     return;
   }
 
-  await carregarEquipe();
-  // O líder do projeto é o responsável: a lista de projetos muda com ele.
+  // O líder do projeto é o responsável: a lista de projetos muda com ele, e
+  // quem passou a liderança deixa de poder mexer nos papéis.
   await carregarProjetos();
+  projetoAberto = projetos.find((p) => p.id === projetoAberto?.id) ?? projetoAberto;
+  await carregarEquipe();
 
   aviso(
     papel === 'LIDER'
-      ? `${membro.nome} agora lidera ${projetoAberto.codigo}. Ser líder não concede CRUD.`
-      : `${membro.nome} agora é pesquisador em ${projetoAberto.codigo}.`,
+      ? `${membro.nome} agora lidera ${projetoAberto.titulo}.`
+      : `${membro.nome} agora é pesquisador em ${projetoAberto.titulo}.`,
     'info',
   );
 }

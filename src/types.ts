@@ -33,7 +33,6 @@ export type StatusKey = EstufaStatus | ReservaStatus;
 /** Tom visual de um status. Casa com os tokens --ok / --busy / --booked / --down. */
 export type Tom = 'ok' | 'busy' | 'booked' | 'down' | 'neutral';
 
-export type PerfilUsuario = 'admin' | 'pesquisador';
 
 /** Unidade em que a capacidade do espaço é contada. */
 export type UnidadeCapacidade = 'VASO' | 'BANCADA';
@@ -116,11 +115,9 @@ export interface Usuario {
   admin: boolean;
   /** Cargo mostrado na barra lateral. */
   cargo: string;
-  /** Identificação usada para entrar. */
-  login: string;
-  /** E-mail institucional, quando a API o devolve. */
+  /** E-mail institucional: é com ele que a pessoa entra. */
   email?: string;
-  /** Matricula funcional, quando cadastrada. */
+  /** Identificador interno (coluna `matricula` na API), quando cadastrado. */
   matricula?: string;
   /** Id do cargo, para o formulário de edição pré-selecionar. */
   cargoId?: number;

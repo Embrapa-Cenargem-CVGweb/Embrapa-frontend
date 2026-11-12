@@ -1213,3 +1213,121 @@
     transition: none;
   }
 }
+
+/* --- Sino de avisos ------------------------------------------------------ */
+
+.map-btn__badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 var(--s-1);
+  font-size: var(--text-2xs);
+  font-weight: var(--fw-semibold);
+  color: var(--down-fg);
+  background: var(--down);
+  border: 2px solid var(--surface);
+  border-radius: var(--r-pill);
+}
+
+.map-btn__badge[hidden] {
+  display: none;
+}
+
+.map-pop--avisos {
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: min(30rem, 70vh);
+  padding: var(--s-3) var(--s-2);
+  overflow-y: auto;
+}
+
+.avisos__topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding-right: var(--s-2);
+}
+
+.avisos__resumo {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.avisos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.aviso {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--s-2) var(--s-2);
+  text-align: left;
+  border-radius: var(--r-md);
+}
+
+.aviso:hover {
+  background: var(--surface-2);
+}
+
+.aviso.is-novo {
+  background: var(--accent-soft);
+}
+
+.aviso__icone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  color: var(--fg-2);
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
+}
+
+.aviso[data-tom="urgente"] .aviso__icone { color: var(--down-soft-fg); background: var(--down-soft); }
+.aviso[data-tom="atencao"] .aviso__icone { color: var(--busy-soft-fg); background: var(--busy-soft); }
+.aviso[data-tom="ok"] .aviso__icone { color: var(--ok-soft-fg); background: var(--ok-soft); }
+
+.aviso__corpo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.aviso__titulo {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  color: var(--fg);
+}
+
+.aviso__texto {
+  font-size: var(--text-xs);
+  line-height: var(--lh-normal);
+  color: var(--fg-2);
+}
+
+.aviso__quando {
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+}
+
+.avisos__vazio {
+  padding: var(--s-4) var(--s-2);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  text-align: center;
+}

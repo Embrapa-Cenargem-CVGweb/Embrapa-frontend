@@ -1592,3 +1592,50 @@ button.metric:focus-visible .metric__go {
     grid-template-columns: 1fr;
   }
 }
+/* ===========================================================================
+   Lista de pessoas escolhidas (participantes do projeto)
+   =========================================================================== */
+
+.pessoas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  padding: 0;
+  margin: var(--s-2) 0 0;
+  list-style: none;
+}
+
+.pessoas:empty {
+  display: none;
+}
+
+.pessoas__item {
+  display: inline-flex;
+  gap: var(--s-1);
+  align-items: center;
+  padding: 2px 2px 2px var(--s-3);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
+}
+
+.pessoas__cargo {
+  color: var(--fg-muted);
+  font-weight: var(--fw-regular);
+}
+
+.pessoas__remover {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--fg-muted);
+  border-radius: var(--r-pill);
+}
+
+.pessoas__remover:hover {
+  color: var(--fg);
+  background: var(--surface);
+}

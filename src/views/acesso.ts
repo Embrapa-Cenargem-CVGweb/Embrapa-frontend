@@ -159,7 +159,7 @@ async function salvarSenha(): Promise<void> {
       campo.dataset.senha = senha;
       campo.textContent = '•'.repeat(Math.max(8, senha.length));
     }
-    usuarioParaEntrada = resposta.nick;
+    usuarioParaEntrada = resposta.email;
 
     for (const id of ['definir-senha', 'definir-confirmacao']) {
       const input = el<HTMLInputElement>(id);

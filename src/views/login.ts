@@ -17,7 +17,6 @@ import {
   atualizarSituacaoFuncionario,
   criarFuncionario,
   descartarToken,
-  excluirFuncionario,
   getFuncionarios,
   guardarToken,
   login as apiLogin,
@@ -26,7 +25,7 @@ import {
   type EnvioDoConvite,
   type FuncionarioApi,
 } from '../services/api';
-import type { PerfilUsuario, SituacaoUsuario, Usuario } from '../types';
+import type { SituacaoUsuario, Usuario } from '../types';
 
 const CHAVES = {
   sessao: 'cvgweb:sessao',
@@ -57,7 +56,6 @@ function daApi(funcionario: FuncionarioApi): Usuario {
     nome: funcionario.nome,
     admin,
     cargo: funcionario.cargo || (admin ? 'Administrador' : 'Funcionário'),
-    login: funcionario.nick ?? String(funcionario.id),
     email: funcionario.email,
     matricula: funcionario.matricula ?? undefined,
     cargoId: funcionario.cargo_id ?? undefined,
@@ -69,13 +67,31 @@ function daApi(funcionario: FuncionarioApi): Usuario {
   };
 }
 
-/** Relê a lista de usuários do banco. */
-export async function recarregarUsuarios(): Promise<void> {
-  const resposta = await getFuncionarios();
-  const lista: FuncionarioApi[] = resposta.data ?? resposta;
+/** Leitura de usuários em andamento: quem pedir junto reaproveita a mesma. */
+let lendoUsuarios: Promise<void> | null = null;
 
-  USUARIOS.length = 0;
-  for (const funcionario of lista) USUARIOS.push(daApi(funcionario));
+/**
+ * Relê a lista de usuários do banco. Várias telas pedem a lista ao mesmo
+ * tempo (pré-carga, administração, projetos): enquanto uma leitura está no
+ * ar, as outras esperam por ela em vez de disparar outra requisição.
+ *
+ * `depoisDeSalvar`: a leitura em andamento pode ter saído antes da gravação e
+ * trazer a lista antiga, então começa uma nova.
+ */
+export function recarregarUsuarios(depoisDeSalvar = false): Promise<void> {
+  if (depoisDeSalvar) lendoUsuarios = null;
+
+  const leitura = (lendoUsuarios ??= (async () => {
+    const resposta = await getFuncionarios();
+    const lista: FuncionarioApi[] = resposta.data ?? resposta;
+
+    USUARIOS.length = 0;
+    for (const funcionario of lista) USUARIOS.push(daApi(funcionario));
+  })().finally(() => {
+    if (lendoUsuarios === leitura) lendoUsuarios = null;
+  }));
+
+  return leitura;
 }
 
 /* ===========================================================================
@@ -106,29 +122,25 @@ function nomeDoEmail(email: string): string {
   );
 }
 
-/** Gera um identificador interno a partir do e-mail. */
-function nickDoEmail(email: string): string {
-  return (email.split('@')[0] ?? email).slice(0, 30).toLowerCase();
-}
-
 /**
  * Cadastra o usuário. O nome vem do formulário; quando não vier, é deduzido do
  * e-mail — o que serve para não travar o cadastro, mas rende "Ana Paula" onde
  * o certo seria "Ana Paula Ribeiro", e é esse nome que aparece na lista e nas
  * reservas. Por isso o formulário pede o nome completo.
+ *
+ * Não há usuário/nick: a pessoa entra só com o e-mail. O cargo é obrigatório e
+ * também decide o acesso (Administrador = adm do sistema).
  */
 export interface DadosNovoUsuario {
-  /** Em branco, é gerado a partir do e-mail. */
-  nick?: string;
+  /** Identificador interno (coluna `matricula` na API). */
   matricula?: string;
-  cargoId?: number | null;
+  cargoId: number | null;
 }
 
 export async function cadastrarUsuario(
   emailBruto: string,
-  perfil: PerfilUsuario = 'pesquisador',
-  nomeBruto = '',
-  extras: DadosNovoUsuario = {},
+  nomeBruto: string,
+  extras: DadosNovoUsuario,
 ): Promise<ResultadoCadastro> {
   const email = emailBruto.trim().toLowerCase();
   const nome = nomeBruto.trim();
@@ -137,19 +149,20 @@ export async function cadastrarUsuario(
     return { ok: false, erro: 'Informe um e-mail válido, como nome@embrapa.br.' };
   }
 
+  if (!extras.cargoId) {
+    return { ok: false, erro: 'Selecione o cargo da pessoa.' };
+  }
+
   try {
     const resposta = await criarFuncionario({
       nome: nome || nomeDoEmail(email),
-      // O identificador interno não é usado para autenticar.
-      nick: (extras.nick ?? '').trim().toLowerCase() || nickDoEmail(email),
       email,
       matricula: (extras.matricula ?? '').trim() || undefined,
-      cargo_id: extras.cargoId ?? null,
-      // Quem é adm é decidido aqui; o perfil legado (/SU/) é montado no back-end.
-      super_usuario: perfil === 'admin',
+      // O cargo decide quem é adm; o perfil legado (/SU/) é montado no back-end.
+      cargo_id: extras.cargoId,
     });
 
-    await recarregarUsuarios();
+    await recarregarUsuarios(true);
 
     return {
       ok: true,
@@ -166,18 +179,16 @@ export async function cadastrarUsuario(
  * Salva a edição de um usuário.
  *
  * O back-end valida com `sometimes`, então o que não for enviado fica como
- * está — e ele mesmo decide o que esta pessoa tem direito de alterar: trocar
- * perfil, por exemplo, é só do adm, e o campo é ignorado para os demais.
+ * está — e ele mesmo decide o que esta pessoa tem direito de alterar: dar ou
+ * tirar o cargo Administrador, por exemplo, é só do adm.
  */
 export async function editarUsuario(
   id: string,
   dados: {
     nome: string;
     email: string;
-    nick: string;
     matricula?: string;
-    cargoId?: number | null;
-    admin?: boolean;
+    cargoId: number | null;
   },
 ): Promise<ResultadoCadastro> {
   const email = dados.email.trim().toLowerCase();
@@ -190,21 +201,19 @@ export async function editarUsuario(
     return { ok: false, erro: 'Informe um e-mail válido, como nome@embrapa.br.' };
   }
 
-  if (!dados.nick.trim()) {
-    return { ok: false, erro: 'Informe o identificador interno.' };
+  if (!dados.cargoId) {
+    return { ok: false, erro: 'Selecione o cargo da pessoa.' };
   }
 
   try {
     const resposta = await atualizarFuncionario(Number(id), {
       nome: dados.nome.trim(),
       email,
-      nick: dados.nick.trim().toLowerCase(),
       matricula: (dados.matricula ?? '').trim() || null,
-      cargo_id: dados.cargoId ?? null,
-      super_usuario: dados.admin,
+      cargo_id: dados.cargoId,
     });
 
-    await recarregarUsuarios();
+    await recarregarUsuarios(true);
 
     return {
       ok: true,
@@ -221,27 +230,15 @@ export interface ResultadoExclusao {
   eraEuMesmo?: boolean;
 }
 
-export async function excluirUsuario(id: string): Promise<ResultadoExclusao> {
-  const usuario = USUARIOS.find((u) => u.id === id);
-  if (!usuario) return { ok: false, erro: 'Usuário não encontrado.' };
-
-  const eraEuMesmo = sessao?.id === id;
-
-  try {
-    await excluirFuncionario(Number(id));
-    await recarregarUsuarios();
-    return { ok: true, eraEuMesmo };
-  } catch (erro) {
-    // O back-end recusa excluir quem tem reservas e sugere desativar.
-    return { ok: false, erro: erro instanceof Error ? erro.message : 'Não foi possível excluir.' };
-  }
-}
-
 /** Desativa ou reativa o acesso sem apagar o histórico. */
-export async function alternarAcessoUsuario(id: string, ativo: boolean): Promise<ResultadoExclusao> {
+export async function alternarAcessoUsuario(
+  id: string,
+  ativo: boolean,
+  novosLideres?: Record<number, number>,
+): Promise<ResultadoExclusao> {
   try {
-    await atualizarSituacaoFuncionario(Number(id), ativo);
-    await recarregarUsuarios();
+    await atualizarSituacaoFuncionario(Number(id), ativo, novosLideres);
+    await recarregarUsuarios(true);
     return { ok: true, eraEuMesmo: sessao?.id === id && !ativo };
   } catch (erro) {
     return { ok: false, erro: erro instanceof Error ? erro.message : 'Não foi possível alterar o acesso.' };
@@ -252,7 +249,7 @@ export async function alternarAcessoUsuario(id: string, ativo: boolean): Promise
 export async function reenviarConviteUsuario(id: string): Promise<ResultadoCadastro> {
   try {
     const resposta = await reenviarConvite(Number(id));
-    await recarregarUsuarios();
+    await recarregarUsuarios(true);
     return {
       ok: true,
       mensagem: resposta?.message ?? 'Convite enviado.',
@@ -367,13 +364,25 @@ export function sair(): void {
   el<HTMLInputElement>('entrada-usuario')?.focus();
 }
 
-/** Restaura a sessão salva, quando ela ainda é válida. */
-export function iniciarAutenticacao(
+/**
+ * Diz o que fazer ao entrar e ao sair, sem restaurar sessão nenhuma. É o que
+ * a tela de definir senha precisa: ela não restaura sessão, mas o "Entrar"
+ * logo depois de criar a senha tem de abrir o sistema.
+ */
+export function ligarAutenticacao(
   entrou: (usuario: Usuario) => void,
   saiu: () => void,
 ): void {
   aoEntrar = entrou;
   aoSair = saiu;
+}
+
+/** Restaura a sessão salva, quando ela ainda é válida. */
+export function iniciarAutenticacao(
+  entrou: (usuario: Usuario) => void,
+  saiu: () => void,
+): void {
+  ligarAutenticacao(entrou, saiu);
 
   let salvo: string | null = null;
   try {

@@ -27,7 +27,7 @@ import { expect, type Page } from '@playwright/test';
 export const ARQUIVO_SESSAO = 'tests/e2e/.auth/sessao.json';
 
 export const CREDENCIAIS = {
-  nick: process.env.CVG_NICK ?? 'SU',
+  email: process.env.CVG_EMAIL ?? 'admin@cvgweb.local',
   senha: process.env.CVG_SENHA ?? 'super123',
 };
 
@@ -67,7 +67,7 @@ export async function entrar(page: Page): Promise<void> {
   if (await app.isVisible().catch(() => false)) return;
 
   await expect(page.locator('#tela-entrada')).toBeVisible();
-  await page.fill('#entrada-usuario', CREDENCIAIS.nick);
+  await page.fill('#entrada-usuario', CREDENCIAIS.email);
   await page.fill('#entrada-senha', CREDENCIAIS.senha);
   await page.click('#entrada-enviar');
 
@@ -397,7 +397,6 @@ export async function apagarEspacoDeTeste(page: Page, codigo: string): Promise<v
 export interface FuncionarioApi {
   id: number;
   nome: string;
-  nick: string;
   email: string;
   situacao?: string;
 }
@@ -420,12 +419,14 @@ export async function criarFuncionarioSemSenha(page: Page, email: string): Promi
   const existente = await funcionarioPorEmail(page, email);
   if (existente) return existente;
 
-  const nick = email.split('@')[0];
+  // Cargo é obrigatório; Pesquisador não dá acesso de administração.
+  const cargos = await pelaApi<{ id: number; nome: string }[]>(page, '/cargos');
+  const pesquisador = cargos.find((c) => c.nome === 'Pesquisador') ?? cargos.find((c) => c.nome !== 'Administrador');
+
   await chamar(page, 'post', '/funcionarios', {
-    nome: `Teste ${nick}`,
-    nick,
+    nome: `Teste ${email.split('@')[0]}`,
     email,
-    perfil: '/FUNCIONARIO-C/',
+    cargo_id: pesquisador?.id,
   });
 
   const criado = await funcionarioPorEmail(page, email);

@@ -328,6 +328,161 @@
   flex: 1;
 }
 
+/* Projeto de outra pessoa: dá para ver, não para mexer. A borda tracejada e
+   o fundo mais apagado separam do que é seu sem depender só da cor. */
+.pcard--alheio {
+  background: var(--surface-2);
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.pcard__selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  justify-content: flex-end;
+}
+
+.pcard__desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  font-size: var(--text-sm);
+  line-height: var(--lh-normal, 1.5);
+  color: var(--fg-2);
+}
+
+/* --- Convites para projetos --------------------------------------------- */
+
+.opcoes-pessoas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 15rem;
+  padding: var(--s-1);
+  margin: var(--s-2) 0 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.opcoes-pessoas:empty {
+  display: none;
+}
+
+.opcoes-pessoas__item {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  min-height: 2.75rem;
+  padding: var(--s-1) var(--s-2);
+  border-radius: var(--r-sm);
+}
+
+.opcoes-pessoas__item:hover {
+  background: var(--surface-2);
+}
+
+.opcoes-pessoas__nome {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+}
+
+.opcoes-pessoas__nome small {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-regular);
+  color: var(--fg-muted);
+}
+
+.opcoes-pessoas__vazio {
+  padding: var(--s-2);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.convites {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-top: var(--s-3);
+}
+
+.convites[hidden] {
+  display: none;
+}
+
+.convite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.convite__topo {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+}
+
+.convite__texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+}
+
+.convite__projeto {
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+
+.convite__quando {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.convite__mensagem {
+  padding: var(--s-2) var(--s-3);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+}
+
+.convite__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  justify-content: flex-end;
+}
+
+.convite--enviado {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-3);
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+}
+
+.convite--enviado .convite__texto {
+  flex: 1 1 14rem;
+}
+
 /* --- Logs ---------------------------------------------------------------- */
 
 .view .audit-section {

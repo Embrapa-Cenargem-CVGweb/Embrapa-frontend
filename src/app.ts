@@ -27,7 +27,6 @@ import {
   buscarEstufaNoFormulario,
   escolherEstufa,
   navegarSugestoesDeEspaco,
-  abrirEspaco,
   abrirNovoUsuario,
   abrirPainelMetricas,
   alterarSituacaoEspaco,
@@ -40,15 +39,13 @@ import {
   confirmarEdicaoUsuario,
   confirmarEspaco,
   confirmarNovoUsuario,
-  definirPerfilEdicao,
-  definirPerfilNovoUsuario,
+  confirmarPassagemDeLideranca,
   filtrarReservas,
   filtrarUsuarios,
   irPara,
   limparBusca,
   mostrarReservas,
   mostrarUsuarios,
-  pedirExclusaoUsuario,
   reenviarConviteDoUsuario,
   renderizarAdmin,
   type FiltroUsuario,
@@ -62,7 +59,17 @@ import {
   mostrarChat,
   sugerir,
 } from './views/chat';
-import { renderizarHistorico } from './views/auditoria';
+import { preCarregarHistorico, renderizarHistorico } from './views/auditoria';
+import { abrirAvisos, desligarAvisos, irParaAviso, ligarAvisos } from './views/avisos';
+import {
+  abrirConvidar,
+  abrirConvites,
+  desistirDoConvite,
+  enviarConvites,
+  pintarContadorDeConvites,
+  responderConvite,
+  trocarAba,
+} from './views/convites';
 import {
   aoRepetir,
   esconderFalha,
@@ -86,6 +93,8 @@ import {
   confirmarProjeto,
   incluirMembro,
   limparBuscaDeProjetos,
+  carregarProjetos,
+  filtrarProjetos,
   mostrarProjetos,
   pedirExclusaoProjeto,
   recusarProjetoAberto,
@@ -98,6 +107,7 @@ import {
 import {
   entrar,
   iniciarAutenticacao,
+  ligarAutenticacao,
   sair,
   usuarioAtual,
 } from './views/login';
@@ -106,7 +116,6 @@ import {
   ajustarZoom,
   alternarPopover,
   alternarProximas,
-  alternarTelaCheia,
   centralizarMapa,
   escolherResultado,
   fecharPainel,
@@ -131,7 +140,6 @@ import {
   guardarRascunhoDaReserva,
   verReserva,
 } from './views/reservas';
-import type { PerfilUsuario } from './types';
 import { aoNavegar, type Secao } from './lib/navegacao';
 import { carregarContexto, limparContexto, pode } from './data/contexto';
 
@@ -241,7 +249,39 @@ function montarApp(usuario: Usuario): void {
 
   mostrarSecao('mapa');
   void carregarInventario();
-  void carregarContexto().then(() => aplicarPermissoesNoMenu());
+  void carregarContexto().then(() => {
+    aplicarPermissoesNoMenu();
+    pintarContadorDeConvites();
+    ligarAvisos();
+    preCarregarTelas();
+
+    // Veio pelo link do e-mail de convite (/projetos?convites=1): abre direto.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('convites')) {
+      window.history.replaceState(null, '', '/');
+      mostrarSecao('projetos');
+      abrirConvites();
+    }
+  });
+}
+
+/**
+ * Lê em segundo plano o que as outras telas mostram, quando o navegador fica
+ * ocioso depois do login. A primeira visita a Projetos, Usuários (a lista de
+ * pessoas vem junto com Projetos) e Histórico já abre com dados, em vez de
+ * esperar a rede; cada tela continua relendo ao ser aberta.
+ */
+function preCarregarTelas(): void {
+  const quandoOcioso = (tarefa: () => void): void => {
+    if ('requestIdleCallback' in window) window.requestIdleCallback(tarefa, { timeout: 2000 });
+    else setTimeout(tarefa, 300);
+  };
+
+  quandoOcioso(() => {
+    if (!usuarioAtual()) return;
+    void carregarProjetos();
+    if (podeVerSecao('historico')) preCarregarHistorico();
+  });
 }
 
 /**
@@ -265,6 +305,7 @@ async function carregarInventario(): Promise<void> {
 }
 
 function desmontarApp(): void {
+  desligarAvisos();
   limparContexto();
   esconderFalha();
   sairDaTelaCheia();
@@ -314,7 +355,9 @@ function registrarTodasAsAcoes(): void {
       if (id) escolherResultado(id);
     },
     'mapa-popover': (elemento) => alternarPopover(elemento),
-    'mapa-tela-cheia': () => alternarTelaCheia(),
+    // sino de avisos (no lugar da antiga tela cheia)
+    'abrir-avisos': (elemento) => void abrirAvisos(elemento),
+    'ir-aviso': (elemento) => irParaAviso(Number(elemento.dataset.indice)),
     'mapa-zoom': (elemento) => ajustarZoom(elemento.dataset.direcao ?? 'mais'),
     'mapa-centralizar': () => centralizarMapa(),
     'mapa-ver-todas': () => alternarProximas(),
@@ -342,9 +385,6 @@ function registrarTodasAsAcoes(): void {
     // administração
     'abrir-painel-metricas': () => abrirPainelMetricas(),
     'abrir-novo-usuario': () => abrirNovoUsuario(),
-    // O formulario de espaco comeca perguntando qual estufa; sem id, abre na
-    // busca. 'abrir-espaco' e do mapa (painel da estufa) e nao se confunde.
-    'abrir-alterar-espaco': () => abrirEspaco(),
     'editar-espaco': (elemento) => {
       const id = elemento.dataset.id;
       if (id) abrirEditarEspaco(id);
@@ -373,10 +413,6 @@ function registrarTodasAsAcoes(): void {
       const id = elemento.dataset.id;
       if (id) void cancelarReserva(id);
     },
-    'excluir-usuario': (elemento) => {
-      const id = elemento.dataset.id;
-      if (id) void pedirExclusaoUsuario(id, sair);
-    },
     'reenviar-convite': (elemento) => {
       const id = elemento.dataset.id;
       if (id) void reenviarConviteDoUsuario(id);
@@ -396,6 +432,29 @@ function registrarTodasAsAcoes(): void {
     'excluir-projeto': (elemento) => {
       const id = elemento.dataset.id;
       if (id) void pedirExclusaoProjeto(id);
+    },
+    // convites para projetos
+    'abrir-convites': () => abrirConvites(),
+    'aba-convites': (elemento) => trocarAba(elemento.dataset.aba === 'enviados' ? 'enviados' : 'recebidos'),
+    'abrir-convidar': (elemento) => {
+      const id = Number(elemento.dataset.id);
+      if (id) abrirConvidar(id, elemento.dataset.titulo ?? '');
+    },
+    'aceitar-convite': (elemento) => {
+      const id = Number(elemento.dataset.id);
+      if (id) void responderConvite(id, 'aceitar');
+    },
+    'recusar-convite': (elemento) => {
+      const id = Number(elemento.dataset.id);
+      if (id) void responderConvite(id, 'recusar');
+    },
+    'cancelar-convite': (elemento) => {
+      const id = Number(elemento.dataset.id);
+      if (id) void desistirDoConvite(id);
+    },
+    'filtrar-projetos': (elemento) => {
+      const f = elemento.dataset.filtro;
+      filtrarProjetos(f === 'meus' || f === 'outros' ? f : 'todos');
     },
     'aprovar-projeto': (elemento) => {
       const id = elemento.dataset.id;
@@ -490,6 +549,16 @@ function ligarFormularios(): void {
   el<HTMLFormElement>('form-projeto')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
     void confirmarProjeto();
+  });
+
+  el<HTMLFormElement>('form-lideranca')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    void confirmarPassagemDeLideranca();
+  });
+
+  el<HTMLFormElement>('form-convidar')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    void enviarConvites();
   });
 
   el<HTMLFormElement>('form-equipe-membro')?.addEventListener('submit', (ev) => {
@@ -605,48 +674,6 @@ function ligarSelects(): void {
 }
 
 function ligarTeclado(): void {
-  // Setas percorrem o radiogroup, como num grupo de rádio nativo.
-  el('novo-usuario-perfil')?.addEventListener('keydown', (ev) => {
-    if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(ev.key)) return;
-    ev.preventDefault();
-
-    const opcoes = qsa('#novo-usuario-perfil [data-role]');
-    const atual = opcoes.findIndex((o) => o === ev.target);
-    if (atual === -1) return;
-
-    const passo = ev.key === 'ArrowRight' || ev.key === 'ArrowDown' ? 1 : -1;
-    const proximo = opcoes[(atual + passo + opcoes.length) % opcoes.length];
-    definirPerfilNovoUsuario(proximo.dataset.role as PerfilUsuario);
-    proximo.focus();
-  });
-
-  // O segmentado de perfil responde ao clique pelo próprio listener do grupo.
-  el('novo-usuario-perfil')?.addEventListener('click', (ev) => {
-    const opcao = (ev.target as Element).closest<HTMLElement>('[data-role]');
-    if (opcao) definirPerfilNovoUsuario(opcao.dataset.role as PerfilUsuario);
-  });
-
-  // Mesmo segmentado na edição. Usa `data-papel` para não disputar o alvo com
-  // o do cadastro, que já responde a `data-role`.
-  el('editar-usuario-perfil')?.addEventListener('click', (ev) => {
-    const opcao = (ev.target as Element).closest<HTMLElement>('[data-papel]');
-    if (opcao) definirPerfilEdicao(opcao.dataset.papel as PerfilUsuario);
-  });
-
-  el('editar-usuario-perfil')?.addEventListener('keydown', (ev) => {
-    if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(ev.key)) return;
-    ev.preventDefault();
-
-    const opcoes = qsa('#editar-usuario-perfil [data-papel]');
-    const atual = opcoes.findIndex((o) => o === ev.target);
-    if (atual === -1) return;
-
-    const passo = ev.key === 'ArrowRight' || ev.key === 'ArrowDown' ? 1 : -1;
-    const proximo = opcoes[(atual + passo + opcoes.length) % opcoes.length];
-    definirPerfilEdicao(proximo.dataset.papel as PerfilUsuario);
-    proximo.focus();
-  });
-
   // Clique fora fecha o menu da conta.
   document.addEventListener('click', (ev) => {
     const alvo = ev.target;
@@ -703,8 +730,12 @@ export function iniciarApp(): void {
   });
 
   // Chegou pelo link do e-mail (/definir-senha?token=...): a tela de senha
-  // toma o lugar da entrada e nenhuma sessao e restaurada por cima.
-  if (iniciarAcesso()) return;
+  // toma o lugar da entrada e nenhuma sessao e restaurada por cima. Mas o
+  // "Entrar" depois de criar a senha precisa saber abrir o sistema.
+  if (iniciarAcesso()) {
+    ligarAutenticacao(montarApp, desmontarApp);
+    return;
+  }
 
   iniciarAutenticacao(montarApp, desmontarApp);
 }

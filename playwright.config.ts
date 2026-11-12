@@ -22,7 +22,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Variáveis de ambiente:
  *   CVG_URL    endereço do front   (padrão http://localhost:5173)
  *   CVG_API    endereço da API     (padrão http://localhost:8000/api)
- *   CVG_NICK   usuário do teste    (padrão SU)
+ *   CVG_EMAIL  e-mail do teste     (padrão admin@cvgweb.local)
  *   CVG_SENHA  senha do usuário    (padrão super123)
  */
 export default defineConfig({

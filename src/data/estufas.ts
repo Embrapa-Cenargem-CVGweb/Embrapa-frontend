@@ -133,7 +133,8 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
       chavePorId[casa.id] = chave;
       ID_REAL_ESPACO[chave] = casa.id;
 
-      const tipo = casa.tipo ?? 'Casa de vegetação';
+      // Tipo em aberto até a administração informar: vazio, não um palpite.
+      const tipo = casa.tipo?.trim() ?? '';
       const capacidadeTotal = casa.ocupacao?.capacidade_total ?? casa.capacidade_total ?? 0;
 
       ESTUFAS[chave] = {

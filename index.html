@@ -97,6 +97,7 @@
 <symbol id="i-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6" /></symbol>
 <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol>
 <symbol id="i-funnel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0" /> <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" /></symbol>
 <symbol id="i-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3" /> <path d="M21 8V5a2 2 0 0 0-2-2h-3" /> <path d="M3 16v3a2 2 0 0 0 2 2h3" /> <path d="M16 21h3a2 2 0 0 0 2-2v-3" /></symbol>
 <symbol id="i-minimize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3" /> <path d="M21 8h-3a2 2 0 0 1-2-2V3" /> <path d="M3 16h3a2 2 0 0 1 2 2v3" /> <path d="M16 21v-3a2 2 0 0 1 2-2h3" /></symbol>
 <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol>
@@ -131,9 +132,9 @@
       </p>
 
       <div class="field">
-        <label class="field__label" for="entrada-usuario">E-mail ou usuário</label>
-        <input class="input" type="text" id="entrada-usuario" name="email"
-               autocomplete="username" autocapitalize="none" spellcheck="false" required />
+        <label class="field__label" for="entrada-usuario">E-mail</label>
+        <input class="input" type="email" id="entrada-usuario" name="email"
+               autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required />
       </div>
 
       <div class="field">
@@ -434,7 +435,7 @@
           <ul class="map-search__list" id="map-busca-lista" role="listbox" aria-label="Espaços encontrados" hidden></ul>
         </div>
 
-        <!-- Camadas, filtro e tela cheia -->
+        <!-- Camadas, filtro e avisos (o sino ocupa o lugar da antiga tela cheia) -->
         <div class="map-tools">
           <div class="map-tools__item">
             <button type="button" class="map-btn" id="map-btn-camadas" data-action="mapa-popover" data-alvo="map-pop-camadas"
@@ -492,10 +493,20 @@
             </div>
           </div>
 
-          <button type="button" class="map-btn" id="map-btn-tela-cheia" data-action="mapa-tela-cheia"
-                  aria-label="Tela cheia" aria-pressed="false">
-            <svg class="ic" aria-hidden="true"><use href="#i-maximize" /></svg>
-          </button>
+          <div class="map-tools__item">
+            <button type="button" class="map-btn" id="map-btn-avisos" data-action="abrir-avisos" data-alvo="map-pop-avisos"
+                    aria-label="Avisos" aria-expanded="false" aria-controls="map-pop-avisos">
+              <svg class="ic" aria-hidden="true"><use href="#i-bell" /></svg>
+              <span class="map-btn__badge" id="map-avisos-conta" hidden></span>
+            </button>
+            <div class="map-pop map-pop--avisos" id="map-pop-avisos" role="region" aria-labelledby="map-pop-avisos-titulo" hidden>
+              <div class="avisos__topo">
+                <h2 class="map-pop__title" id="map-pop-avisos-titulo">Avisos</h2>
+                <span class="avisos__resumo" id="map-avisos-resumo" aria-live="polite"></span>
+              </div>
+              <ul class="avisos" id="map-avisos-lista"></ul>
+            </div>
+          </div>
         </div>
 
         <!-- Legenda -->
@@ -654,10 +665,6 @@
               <span class="count" id="conta-espacos" aria-live="polite">0</span>
             </h2>
             <div class="section__tools">
-              <button type="button" class="btn btn--primary btn--sm" data-action="abrir-alterar-espaco">
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-ruler" /></svg>
-                Alterar estufa
-              </button>
               <div class="search">
                 <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
                 <input class="input" type="search" id="busca-espacos"
@@ -773,10 +780,17 @@
         <div class="page-head">
           <div>
             <h1 class="page-head__title" id="titulo-projetos">Projetos</h1>
-            <p class="page-head__desc">Projetos de pesquisa, equipe e o que cada membro pode fazer</p>
+            <p class="page-head__desc">Todos os projetos do Cenargen. Você mexe só nos que participa.</p>
           </div>
 
           <div class="page-head__actions">
+            <!-- Convites recebidos e enviados: abre um modal, nao uma tela. -->
+            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-convites"
+                    aria-describedby="conta-convites">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-send-horizontal" /></svg>
+              Convites
+              <span class="chip__badge" id="conta-convites" hidden></span>
+            </button>
             <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-projeto">
               <svg class="ic ic--sm" aria-hidden="true"><use href="#i-plus" /></svg>
               Novo projeto
@@ -787,10 +801,18 @@
         <div class="section" id="sec-projetos">
           <div class="section__head">
             <h2 class="section__title">
-              Todos
+              <span id="titulo-filtro-projetos">Todos</span>
               <span class="count" id="conta-projetos">0</span>
             </h2>
             <div class="section__tools">
+              <div class="chips" role="radiogroup" aria-label="Filtrar projetos">
+                <button type="button" class="chip" role="radio" aria-checked="true"
+                        data-action="filtrar-projetos" data-filtro="todos">Todos</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-projetos" data-filtro="meus">Meus projetos</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-projetos" data-filtro="outros">De outras pessoas</button>
+              </div>
               <div class="search">
                 <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
                 <input class="input" type="search" id="busca-projetos"
@@ -813,7 +835,7 @@
 
     <!-- ===== Usuários ===================================================
          Tabela, não cartões: o que se procura aqui é uma pessoa específica — nome
-         completo, e-mail, matrícula e situação do acesso lado a lado.
+         completo, e-mail, cargo e situação do acesso lado a lado.
          ================================================================== -->
     <section class="view" id="view-usuarios" aria-labelledby="titulo-usuarios">
       <div class="pagina">
@@ -866,7 +888,7 @@
               <div class="search">
                 <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
                 <input class="input" type="search" id="busca-usuarios"
-                       placeholder="Buscar por nome, e-mail, usuário, matrícula ou cargo"
+                       placeholder="Buscar por nome, e-mail, identificador interno ou cargo"
                        aria-label="Buscar usuário" />
                 <button type="button" class="search__clear" id="limpar-usuarios"
                         data-action="limpar-busca" data-target="usuarios"
@@ -879,15 +901,13 @@
 
           <div class="table-wrap">
             <table class="table">
-              <caption class="sr-only">Usuários com acesso ao sistema, com e-mail, cargo, perfil e situação do acesso</caption>
+              <caption class="sr-only">Usuários com acesso ao sistema, com e-mail, cargo e situação do acesso</caption>
               <thead>
                 <tr>
                   <th scope="col">Nome completo</th>
                   <th scope="col">E-mail</th>
-                  <th scope="col">Usuário</th>
-                  <th scope="col">Matrícula</th>
+                  <th scope="col">Identificador interno</th>
                   <th scope="col">Cargo</th>
-                  <th scope="col">Perfil</th>
                   <th scope="col">Situação</th>
                   <th scope="col">Último acesso</th>
                   <th scope="col">Ações</th>
@@ -1133,8 +1153,8 @@
       <div class="dialog__heading">
         <h2 class="dialog__title" id="proj-dialogo-titulo">Novo projeto</h2>
         <p class="dialog__desc">
-          O responsavel entra na equipe como lider. Liderar nao da CRUD: as
-          permissoes sao concedidas uma a uma, em &ldquo;Equipe e permissoes&rdquo;.
+          Um projeto não fica preso a uma estufa: cada reserva diz de qual estufa
+          e para qual projeto, então ele pode usar vasos de várias.
         </p>
       </div>
       <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar cadastro de projeto">
@@ -1150,26 +1170,35 @@
         projeto não aceita reservas.
       </p>
 
-      <div class="field-row">
-        <div class="field">
-          <label class="field__label" for="proj-codigo">Codigo</label>
-          <input class="input" type="text" id="proj-codigo" name="codigo" maxlength="40"
-                 placeholder="P-2026-01" autocomplete="off" spellcheck="false" required />
-          <p class="field__hint">Identificacao curta do projeto; nao pode repetir.</p>
-        </div>
-        <div class="field">
-          <label class="field__label" for="proj-titulo">Titulo</label>
-          <input class="input" type="text" id="proj-titulo" name="titulo" maxlength="200"
-                 placeholder="Tolerancia a seca em feijao-caupi" required />
-        </div>
+      <!-- Sem campo de codigo: ele nasce sozinho no back-end (P-2026-001). -->
+      <div class="field">
+        <label class="field__label" for="proj-titulo">Nome do projeto</label>
+        <input class="input" type="text" id="proj-titulo" name="titulo" maxlength="200"
+               placeholder="Plantação de feijão-caupi" required />
       </div>
 
       <div class="field">
-        <label class="field__label" for="proj-descricao">
-          Descricao <span class="field__opcional">opcional</span>
+        <label class="field__label" for="proj-descricao">O que o projeto vai fazer</label>
+        <textarea class="input" id="proj-descricao" name="descricao" rows="3" required
+                  aria-describedby="proj-descricao-ajuda"
+                  placeholder="Objetivo, o que vai ser plantado ou testado, como"></textarea>
+        <p class="field__hint" id="proj-descricao-ajuda">
+          É aqui que se explica o trabalho; as reservas só dizem quanto e quando.
+        </p>
+      </div>
+
+      <!-- Participantes: so na criacao. Depois, a equipe e mexida em
+           "Equipe e permissoes". Entram sem permissao (so leitura). -->
+      <div class="field" id="proj-participantes-campo">
+        <label class="field__label" for="proj-participante">
+          Participantes <span class="field__opcional">opcional</span>
         </label>
-        <textarea class="input" id="proj-descricao" name="descricao" rows="3"
-                  placeholder="O que o projeto investiga"></textarea>
+        <select class="select" id="proj-participante" aria-describedby="proj-participantes-ajuda"></select>
+        <ul class="pessoas" id="proj-participantes" aria-label="Participantes escolhidos"></ul>
+        <p class="field__hint" id="proj-participantes-ajuda">
+          Quem trabalha com você no projeto. Entram na equipe só acompanhando;
+          a administração concede as permissões.
+        </p>
       </div>
 
       <div class="form-cols">
@@ -1337,6 +1366,133 @@
   </div>
 </div>
 
+<!-- Desativar quem lidera projetos: escolher quem assume cada um -->
+<div class="scrim" id="modal-lideranca" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="lideranca-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-ban" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="lideranca-titulo">Desativar este acesso?</h2>
+        <p class="dialog__desc" id="lideranca-desc">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-lideranca" novalidate>
+      <p class="field__aviso" data-tom="atencao">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        Nenhum projeto pode ficar com líder desativado. Escolha quem assume cada
+        um; a pessoa recebe o necessário para conduzir o projeto.
+      </p>
+      <div id="lideranca-projetos" class="convites"></div>
+
+      <p class="field__error" id="lideranca-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="lideranca-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--danger" id="lideranca-enviar" form="form-lideranca">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-ban" /></svg>
+        Passar a liderança e desativar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Convidar pessoas para um projeto -->
+<div class="scrim" id="modal-convidar" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="convidar-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-user-plus" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="convidar-titulo">Convidar para o projeto</h2>
+        <p class="dialog__desc" id="convidar-projeto">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar convite">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-convidar" novalidate>
+      <div class="field">
+        <label class="field__label" for="convidar-busca">Quem você quer convidar</label>
+        <input class="input" type="search" id="convidar-busca" autocomplete="off"
+               placeholder="Digite o nome ou o cargo" aria-controls="convidar-pessoas" />
+        <ul class="opcoes-pessoas" id="convidar-pessoas" aria-label="Pessoas encontradas"></ul>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="convidar-escolhidos-titulo">Vão receber o convite</span>
+        <ul class="pessoas" id="convidar-escolhidos" aria-labelledby="convidar-escolhidos-titulo"></ul>
+        <p class="field__hint" id="convidar-nenhum">Ninguém escolhido ainda.</p>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="convidar-mensagem">
+          Mensagem <span class="field__opcional">opcional</span>
+        </label>
+        <textarea class="input" id="convidar-mensagem" rows="2" maxlength="500"
+                  placeholder="Para que você precisa da pessoa no projeto"></textarea>
+      </div>
+
+      <p class="field__aviso">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        A pessoa recebe o convite no sistema e por e-mail, e só entra na equipe se
+        aceitar. Entra acompanhando o projeto; o que ela pode fazer é definido em
+        Equipe e permissões.
+      </p>
+
+      <p class="field__error" id="convidar-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="convidar-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" id="convidar-enviar" form="form-convidar">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-send-horizontal" /></svg>
+        <span id="convidar-enviar-texto">Enviar convite</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Convites recebidos e enviados -->
+<div class="scrim" id="modal-convites" hidden>
+  <div class="dialog dialog--form" role="dialog" aria-modal="true" aria-labelledby="convites-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-send-horizontal" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="convites-titulo">Convites</h2>
+        <p class="dialog__desc">Projetos para os quais chamaram você, e quem você chamou para os seus.</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar convites">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body">
+      <div class="chips" role="radiogroup" aria-label="Convites">
+        <button type="button" class="chip" role="radio" aria-checked="true"
+                data-action="aba-convites" data-aba="recebidos">
+          Recebidos <span class="chip__badge" id="conta-convites-recebidos" hidden></span>
+        </button>
+        <button type="button" class="chip" role="radio" aria-checked="false"
+                data-action="aba-convites" data-aba="enviados">Enviados</button>
+      </div>
+
+      <div id="convites-recebidos" class="convites"></div>
+      <div id="convites-enviados" class="convites" hidden></div>
+    </div>
+  </div>
+</div>
+
 <!-- Cadastrar usuario -->
 <div class="scrim" id="modal-novo-usuario" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="novo-usuario-titulo">
@@ -1346,7 +1502,7 @@
         <h2 class="dialog__title" id="novo-usuario-titulo">Cadastrar usuário</h2>
         <p class="dialog__desc">
           O sistema é restrito e não tem tela de cadastro aberta. Informe o e-mail
-          para liberar o acesso; a entrada é feita com esse e-mail e a senha padrão.
+          para liberar o acesso: a entrada no sistema é feita só com esse e-mail.
         </p>
       </div>
       <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar cadastro">
@@ -1377,39 +1533,29 @@
       </div>
 
       <!--
-        Usuario, matricula e cargo: o back-end sempre aceitou os tres, e o
-        formulario nunca os enviava. Por isso as colunas Matricula e Cargo da
-        tabela de usuarios ficavam em "—" e o login era deduzido do e-mail,
-        sem ninguem poder escolher.
+        O e-mail e o unico identificador de entrada: nao ha usuario/nick.
+        O cargo tambem define o acesso: Administrador entra como adm do
+        sistema; os demais cargos, como funcionario comum.
       -->
       <fieldset class="fieldset">
         <legend class="fieldset__legend">Dados funcionais</legend>
 
         <div class="field-row">
           <div class="field">
-            <label class="field__label" for="novo-usuario-nick">Identificador interno</label>
-            <input class="input" type="text" id="novo-usuario-nick" name="nick"
-                   maxlength="30" placeholder="ana.paula" autocomplete="off"
-                   autocapitalize="none" spellcheck="false"
-                   aria-describedby="novo-usuario-nick-ajuda" />
-            <p class="field__hint" id="novo-usuario-nick-ajuda">
-              Em branco, é gerado pelo e-mail. Não é usado para entrar.
+            <label class="field__label" for="novo-usuario-cargo">Cargo</label>
+            <select class="select" id="novo-usuario-cargo" name="cargo_id"
+                    aria-describedby="novo-usuario-cargo-ajuda" required></select>
+            <p class="field__hint" id="novo-usuario-cargo-ajuda">
+              Administrador tem acesso à administração do sistema.
             </p>
           </div>
           <div class="field">
             <label class="field__label" for="novo-usuario-matricula">
-              Matrícula <span class="field__opcional">opcional</span>
+              Identificador interno <span class="field__opcional">opcional</span>
             </label>
             <input class="input" type="text" id="novo-usuario-matricula" name="matricula"
-                   maxlength="20" placeholder="123.456-7" autocomplete="off" />
+                   maxlength="20" autocomplete="off" />
           </div>
-        </div>
-
-        <div class="field">
-          <label class="field__label" for="novo-usuario-cargo">
-            Cargo <span class="field__opcional">opcional</span>
-          </label>
-          <select class="select" id="novo-usuario-cargo" name="cargo_id"></select>
         </div>
       </fieldset>
 
@@ -1419,19 +1565,6 @@
         a senha de ninguém.
       </p>
 
-      <div class="field">
-        <span class="field__label" id="novo-usuario-perfil-titulo">Perfil de acesso</span>
-        <div class="segmented" role="radiogroup" aria-labelledby="novo-usuario-perfil-titulo" id="novo-usuario-perfil">
-          <button type="button" class="segmented__option" role="radio" aria-checked="true" data-role="pesquisador">
-            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg>
-            Pesquisador
-          </button>
-          <button type="button" class="segmented__option" role="radio" aria-checked="false" data-role="admin">
-            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-user" /></svg>
-            Administrador
-          </button>
-        </div>
-      </div>
     </form>
 
     <div class="dialog__foot">
@@ -1493,40 +1626,18 @@
         <legend class="fieldset__legend">Dados funcionais</legend>
         <div class="field-row">
           <div class="field">
-            <label class="field__label" for="editar-usuario-nick">Identificador interno</label>
-            <input class="input" type="text" id="editar-usuario-nick" maxlength="30"
-                   autocapitalize="none" spellcheck="false" required />
-            <p class="field__hint">A entrada no sistema usa o e-mail.</p>
+            <label class="field__label" for="editar-usuario-cargo">Cargo</label>
+            <select class="select" id="editar-usuario-cargo" required></select>
+            <p class="field__hint">Administrador tem acesso à administração do sistema.</p>
           </div>
           <div class="field">
             <label class="field__label" for="editar-usuario-matricula">
-              Matrícula <span class="field__opcional">opcional</span>
+              Identificador interno <span class="field__opcional">opcional</span>
             </label>
             <input class="input" type="text" id="editar-usuario-matricula" maxlength="20" />
           </div>
         </div>
-
-        <div class="field">
-          <label class="field__label" for="editar-usuario-cargo">
-            Cargo <span class="field__opcional">opcional</span>
-          </label>
-          <select class="select" id="editar-usuario-cargo"></select>
-        </div>
       </fieldset>
-
-      <div class="field">
-        <span class="field__label" id="editar-usuario-perfil-titulo">Perfil de acesso</span>
-        <div class="segmented" role="radiogroup" aria-labelledby="editar-usuario-perfil-titulo" id="editar-usuario-perfil">
-          <button type="button" class="segmented__option" role="radio" aria-checked="true" data-papel="pesquisador">
-            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg>
-            Pesquisador
-          </button>
-          <button type="button" class="segmented__option" role="radio" aria-checked="false" data-papel="admin">
-            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-user" /></svg>
-            Administrador
-          </button>
-        </div>
-      </div>
 
       <p class="field__aviso">
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-check" /></svg>
@@ -1612,12 +1723,6 @@
         </div>
       </div>
 
-      <div class="field">
-        <label class="field__label" for="editar-reserva-obs">
-          Observações <span class="field__opcional">opcional</span>
-        </label>
-        <textarea class="input" id="editar-reserva-obs" rows="2"></textarea>
-      </div>
 
       <p class="field__aviso" data-tom="atencao">
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
@@ -1728,7 +1833,9 @@
           <legend class="fieldset__legend">Identificação</legend>
 
           <div class="field">
-            <label class="field__label" for="espaco-tipo">Tipo</label>
+            <label class="field__label" for="espaco-tipo">
+              Tipo <span class="field__opcional">opcional</span>
+            </label>
             <!--
               Texto livre de propósito: a administração escreve o tipo que o
               espaço tem, não o que uma lista nossa previu. O datalist sugere o
@@ -1738,7 +1845,7 @@
                    list="lista-tipos-espaco" autocomplete="off"
                    placeholder="Casa de vegetação" aria-describedby="espaco-tipo-ajuda" />
             <datalist id="lista-tipos-espaco"></datalist>
-            <p class="field__hint" id="espaco-tipo-ajuda">Texto livre; a lista só sugere.</p>
+            <p class="field__hint" id="espaco-tipo-ajuda">Em branco até ser conferido em campo. Texto livre; a lista só sugere.</p>
           </div>
 
           <div class="field">
@@ -1901,12 +2008,11 @@
       </p>
 
       <div class="field">
-        <label class="field__label" for="reservar-projeto">Projeto</label>
-        <input class="input" type="text" id="reservar-projeto" name="projeto_id"
-               list="lista-projetos" placeholder="Comece a digitar o código ou o nome"
-               autocomplete="off" />
-        <!-- Preenchida em views/reservas.ts com os projetos em que você pode reservar. -->
-        <datalist id="lista-projetos"></datalist>
+        <label class="field__label" for="reservar-projeto">Para qual projeto</label>
+        <!-- Preenchido em views/reservas.ts com os projetos em que você pode
+             reservar, so pelo nome. -->
+        <select class="select" id="reservar-projeto" name="projeto_id" required
+                aria-describedby="reservar-projeto-ajuda"></select>
         <p class="field__hint" id="reservar-projeto-ajuda">Aparecem só os projetos em que você pode reservar.</p>
       </div>
 
@@ -1919,13 +2025,6 @@
         <datalist id="lista-finalidades"></datalist>
       </div>
 
-      <div class="field">
-        <label class="field__label" for="reservar-obs">
-          Observações <span class="field__opcional">opcional</span>
-        </label>
-        <input class="input" type="text" id="reservar-obs" name="obs"
-               placeholder="Alguma condição especial do espaço" />
-      </div>
     </form>
 
     <div class="dialog__foot">

@@ -696,7 +696,7 @@ function preencherPainel(id: string): void {
 
   setText('painel-codigo', estufa.codigo);
   setText('painel-nome', estufa.nome);
-  setText('painel-tipo', estufa.tipo);
+  setText('painel-tipo', estufa.tipo || '—');
   setText('painel-area', estufa.area);
 
   const status = el('painel-status');

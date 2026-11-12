@@ -144,15 +144,31 @@ export function renderizarHistorico(): void {
   void carregar();
 }
 
+/**
+ * Pré-carga logo depois do login: lê a primeira página em segundo plano, para
+ * a primeira visita à tela já abrir com a trilha. Não mexe em quem já leu.
+ */
+export function preCarregarHistorico(): void {
+  if (pagina || carregando) return;
+  filtros = { ...VAZIO };
+  paginaAtual = 1;
+  void carregar();
+}
+
 async function carregar(): Promise<void> {
   if (carregando) return;
   carregando = true;
   pintarCarregando();
 
-  // O catálogo muda pouco (é o que já apareceu na trilha): lê uma vez.
+  // Filtros e página saem juntos: antes a página só era pedida depois que os
+  // filtros chegavam, e a tela esperava as duas viagens em fila.
   if (!catalogo) {
-    catalogo = await getFiltrosAuditoria().catch(() => null);
-    if (catalogo) pintarFiltros(catalogo);
+    void getFiltrosAuditoria()
+      .then((c) => {
+        catalogo = c;
+        pintarFiltros(c);
+      })
+      .catch(() => undefined);
   }
 
   ultimoErro = null;
@@ -213,7 +229,7 @@ function pintarFiltros(dados: FiltrosAuditoria): void {
 
   encher('auditoria-pessoa', 'Qualquer pessoa', dados.funcionarios.map((f) => ({
     valor: String(f.id),
-    rotulo: f.nick ? `${f.nome} (${f.nick})` : f.nome,
+    rotulo: f.email ? `${f.nome} (${f.email})` : f.nome,
   })));
 
   encher('auditoria-projeto', 'Todos os projetos', dados.projetos.map((p) => ({
@@ -308,8 +324,8 @@ function linha(r: RegistroAuditoria): string {
                    ${avatar(quem)}
                    <div class="table__stack">
                      <span class="table__name">${quem}</span>
-                     ${raw(r.funcionario?.nick
-                       ? html`<span class="table__sub">${r.funcionario.nick}</span>`
+                     ${raw(r.funcionario?.email
+                       ? html`<span class="table__sub">${r.funcionario.email}</span>`
                        : r.funcionario ? '' : html`<span class="table__sub">sem cadastro</span>`)}
                    </div>
                  </div>`

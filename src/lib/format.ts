@@ -40,10 +40,14 @@ export function statusPill(key: string): ReturnType<typeof raw> {
   );
 }
 
-/** AAAA-MM-DD para DD/MM/AAAA. */
+/**
+ * AAAA-MM-DD para DD/MM/AAAA. Aceita também data com hora
+ * ("2026-11-10T03:00:00.000000Z"): usa só a parte da data, em vez de colar
+ * a hora no dia ("10T03:00:00.000000Z/11/2026").
+ */
 export function dataBR(iso: string): string {
   if (!iso) return '—';
-  const [ano, mes, dia] = iso.split('-');
+  const [ano, mes, dia] = iso.slice(0, 10).split('-');
   return dia && mes && ano ? `${dia}/${mes}/${ano}` : iso;
 }
 

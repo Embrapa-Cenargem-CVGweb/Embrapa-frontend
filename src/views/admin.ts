@@ -45,6 +45,10 @@ import {
   aprovarReserva as apiAprovar,
   criarEspaco,
   getCargos,
+  getLideranca,
+  getPessoasOpcoes,
+  type PessoaOpcao,
+  type ProjetoLiderado,
   getPainel,
   getSituacaoDoEmail,
   getTiposEspaco,
@@ -57,7 +61,6 @@ import {
   alternarAcessoUsuario,
   cadastrarUsuario,
   editarUsuario,
-  excluirUsuario,
   listarUsuarios,
   recarregarUsuarios,
   reenviarConviteUsuario,
@@ -65,7 +68,6 @@ import {
 } from './login';
 import type {
   EstufaSituacao,
-  PerfilUsuario,
   Reserva,
   UnidadeCapacidade,
   Usuario,
@@ -97,9 +99,6 @@ let buscaReservas = '';
 let buscaUsuarios = '';
 let filtroReservas: FiltroReserva = 'todas';
 let filtroUsuarios: FiltroUsuario = 'todos';
-let perfilNovoUsuario: PerfilUsuario = 'pesquisador';
-/** Perfil escolhido no formulário de edição de usuário. */
-let perfilEdicao: PerfilUsuario = 'pesquisador';
 /** Usuário aberto no formulário de edição. */
 let usuarioEmEdicao: string | null = null;
 /** Cargos do cadastro, lidos uma vez e reusados pelos dois formulários. */
@@ -289,7 +288,9 @@ function renderizarEspacos(): void {
           <span class="who" data-status="${grupoDoAnel(e.status)}"><span class="ring" aria-hidden="true"></span>${e.nome}</span>
         </td>
         <td data-label="Tipo" class="table__muted">
-          <span class="table__type">${icone(e.icon, 'ic ic--sm')}${e.tipo}</span>
+          ${raw(e.tipo
+            ? html`<span class="table__type">${icone(e.icon, 'ic ic--sm')}${e.tipo}</span>`
+            : html`<span class="table__muted">&mdash;</span>`)}
         </td>
         <td data-label="Área">${e.area}</td>
         <td data-label="Capacidade">
@@ -353,17 +354,24 @@ async function garantirCargos(): Promise<CargoApi[]> {
   return cargos;
 }
 
-/** Enche um select de cargo, marcando o que a pessoa já tem. */
+/**
+ * Enche um select de cargo, marcando o que a pessoa já tem. O cargo é
+ * obrigatório e também decide o acesso: Administrador é o adm do sistema.
+ * Por isso só quem é adm vê essa opção — o back-end recusa dos demais.
+ */
 function pintarCargos(id: string, escolhido?: number | null): void {
   const select = el<HTMLSelectElement>(id);
   if (!select) return;
 
+  const visiveis = cargos.filter((c) => ehAdmin() || c.nome !== 'Administrador' || c.id === escolhido);
+
   select.innerHTML = juntar([
-    html`<option value="">Sem cargo definido</option>`,
-    ...cargos.map((c) => html`<option value="${c.id}">${c.nome}</option>`),
+    html`<option value="" disabled>Selecione o cargo</option>`,
+    ...visiveis.map((c) => html`<option value="${c.id}">${c.nome}</option>`),
   ]);
 
-  if (escolhido) select.value = String(escolhido);
+  select.value = escolhido ? String(escolhido) : '';
+  select.removeAttribute('aria-invalid');
 }
 
 /** Lê os cargos em segundo plano e repinta o select quando chegarem. */
@@ -495,7 +503,7 @@ function carregarEspacoNoFormulario(id: string): void {
   espacoEmEdicao = id;
 
   setText('espaco-titulo', `Alterar ${estufa.codigo}`);
-  setText('espaco-descricao', `${estufa.nome} · ${estufa.tipo}`);
+  setText('espaco-descricao', [estufa.nome, estufa.tipo].filter(Boolean).join(' · '));
   setText('espaco-enviar-texto', 'Salvar');
   pintarResumoDoEspaco(id);
 
@@ -652,7 +660,7 @@ export function buscarEstufaNoFormulario(termo: string): void {
             data-action="escolher-estufa" data-id="${chave}">
           <strong>${e.codigo}</strong>
           <span class="combo__sub">
-            ${e.nome} · ${e.tipo}${raw(e.setor && e.setor !== '—' ? html` · ${e.setor}` : '')}
+            ${e.nome}${e.tipo ? ` · ${e.tipo}` : ''}${raw(e.setor && e.setor !== '—' ? html` · ${e.setor}` : '')}
             · ${capacidade(e.capacidadeTotal, e.unidade)}
           </span>
         </li>`;
@@ -1108,14 +1116,14 @@ function renderizarUsuarios(): void {
 
   const linhas = todos
     .filter((u) => cabeNoFiltroDeUsuario(u))
-    .filter((u) => !termo || [u.nome, u.email, u.login, u.matricula, u.cargo]
+    .filter((u) => !termo || [u.nome, u.email, u.matricula, u.cargo]
       .some((campo) => (campo ?? '').toLowerCase().includes(termo)));
 
   atualizarContador('conta-usuarios', linhas.length, todos.length, filtrando);
 
   if (!linhas.length) {
     corpo.innerHTML = linhaVazia(
-      9,
+      7,
       'users',
       termo
         ? `Nenhum usuário corresponde a “${buscaUsuarios}”.`
@@ -1146,8 +1154,6 @@ function linhaDeUsuario(u: Usuario, eu: Usuario | null): string {
   const souEu = eu?.id === u.id;
   const semSenha = u.situacao === 'CONVITE_PENDENTE';
   const inativo = u.situacao === 'INATIVO';
-  // Um admin remove pesquisadores e a própria conta, nunca outro admin.
-  const podeExcluir = !u.admin || souEu;
   const vazio = html`<span class="table__muted">&mdash;</span>`;
 
   return html`
@@ -1171,13 +1177,11 @@ function linhaDeUsuario(u: Usuario, eu: Usuario | null): string {
       <td data-label="E-mail" class="table__truncate" title="${u.email ?? ''}">
         ${raw(u.email ? html`<span class="cell-icon">${icone('send-horizontal', 'ic ic--sm')}${u.email}</span>` : vazio)}
       </td>
-      <td data-label="Usuário"><span class="code">${u.login}</span></td>
-      <td data-label="Matrícula">${raw(u.matricula ? html`${u.matricula}` : vazio)}</td>
-      <td data-label="Cargo">${raw(u.cargo ? html`${u.cargo}` : vazio)}</td>
-      <td data-label="Perfil">
-        <span class="pill ${raw(u.admin ? 'pill--booked' : 'pill--neutral')}">
-          ${icone(u.admin ? 'shield-user' : 'user', 'ic ic--sm')}${u.admin ? 'Administrador' : 'Pesquisador'}
-        </span>
+      <td data-label="Identificador interno">${raw(u.matricula ? html`${u.matricula}` : vazio)}</td>
+      <td data-label="Cargo">
+        ${raw(u.admin
+          ? html`<span class="pill pill--booked">${icone('shield-user', 'ic ic--sm')}${u.cargo || 'Administrador'}</span>`
+          : u.cargo ? html`${u.cargo}` : vazio)}
       </td>
       <td data-label="Situação">${raw(pillDoAcesso(u))}</td>
       <td data-label="Último acesso" style="white-space:nowrap">
@@ -1205,13 +1209,6 @@ function linhaDeUsuario(u: Usuario, eu: Usuario | null): string {
                     title="${inativo ? 'Reativar o acesso' : 'Desativar o acesso'}"
                     aria-label="${inativo ? 'Reativar' : 'Desativar'} o acesso de ${u.nome}">
                     ${icone(inativo ? 'circle-check' : 'ban', 'ic ic--sm')}
-                  </button>`
-            : '')}
-          ${raw(podeExcluir
-            ? html`<button type="button" class="btn btn--danger btn--sm btn--icon"
-                    data-action="excluir-usuario" data-id="${u.id}"
-                    aria-label="Excluir ${souEu ? 'minha conta' : u.nome}">
-                    ${icone('trash-2', 'ic ic--sm')}
                   </button>`
             : '')}
         </div>
@@ -1259,32 +1256,16 @@ export function filtrarUsuarios(filtro: FiltroUsuario): void {
 }
 
 export function abrirNovoUsuario(): void {
-  perfilNovoUsuario = 'pesquisador';
-
   el<HTMLFormElement>('form-novo-usuario')?.reset();
-  for (const id of ['novo-usuario-nome', 'novo-usuario-email', 'novo-usuario-nick']) {
+  for (const id of ['novo-usuario-nome', 'novo-usuario-email', 'novo-usuario-cargo']) {
     el<HTMLInputElement>(id)?.removeAttribute('aria-invalid');
   }
   show(el('novo-usuario-erro'), false);
-  marcarPerfilNovoUsuario('pesquisador');
   prepararCargos('novo-usuario-cargo');
 
   abrirModal('modal-novo-usuario');
 
   el<HTMLInputElement>('novo-usuario-nome')?.focus();
-}
-
-export function definirPerfilNovoUsuario(perfil: PerfilUsuario): void {
-  perfilNovoUsuario = perfil;
-  marcarPerfilNovoUsuario(perfil);
-}
-
-function marcarPerfilNovoUsuario(perfil: PerfilUsuario): void {
-  for (const opcao of qsa('#novo-usuario-perfil [data-role]')) {
-    const ativo = opcao.dataset.role === perfil;
-    opcao.setAttribute('aria-checked', String(ativo));
-    opcao.tabIndex = ativo ? 0 : -1;
-  }
 }
 
 export async function confirmarNovoUsuario(): Promise<void> {
@@ -1303,18 +1284,26 @@ export async function confirmarNovoUsuario(): Promise<void> {
   }
   campoNome?.removeAttribute('aria-invalid');
 
-  if (botao) botao.disabled = true;
+  // Cargo é obrigatório: é ele que diz se a pessoa é administradora.
+  const campoCargo = el<HTMLSelectElement>('novo-usuario-cargo');
+  const cargo = campoCargo?.value ?? '';
+  if (!cargo) {
+    campoCargo?.setAttribute('aria-invalid', 'true');
+    setText('novo-usuario-erro-texto', 'Selecione o cargo da pessoa.');
+    show(el('novo-usuario-erro'), true);
+    campoCargo?.focus();
+    return;
+  }
+  campoCargo?.removeAttribute('aria-invalid');
 
-  const cargo = el<HTMLSelectElement>('novo-usuario-cargo')?.value ?? '';
+  if (botao) botao.disabled = true;
 
   const resultado = await cadastrarUsuario(
     campo?.value ?? '',
-    perfilNovoUsuario,
     campoNome?.value ?? '',
     {
-      nick: el<HTMLInputElement>('novo-usuario-nick')?.value ?? '',
       matricula: el<HTMLInputElement>('novo-usuario-matricula')?.value ?? '',
-      cargoId: cargo ? Number(cargo) : null,
+      cargoId: Number(cargo),
     },
   );
 
@@ -1410,12 +1399,11 @@ export function abrirEditarUsuario(id: string): void {
   if (!usuario) return;
 
   usuarioEmEdicao = id;
-  perfilEdicao = usuario.admin ? 'admin' : 'pesquisador';
 
   setText('editar-usuario-titulo', usuario.nome);
   setText(
     'editar-usuario-desc',
-    `${usuario.login}${usuario.matricula ? ` · matrícula ${usuario.matricula}` : ''}`,
+    `${usuario.email ?? ''}${usuario.matricula ? ` · identificador interno ${usuario.matricula}` : ''}`,
   );
 
   const situacao = el('editar-usuario-situacao');
@@ -1434,11 +1422,9 @@ export function abrirEditarUsuario(id: string): void {
 
   definirCampo('editar-usuario-nome', usuario.nome);
   definirCampo('editar-usuario-email', usuario.email ?? '');
-  definirCampo('editar-usuario-nick', usuario.login);
   definirCampo('editar-usuario-matricula', usuario.matricula ?? '');
   prepararCargos('editar-usuario-cargo', usuario.cargoId);
 
-  marcarPerfilEdicao(perfilEdicao);
   show(el('editar-usuario-erro'), false);
 
   abrirModal('modal-usuario-editar');
@@ -1449,17 +1435,6 @@ export function abrirEditarUsuario(id: string): void {
 function definirCampo(id: string, valor: string): void {
   const campo = el<HTMLInputElement>(id);
   if (campo) campo.value = valor;
-}
-
-export function definirPerfilEdicao(perfil: PerfilUsuario): void {
-  perfilEdicao = perfil;
-  marcarPerfilEdicao(perfil);
-}
-
-function marcarPerfilEdicao(perfil: PerfilUsuario): void {
-  for (const opcao of qsa('#editar-usuario-perfil [data-papel]')) {
-    opcao.setAttribute('aria-checked', String(opcao.dataset.papel === perfil));
-  }
 }
 
 export async function confirmarEdicaoUsuario(): Promise<void> {
@@ -1473,10 +1448,8 @@ export async function confirmarEdicaoUsuario(): Promise<void> {
   const resultado = await editarUsuario(usuarioEmEdicao, {
     nome: el<HTMLInputElement>('editar-usuario-nome')?.value ?? '',
     email: el<HTMLInputElement>('editar-usuario-email')?.value ?? '',
-    nick: el<HTMLInputElement>('editar-usuario-nick')?.value ?? '',
     matricula: el<HTMLInputElement>('editar-usuario-matricula')?.value ?? '',
     cargoId: cargo ? Number(cargo) : null,
-    admin: perfilEdicao === 'admin',
   });
 
   if (botao) botao.disabled = false;
@@ -1535,6 +1508,23 @@ export async function alternarAcesso(id: string, estaAtivo: boolean): Promise<vo
   if (!usuario) return;
 
   const desativando = estaAtivo;
+
+  // Quem lidera projetos só sai depois de alguém assumir cada um.
+  if (desativando) {
+    let liderados: ProjetoLiderado[] = [];
+    try {
+      liderados = await getLideranca(Number(id));
+    } catch (erro) {
+      aviso(erro instanceof Error ? erro.message : 'Não foi possível conferir os projetos da pessoa.', 'error');
+      return;
+    }
+
+    if (liderados.length) {
+      await abrirPassagemDeLideranca(usuario.id, usuario.nome, liderados);
+      return;
+    }
+  }
+
   const ok = await confirmar({
     titulo: desativando ? 'Desativar este acesso?' : 'Reativar este acesso?',
     mensagem: desativando
@@ -1558,42 +1548,83 @@ export async function alternarAcesso(id: string, estaAtivo: boolean): Promise<vo
   aviso(desativando ? 'Acesso desativado.' : 'Acesso reativado.', 'info');
 }
 
-export async function pedirExclusaoUsuario(
-  id: string,
-  aoSairDaPropriaConta: () => void,
-): Promise<void> {
-  const usuario = listarUsuarios().find((u) => u.id === id);
-  if (!usuario) return;
+/* ===========================================================================
+   Desativar quem lidera projetos: escolher quem assume cada um
+   =========================================================================== */
 
-  const souEu = usuarioAtual()?.id === id;
-  const ok = await confirmar({
-    titulo: souEu ? 'Excluir sua conta?' : 'Excluir este usuário?',
-    mensagem: souEu
-      ? html`A conta <strong>${usuario.nome}</strong> é removida e a sessão
-             termina agora. Não é possível desfazer.`
-      : html`<strong>${usuario.nome}</strong> perde o acesso ao sistema.
-             Quem tem reservas registradas não pode ser excluído — nesse caso,
-             desative o acesso. Não é possível desfazer.`,
-    icone: 'user-x',
-    confirmar: 'Excluir',
-    perigo: true,
-  });
-  if (!ok) return;
+let desativandoLider: { id: string; nome: string; projetos: ProjetoLiderado[] } | null = null;
+let pessoasParaLiderar: PessoaOpcao[] = [];
 
-  const resultado = await excluirUsuario(id);
+async function abrirPassagemDeLideranca(id: string, nome: string, projetos: ProjetoLiderado[]): Promise<void> {
+  desativandoLider = { id, nome, projetos };
+
+  setText('lideranca-titulo', `Desativar ${nome}?`);
+  setText(
+    'lideranca-desc',
+    `${nome} lidera ${projetos.length === 1 ? 'um projeto' : `${projetos.length} projetos`}. `
+      + 'Escolha quem assume antes de desativar.',
+  );
+  show(el('lideranca-erro'), false);
+
+  // Fora da equipe também pode assumir: a pessoa entra como líder.
+  if (!pessoasParaLiderar.length) {
+    pessoasParaLiderar = await getPessoasOpcoes().catch(() => []);
+  }
+
+  const lista = el('lideranca-projetos');
+  if (lista) {
+    lista.innerHTML = juntar(projetos.map((p) => {
+      const daEquipe = new Set(p.equipe.map((m) => m.id));
+      const outras = pessoasParaLiderar.filter((x) => String(x.id) !== id && !daEquipe.has(x.id));
+      const opcao = (x: { id: number; nome: string; cargo: string | null }) =>
+        html`<option value="${x.id}">${x.nome}${x.cargo ? ` — ${x.cargo}` : ''}</option>`;
+
+      return html`
+        <div class="field">
+          <label class="field__label" for="novo-lider-${p.id}">Quem assume “${p.titulo}”</label>
+          <select class="select" id="novo-lider-${p.id}" data-projeto="${p.id}" required>
+            <option value="" disabled selected>Selecione o novo líder</option>
+            ${raw(p.equipe.length ? html`<optgroup label="Da equipe">${raw(juntar(p.equipe.map(opcao)))}</optgroup>` : '')}
+            ${raw(outras.length ? html`<optgroup label="Outras pessoas">${raw(juntar(outras.map(opcao)))}</optgroup>` : '')}
+          </select>
+        </div>`;
+    }));
+  }
+
+  abrirModal('modal-lideranca');
+  el<HTMLSelectElement>(`novo-lider-${projetos[0].id}`)?.focus();
+}
+
+export async function confirmarPassagemDeLideranca(): Promise<void> {
+  if (!desativandoLider) return;
+
+  const escolhas: Record<number, number> = {};
+  for (const select of qsa<HTMLSelectElement>('#lideranca-projetos select[data-projeto]')) {
+    if (!select.value) {
+      setText('lideranca-erro-texto', 'Escolha o novo líder de cada projeto.');
+      show(el('lideranca-erro'), true);
+      select.focus();
+      return;
+    }
+    escolhas[Number(select.dataset.projeto)] = Number(select.value);
+  }
+
+  const botao = el<HTMLButtonElement>('lideranca-enviar');
+  if (botao) botao.disabled = true;
+  const resultado = await alternarAcessoUsuario(desativandoLider.id, false, escolhas);
+  if (botao) botao.disabled = false;
+
   if (!resultado.ok) {
-    aviso(resultado.erro ?? 'Não foi possível excluir.', 'error');
+    setText('lideranca-erro-texto', resultado.erro ?? 'Não foi possível desativar.');
+    show(el('lideranca-erro'), true);
     return;
   }
 
-  if (resultado.eraEuMesmo) {
-    fecharTodosModais();
-    aoSairDaPropriaConta();
-    return;
-  }
-
+  const nome = desativandoLider.nome;
+  desativandoLider = null;
+  fecharModal(el('modal-lideranca'));
   renderizarUsuarios();
-  aviso(`${usuario.nome} foi removido do sistema.`, 'info');
+  aviso(`Liderança passada adiante e acesso de ${nome} desativado.`, 'info');
 }
 
 /* ===========================================================================

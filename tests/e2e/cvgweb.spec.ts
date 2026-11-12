@@ -41,7 +41,6 @@ import {
  */
 
 /** Espaços que esta execução cria. O prefixo E2E protege o cadastro real. */
-const NOVO = `${MARCA}${RUN}A`;
 const EXISTENTE = `${MARCA}${RUN}B`;
 const COM_RESERVA = `${MARCA}${RUN}C`;
 const CHEIO = `${MARCA}${RUN}D`;
@@ -61,43 +60,7 @@ test.describe('CVGWeb de ponta a ponta', () => {
     expect(espacos.data.length).toBeGreaterThan(0);
   });
 
-  test('cadastra um espaço pela tela e ele fica gravado', async ({ page }) => {
-    await abrirSistema(page);
-    await apagarEspacoDeTeste(page, NOVO);
-    await irParaAdmin(page);
-    await limparAvisos(page);
-
-    await page.locator('#view-admin [data-action="abrir-alterar-espaco"]').click();
-    await expect(page.locator('#modal-espaco')).toBeVisible();
-
-    // O código é o campo que identifica a estufa; um código que não existe
-    // deixa o formulário em modo de cadastro novo.
-    await page.fill('#espaco-codigo', NOVO);
-    await expect(page.locator('#espaco-alvo')).toHaveAttribute('data-tom', 'novo');
-    await page.fill('#espaco-descricao-campo', 'Estufa criada pelo teste');
-    await page.fill('#espaco-tipo', 'Casa de vegetação');
-    await page.fill('#espaco-localizacao', 'Setor de testes');
-    await page.fill('#espaco-capacidade-total', '20');
-    await page.selectOption('#espaco-unidade', 'VASO');
-    await page.fill('#espaco-area', '120');
-    await page.fill('#espaco-bancadas', '4');
-    await page.click('#espaco-enviar');
-
-    await expect(page.locator('#modal-espaco')).toBeHidden();
-    expect(await esperarAviso(page, '20 vasos')).toContain(NOVO);
-
-    // Na tabela, com a capacidade toda livre.
-    await expect(capacidadeDoEspaco(page, NOVO)).toContainText('20 de 20 vasos livres');
-    await expect(linhaDoEspaco(page, NOVO)).toContainText('Livre');
-
-    // E no banco, não só na tela.
-    const gravado = await espacoPorCodigo(page, NOVO);
-    expect(gravado?.capacidade_total).toBe(20);
-    expect(gravado?.status).toBe('ATIVA');
-    expect(gravado?.descricao).toBe('Estufa criada pelo teste');
-  });
-
-  test('código que já existe passa a ALTERAR aquele espaço, não duplicar', async ({ page }) => {
+  test('editar pela linha da tabela ALTERA aquele espaço, não duplica', async ({ page }) => {
     await abrirSistema(page);
     await garantirEspacoDeTeste(page, EXISTENTE, 10);
     await recarregar(page);
@@ -105,8 +68,8 @@ test.describe('CVGWeb de ponta a ponta', () => {
 
     const antes = await pelaApi<{ meta?: { total?: number } }>(page, '/casas-vegetacao?per_page=1');
 
-    await page.locator('#view-admin [data-action="abrir-alterar-espaco"]').click();
-    await page.fill('#espaco-codigo', EXISTENTE);
+    // Cada linha da tabela tem o próprio botão de editar.
+    await linhaDoEspaco(page, EXISTENTE).locator('[data-action="editar-espaco"]').click();
 
     // O formulário avisa de quem é o cadastro e carrega o que está no banco.
     await expect(page.locator('#espaco-alvo')).toContainText(EXISTENTE);
@@ -323,13 +286,14 @@ test.describe('CVGWeb de ponta a ponta', () => {
     await page.goto('/');
 
     await expect(page.locator('#tela-entrada')).toBeVisible();
-    await page.fill('#entrada-usuario', usuario.nick);
+    await page.fill('#entrada-usuario', usuario.email);
     await page.fill('#entrada-senha', 'qualquer-coisa');
     await page.click('#entrada-enviar');
 
-    // A API explica o caso em vez de dar o erro genérico.
+    // A mesma mensagem de qualquer recusa: dizer "ainda sem senha" contaria
+    // a quem tenta adivinhar que esse e-mail está cadastrado.
     await expect(page.locator('#entrada-erro')).toBeVisible();
-    await expect(page.locator('#entrada-erro-texto')).toContainText('convite');
+    await expect(page.locator('#entrada-erro-texto')).toHaveText('E-mail ou senha incorretos.');
     await expect(page.locator('#app')).toBeHidden();
   });
 
@@ -403,7 +367,7 @@ test.describe('limpeza', () => {
 
     await limparReservas(page, ESTUFA_REAL);
 
-    for (const codigo of [NOVO, EXISTENTE, COM_RESERVA, CHEIO, EM_OBRA, PARA_APROVAR]) {
+    for (const codigo of [EXISTENTE, COM_RESERVA, CHEIO, EM_OBRA, PARA_APROVAR]) {
       await apagarEspacoDeTeste(page, codigo);
     }
 

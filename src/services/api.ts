@@ -176,6 +176,18 @@ export interface CargoApi {
   nome: string;
 }
 
+/** Pessoa que pode ser escolhida como participante de projeto. */
+export interface PessoaOpcao {
+  id: number;
+  nome: string;
+  cargo: string | null;
+}
+
+/** Pessoas ativas (nome e cargo), para escolher participantes de projeto. */
+export function getPessoasOpcoes(): Promise<PessoaOpcao[]> {
+  return buscar('/funcionarios/opcoes', 'as pessoas');
+}
+
 /** Cargos cadastrados, para o formulário de usuário. */
 export function getCargos(): Promise<CargoApi[]> {
   return buscar('/cargos', 'os cargos');
@@ -318,17 +330,15 @@ export function atualizarSituacaoEspaco(casaId: number, status: EstufaSituacao):
 
 export interface NovoFuncionario {
   nome: string;
-  nick: string;
+  /** Único identificador de entrada: não há mais usuário/nick. */
   email: string;
-  /**
-   * Quem é administrador. O back-end é que traduz isto no perfil legado
-   * (`/SU/`): mandar o perfil pronto daqui não funcionava — o controller lê
-   * `super_usuario`/`permissoes` e ignorava o campo, então todo cadastro saía
-   * como pesquisador.
-   */
-  super_usuario?: boolean;
+  /** Identificador interno (coluna `matricula` no banco). */
   matricula?: string;
-  cargo_id?: number | null;
+  /**
+   * Obrigatório. Também decide o acesso: o cargo Administrador vira adm do
+   * sistema (perfil `/SU/`, montado no back-end); os demais, funcionário comum.
+   */
+  cargo_id: number;
 }
 
 /**
@@ -345,30 +355,43 @@ export function criarFuncionario(dados: NovoFuncionario): Promise<any> {
  */
 export interface DadosFuncionario {
   nome?: string;
-  nick?: string;
   email?: string;
   matricula?: string | null;
-  cargo_id?: number | null;
-  /** Só o adm consegue mexer nisto; o back-end ignora de quem não é. */
-  super_usuario?: boolean;
+  /** Dar ou tirar o cargo Administrador é só do adm (o back-end recusa os demais). */
+  cargo_id?: number;
 }
 
 export function atualizarFuncionario(id: number, dados: DadosFuncionario): Promise<any> {
   return enviar('PUT', `/funcionarios/${id}`, dados, 'Não foi possível salvar o usuário.');
 }
 
-export function excluirFuncionario(id: number): Promise<any> {
-  return enviar('DELETE', `/funcionarios/${id}`, undefined, 'Não foi possível excluir o usuário.');
-}
-
-/** Ativa ou desativa o acesso, preservando o histórico. */
-export function atualizarSituacaoFuncionario(id: number, ativo: boolean): Promise<any> {
+/**
+ * Ativa ou desativa o acesso, preservando o histórico. Desativar quem lidera
+ * projetos exige `novosLideres` (projeto → quem assume): a API recusa sem.
+ */
+export function atualizarSituacaoFuncionario(
+  id: number,
+  ativo: boolean,
+  novosLideres?: Record<number, number>,
+): Promise<any> {
   return enviar(
     'PATCH',
     `/funcionarios/${id}/situacao`,
-    { ativo },
+    novosLideres ? { ativo, novos_lideres: novosLideres } : { ativo },
     'Não foi possível alterar a situação do acesso.',
   );
+}
+
+/** Projeto que a pessoa lidera, com quem da equipe pode assumir. */
+export interface ProjetoLiderado {
+  id: number;
+  codigo: string;
+  titulo: string;
+  equipe: { id: number; nome: string; cargo: string | null }[];
+}
+
+export function getLideranca(id: number): Promise<ProjetoLiderado[]> {
+  return buscar(`/funcionarios/${id}/lideranca`, 'os projetos que a pessoa lidera');
 }
 
 /**
@@ -430,7 +453,6 @@ export type PapelEquipe = 'LIDER' | 'PESQUISADOR';
 export interface MembroEquipe {
   id: number;
   nome: string;
-  nick?: string;
   email?: string;
   cargo?: string;
   ativo: boolean;
@@ -490,6 +512,8 @@ export interface ProjetoDoContexto {
 export interface Contexto {
   funcionario: FuncionarioApi;
   adm: boolean;
+  /** Convites para projetos esperando resposta desta pessoa. */
+  convites_pendentes?: number;
   projetos: ProjetoDoContexto[];
   casas_acessiveis: {
     id: number;
@@ -553,6 +577,86 @@ export function getProjetos(situacao?: SituacaoProjeto): Promise<any> {
 }
 
 /** Administração aceita a proposta: o projeto passa a valer para reservas. */
+/* ===========================================================================
+   Sino de avisos
+   =========================================================================== */
+
+export type TomAviso = 'urgente' | 'atencao' | 'ok' | 'info';
+
+export interface AvisoApi {
+  /** Estável: é por ela que o "lido" é guardado. */
+  chave: string;
+  tipo: string;
+  tom: TomAviso;
+  titulo: string;
+  texto: string;
+  quando: string | null;
+  lida: boolean;
+  /** Para onde o clique leva. */
+  link: { secao: string; convites?: boolean; filtro?: string };
+}
+
+export function getAvisos(): Promise<{ nao_lidas: number; avisos: AvisoApi[] }> {
+  return buscar('/notificacoes', 'os avisos');
+}
+
+export function marcarAvisosLidos(chaves: string[] | 'todas'): Promise<{ marcadas: number }> {
+  return enviar(
+    'POST',
+    '/notificacoes/lidas',
+    chaves === 'todas' ? { todas: true } : { chaves },
+    'Não foi possível marcar os avisos.',
+  );
+}
+
+/* ===========================================================================
+   Convites para projetos
+   =========================================================================== */
+
+export type StatusConvite = 'PENDENTE' | 'ACEITO' | 'RECUSADO' | 'CANCELADO';
+
+export interface ConviteProjetoApi {
+  id: number;
+  status: StatusConvite;
+  mensagem: string | null;
+  criado_em: string | null;
+  respondido_em: string | null;
+  projeto: { id: number; codigo: string; titulo: string; descricao?: string | null; lider?: string | null } | null;
+  convidado: { id: number; nome: string; cargo: string | null } | null;
+  autor: { id: number; nome: string; cargo: string | null } | null;
+}
+
+export interface ConvitesApi {
+  /** Os que esperam a resposta da pessoa logada. */
+  recebidos: ConviteProjetoApi[];
+  /** Os que ela mandou nos últimos 90 dias, em qualquer situação. */
+  enviados: ConviteProjetoApi[];
+}
+
+export function getConvites(): Promise<ConvitesApi> {
+  return buscar('/convites', 'os convites');
+}
+
+export function convidarParaProjeto(
+  projetoId: number,
+  convidados: number[],
+  mensagem: string | null,
+): Promise<{ message: string; convites: ConviteProjetoApi[]; pulados: { id: number; motivo: string }[] }> {
+  return enviar('POST', `/projetos/${projetoId}/convites`, { convidados, mensagem }, 'Não foi possível enviar os convites.');
+}
+
+export function aceitarConvite(id: number): Promise<{ message: string }> {
+  return enviar('POST', `/convites/${id}/aceitar`, undefined, 'Não foi possível aceitar o convite.');
+}
+
+export function recusarConvite(id: number): Promise<{ message: string }> {
+  return enviar('POST', `/convites/${id}/recusar`, undefined, 'Não foi possível recusar o convite.');
+}
+
+export function cancelarConvite(id: number): Promise<{ message: string }> {
+  return enviar('DELETE', `/convites/${id}`, undefined, 'Não foi possível cancelar o convite.');
+}
+
 export function aprovarProjeto(id: number): Promise<any> {
   return enviar('POST', `/projetos/${id}/aprovar`, undefined, 'Não foi possível aprovar o projeto.');
 }
@@ -563,7 +667,8 @@ export function recusarProjeto(id: number, motivo: string): Promise<any> {
 }
 
 export interface DadosProjeto {
-  codigo: string;
+  /** Nasce sozinho no back-end (P-2026-001); a tela não manda mais. */
+  codigo?: string;
   titulo: string;
   descricao?: string | null;
   data_inicio?: string | null;
@@ -571,6 +676,8 @@ export interface DadosProjeto {
   status_projeto_id?: number | null;
   /** Pesquisador responsável: entra na equipe como líder. */
   funcionario_id?: number | null;
+  /** Participantes, só na criação: entram na equipe sem permissão. */
+  colaboradores?: number[];
 }
 
 export function criarProjeto(dados: DadosProjeto): Promise<any> {
@@ -659,7 +766,7 @@ export interface RegistroAuditoria {
   alteracoes: Record<string, { de?: unknown; para?: unknown }> | null;
   ip?: string | null;
   created_at: string;
-  funcionario?: { id: number; nome: string; nick?: string } | null;
+  funcionario?: { id: number; nome: string; email?: string } | null;
   projeto?: { id: number; codigo: string; descricao: string } | null;
 }
 
@@ -676,7 +783,7 @@ export interface PaginaAuditoria {
 export interface FiltrosAuditoria {
   acoes: string[];
   entidades: string[];
-  funcionarios: { id: number; nome: string; nick?: string }[];
+  funcionarios: { id: number; nome: string; email?: string }[];
   projetos: { id: number; codigo: string; titulo: string }[];
 }
 
@@ -714,7 +821,6 @@ export function getAuditoria(filtros: {
 export interface FuncionarioApi {
   id: number;
   nome: string;
-  nick?: string;
   matricula?: string | null;
   email?: string;
   tipo?: string;
@@ -767,7 +873,6 @@ export interface TokenAcesso {
   tipo: 'CONVITE' | 'NOVA_SENHA';
   primeiro_acesso: boolean;
   nome: string;
-  nick: string;
   email: string;
   expira_em: string;
 }
@@ -793,7 +898,6 @@ export async function consultarTokenAcesso(token: string): Promise<TokenAcesso> 
 export interface SenhaDefinida {
   message: string;
   nome: string;
-  nick: string;
   email: string;
 }
 
