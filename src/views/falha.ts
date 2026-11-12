@@ -42,7 +42,7 @@ function casoDe(status: number): Caso {
       descricao:
         'O sistema não conseguiu falar com o servidor. Nada foi perdido: '
         + 'os dados estão no banco e aparecem assim que a API voltar.',
-      dica: 'Confira se a API está no ar — docker compose logs -f backend.',
+      dica: 'Confira a sua conexão e tente de novo. Se continuar, avise a administração.',
       repetir: true,
     };
   }
@@ -103,7 +103,7 @@ function casoDe(status: number): Caso {
       descricao:
         'A API recebeu o pedido e falhou ao responder. O problema é do lado '
         + 'do servidor, não do que você fez.',
-      dica: 'O motivo está no log: docker compose logs backend.',
+      dica: 'Se continuar, avise a administração informando o código acima.',
       repetir: true,
     };
   }
@@ -138,6 +138,15 @@ export function falhaVisivel(): boolean {
  * explicação, porque costuma ser mais específica do que qualquer texto nosso
  * ("a capacidade já está reservada", "projeto encerrado").
  */
+function traduzirDetalhe(detalhe?: string): string | undefined {
+  if (!detalhe) return undefined;
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(detalhe)) {
+    return 'Sem conexão com o servidor.';
+  }
+  if (/too many attempts/i.test(detalhe)) return 'Muitas tentativas. Espere um minuto.';
+  return detalhe;
+}
+
 export function mostrarFalha(status: number, detalhe?: string): void {
   const caso = casoDe(status);
 
@@ -152,7 +161,9 @@ export function mostrarFalha(status: number, detalhe?: string): void {
   show(dica, Boolean(caso.dica));
   if (caso.dica) setText('falha-dica-texto', caso.dica);
 
-  const extra = detalhe?.trim();
+  // Mensagem do navegador em inglês (Failed to fetch, NetworkError...)
+  // não diz nada a quem usa: vira a explicação em português.
+  const extra = traduzirDetalhe(detalhe?.trim());
   show(el('falha-detalhe'), Boolean(extra));
   if (extra) setText('falha-detalhe-texto', extra);
 

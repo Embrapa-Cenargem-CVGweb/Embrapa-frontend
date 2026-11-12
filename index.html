@@ -264,7 +264,7 @@
             <svg class="ic senha__ic-ocultar" aria-hidden="true" hidden><use href="#i-eye-off" /></svg>
           </button>
         </div>
-        <p class="field__hint">Pelo menos 8 caracteres.</p>
+        <p class="field__hint">Pelo menos 8 caracteres, com letras e números.</p>
       </div>
 
       <div class="field">
@@ -793,7 +793,8 @@
             </button>
             <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-projeto">
               <svg class="ic ic--sm" aria-hidden="true"><use href="#i-plus" /></svg>
-              Novo projeto
+              <!-- "Propor projeto" para quem nao e adm: e o titulo do modal que abre. -->
+              <span id="btn-novo-projeto-texto">Novo projeto</span>
             </button>
           </div>
         </div>
@@ -847,6 +848,10 @@
           </div>
 
           <div class="page-head__actions">
+            <button type="button" class="btn btn--quiet btn--sm" id="btn-permissoes-usuarios" data-action="abrir-permissoes-usuarios" hidden>
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-user" /></svg>
+              Permissões
+            </button>
             <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
               <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
               Cadastrar usuário
@@ -873,10 +878,9 @@
               <div class="chips" role="radiogroup" aria-label="Filtrar usuários">
                 <button type="button" class="chip" role="radio" aria-checked="true"
                         data-action="filtrar-usuarios" data-filtro="todos">Todos</button>
-                <button type="button" class="chip" role="radio" aria-checked="false"
-                        data-action="filtrar-usuarios" data-filtro="admin">Administradores</button>
-                <button type="button" class="chip" role="radio" aria-checked="false"
-                        data-action="filtrar-usuarios" data-filtro="pesquisador">Pesquisadores</button>
+                <!-- Um chip por cargo, montado com os cargos que as pessoas tem
+                     agora (admin.ts): mudou o cargo, o filtro acompanha. -->
+                <span class="chips__grupo" id="chips-cargos"></span>
                 <button type="button" class="chip" role="radio" aria-checked="false"
                         data-action="filtrar-usuarios" data-filtro="sem-senha">
                   Sem senha
@@ -1254,6 +1258,24 @@
 </div>
 
 <!-- Equipe do projeto -->
+<!-- Ficha do projeto: abre ao clicar no cartao. Equipe, estufas em uso e
+     quanto esta reservado — os numeros vem das reservas feitas no mapa. -->
+<div class="scrim" id="modal-projeto-ver" hidden>
+  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="projeto-ver-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="projeto-ver-titulo">&mdash;</h2>
+        <p class="dialog__desc" id="projeto-ver-sub">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar ficha do projeto">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+    <div class="dialog__body" id="projeto-ver-corpo"></div>
+    <div class="dialog__foot" id="projeto-ver-acoes"></div>
+  </div>
+</div>
 <div class="scrim" id="modal-equipe" hidden>
   <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="equipe-projeto-nome">
     <div class="dialog__head">
@@ -1330,42 +1352,36 @@
   </div>
 </div>
 
-<!-- Permissoes do membro naquele projeto -->
+<!-- Permissoes de uma pessoa: de sistema e por projeto. So o adm concede;
+     o cargo e so informacao. Aberto pelo cabecalho da tela de usuarios. -->
 <div class="scrim" id="modal-permissoes" hidden>
   <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="perm-titulo">
     <div class="dialog__head">
       <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-shield-user" /></svg></span>
       <div class="dialog__heading">
-        <h2 class="dialog__title" id="perm-titulo">Permissoes</h2>
-        <p class="dialog__desc" id="perm-desc">&mdash;</p>
+        <h2 class="dialog__title" id="perm-titulo">Permissões</h2>
+        <p class="dialog__desc" id="perm-desc">
+          O que cada pessoa pode fazer. Quem concede é a administração; o cargo é só informação.
+        </p>
       </div>
-      <button type="button" class="btn btn--quiet btn--sm" data-action="voltar-equipe">
-        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
-        Equipe
-      </button>
-      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar permissoes">
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar permissões">
         <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
       </button>
     </div>
 
     <div class="dialog__body">
-      <div class="form-cols perm-grupos" id="perm-grupos"></div>
+      <div class="field">
+        <label class="field__label" for="perm-pessoa">Pessoa</label>
+        <select class="select" id="perm-pessoa"></select>
+      </div>
+      <div id="perm-conteudo" class="perm-conteudo"></div>
     </div>
 
     <div class="dialog__foot">
-      <button type="button" class="btn btn--quiet" data-action="sugerir-permissoes">
-        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-check" /></svg>
-        Sugerir pelo papel
-      </button>
-      <button type="button" class="btn btn--quiet" data-action="voltar-equipe">Cancelar</button>
-      <button type="button" class="btn btn--primary" data-action="salvar-permissoes">
-        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
-        Salvar permissoes
-      </button>
+      <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
     </div>
   </div>
 </div>
-
 <!-- Desativar quem lidera projetos: escolher quem assume cada um -->
 <div class="scrim" id="modal-lideranca" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="lideranca-titulo">

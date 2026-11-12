@@ -322,7 +322,7 @@ export function abrirModalReservar(estufaId: string): void {
   espacoDaReserva = estufaId;
 
   setText('reservar-titulo', `Reservar ${estufa.nome}`);
-  setText('reservar-descricao', `${estufa.codigo} · ${estufa.desc || estufa.tipo}`);
+  setText('reservar-descricao', [estufa.codigo, estufa.desc || estufa.tipo].filter(Boolean).join(' · '));
   setText('reservar-area', estufa.area);
   setText('reservar-bancadas', plural(estufa.cap, 'bancada', 'bancadas'));
   setText(

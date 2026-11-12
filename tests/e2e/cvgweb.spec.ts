@@ -137,7 +137,7 @@ test.describe('CVGWeb de ponta a ponta', () => {
 
     await irParaAdmin(page);
     await expect(capacidadeDoEspaco(page, ESTUFA_REAL))
-      .toContainText(`${depois.disponivel} de ${antes.capacidade_total} vasos livres`);
+      .toContainText(`${depois.disponivel} vasos livres`);
 
     await limparReservas(page, ESTUFA_REAL);
   });
@@ -150,12 +150,12 @@ test.describe('CVGWeb de ponta a ponta', () => {
     // O cenário foi montado por fora, então o front precisa reler.
     await recarregar(page);
     await irParaAdmin(page);
-    await expect(capacidadeDoEspaco(page, COM_RESERVA)).toContainText('12 de 20 vasos livres');
+    await expect(capacidadeDoEspaco(page, COM_RESERVA)).toContainText('12 vasos livres');
 
     // Recarrega a página inteira: o que não estiver no banco se perde aqui.
     await recarregar(page);
     await irParaAdmin(page);
-    await expect(capacidadeDoEspaco(page, COM_RESERVA)).toContainText('12 de 20 vasos livres');
+    await expect(capacidadeDoEspaco(page, COM_RESERVA)).toContainText('12 vasos livres');
 
     // E o responsável aparece na coluna "Reservado por", com a quantidade.
     await expect(
@@ -177,7 +177,7 @@ test.describe('CVGWeb de ponta a ponta', () => {
     // E na tela o espaço aparece sem nada livre.
     await recarregar(page);
     await irParaAdmin(page);
-    await expect(capacidadeDoEspaco(page, CHEIO)).toContainText('0 de 20 vasos livres');
+    await expect(capacidadeDoEspaco(page, CHEIO)).toContainText('0 vasos livres');
     await expect(linhaDoEspaco(page, CHEIO)).toContainText('Ocupada');
   });
 
@@ -320,7 +320,7 @@ test.describe('CVGWeb de ponta a ponta', () => {
 
     await recarregar(page);
     await irParaAdmin(page);
-    await expect(capacidadeDoEspaco(page, PARA_APROVAR)).toContainText('14 de 20 vasos livres');
+    await expect(capacidadeDoEspaco(page, PARA_APROVAR)).toContainText('14 vasos livres');
 
     await irParaReservas(page);
 
@@ -351,7 +351,7 @@ test.describe('CVGWeb de ponta a ponta', () => {
     await esperarAviso(page, 'cancelada');
 
     await irParaAdmin(page);
-    await expect(capacidadeDoEspaco(page, PARA_APROVAR)).toContainText('20 de 20 vasos livres');
+    await expect(capacidadeDoEspaco(page, PARA_APROVAR)).toContainText('20 vasos livres');
 
     const canceladas = await pelaApi<{ data: { finalidade: string }[] }>(
       page,

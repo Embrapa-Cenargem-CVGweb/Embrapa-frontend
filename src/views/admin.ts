@@ -76,7 +76,8 @@ import type {
 type FiltroReserva = 'todas' | 'pendente' | 'ativa';
 
 /** Recortes da lista de usuários: perfil, acesso sem senha e desativados. */
-export type FiltroUsuario = 'todos' | 'admin' | 'pesquisador' | 'sem-senha' | 'inativo';
+/** Recorte da lista: todos, um cargo (cargo:Analista), sem senha ou desativados. */
+export type FiltroUsuario = 'todos' | 'sem-senha' | 'inativo' | `cargo:${string}`;
 
 /**
  * O que o administrador pode gravar, na ordem em que a tela mostra. Mesma
@@ -1098,6 +1099,7 @@ function renderizarUsuarios(): void {
 
   const todos = listarUsuarios();
   const eu = usuarioAtual();
+  pintarChipsDeCargo(todos);
 
   const semSenha = todos.filter((u) => u.situacao === 'CONVITE_PENDENTE');
   pintarBadge('badge-sem-senha', semSenha.length);
@@ -1135,12 +1137,47 @@ function renderizarUsuarios(): void {
   corpo.innerHTML = juntar(linhas.map((u) => linhaDeUsuario(u, eu)));
 }
 
+/** O cargo como está no cadastro agora ("Sem cargo" quando não há). */
+function cargoDe(u: Usuario): string {
+  return u.cargoId ? u.cargo : 'Sem cargo';
+}
+
+/**
+ * Um chip por cargo que alguém tem hoje, com quantas pessoas. Antes eram dois
+ * chips fixos ("Administradores" e "Pesquisadores", que era todo mundo que não
+ * fosse adm): uma analista aparecia como pesquisadora.
+ */
+function pintarChipsDeCargo(todos: readonly Usuario[]): void {
+  const alvo = el('chips-cargos');
+  if (!alvo) return;
+
+  const contagem = new Map<string, number>();
+  for (const u of todos) contagem.set(cargoDe(u), (contagem.get(cargoDe(u)) ?? 0) + 1);
+  const cargos = [...contagem.keys()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  // O cargo filtrado sumiu (ninguém mais tem): volta para todos.
+  if (filtroUsuarios.startsWith('cargo:') && !contagem.has(filtroUsuarios.slice(6))) {
+    filtroUsuarios = 'todos';
+    for (const chip of qsa('[data-action="filtrar-usuarios"]')) {
+      chip.setAttribute('aria-checked', String(chip.dataset.filtro === 'todos'));
+    }
+  }
+
+  alvo.innerHTML = juntar(cargos.map((cargo) => {
+    const filtro = `cargo:${cargo}`;
+    return html`<button type="button" class="chip" role="radio" aria-checked="${String(filtroUsuarios === filtro)}"
+                        data-action="filtrar-usuarios" data-filtro="${filtro}">
+                  ${cargo} <span class="chip__conta">${String(contagem.get(cargo) ?? 0)}</span>
+                </button>`;
+  }));
+}
+
 function cabeNoFiltroDeUsuario(u: Usuario): boolean {
+  if (filtroUsuarios.startsWith('cargo:')) {
+    return cargoDe(u) === filtroUsuarios.slice('cargo:'.length);
+  }
+
   switch (filtroUsuarios) {
-    case 'admin':
-      return u.admin;
-    case 'pesquisador':
-      return !u.admin;
     case 'sem-senha':
       return u.situacao === 'CONVITE_PENDENTE';
     case 'inativo':

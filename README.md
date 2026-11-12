@@ -18,7 +18,7 @@ HTML, CSS e TypeScript **sem framework**, empacotados com Vite.
 
 | Seção | O que faz |
 | :--- | :--- |
-| **Mapa** | As 50 casas de vegetação marcadas sobre a foto aérea; clique abre a ficha com situação, ocupação, responsável e período |
+| **Mapa** | As 51 casas de vegetação marcadas sobre a foto aérea; clique abre a ficha com situação, ocupação, responsável e período |
 | **Reservas** | Pedir, aprovar, cancelar e acompanhar |
 | **Projetos** | Projetos, equipe, líder e permissões |
 | **Usuários** | Cadastro, convite e situação |

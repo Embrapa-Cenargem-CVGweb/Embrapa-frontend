@@ -28,9 +28,13 @@ export function pintarStats(id: string, itens: Stat[]): void {
     </div>`));
 }
 
-/** "Ana Paula Souza" vira "AS": primeira letra do primeiro e do último nome. */
+/**
+ * "Ana Paula Souza" vira "AS": primeira letra do primeiro e do último nome.
+ * Só palavras que começam com letra contam: "Paula Pesquisadora (teste)"
+ * dava "P(".
+ */
 export function iniciais(nome: string): string {
-  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  const partes = nome.trim().split(/\s+/).filter((p) => /^\p{L}/u.test(p));
   if (!partes.length) return '?';
   const letras = partes.length === 1
     ? partes[0].slice(0, 2)

@@ -1639,3 +1639,70 @@ button.metric:focus-visible .metric__go {
   color: var(--fg);
   background: var(--surface);
 }
+
+/* Campo com sugestoes (datalist): o Chrome desenha uma seta de lista que faz
+   o campo parecer um select. As sugestoes continuam aparecendo ao digitar;
+   so a seta sai. */
+input[list]::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+/* --- Modal "Permissões" (tela de usuários) ------------------------------- */
+
+.perm-conteudo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin-top: var(--s-2);
+}
+
+.perm-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.perm-bloco__topo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.perm-bloco__titulo {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+}
+
+.perm-bloco__desc {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.perm-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--s-2) var(--s-4);
+}
+
+.perm-secao {
+  margin: var(--s-2) 0 0;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-2);
+}
+/* Grupo de chips montado por script (cargos): entra na fileira dos outros. */
+.chips__grupo {
+  display: contents;
+}
+
+.chip__conta {
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+}

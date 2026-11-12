@@ -62,6 +62,12 @@ import {
 import { preCarregarHistorico, renderizarHistorico } from './views/auditoria';
 import { abrirAvisos, desligarAvisos, irParaAviso, ligarAvisos } from './views/avisos';
 import {
+  abrirPermissoesDeUsuarios,
+  mostrarBotaoDePermissoes,
+  salvarPermissoesDoProjeto,
+  salvarPermissoesDoSistema,
+} from './views/permissoes';
+import {
   abrirConvidar,
   abrirConvites,
   desistirDoConvite,
@@ -85,9 +91,9 @@ import {
 import {
   abrirEditarProjeto,
   abrirEquipe,
+  abrirFichaDoProjeto,
   abrirNovoProjeto,
   decidirProjeto,
-  abrirPermissoesMembro,
   alterarPapelMembro,
   buscarProjetos,
   confirmarProjeto,
@@ -99,9 +105,6 @@ import {
   pedirExclusaoProjeto,
   recusarProjetoAberto,
   removerMembroDaEquipe,
-  salvarPermissoes,
-  sugerirPermissoesDoPapel,
-  voltarParaEquipe,
   voltarParaProjetos,
 } from './views/projetos';
 import {
@@ -121,7 +124,6 @@ import {
   fecharPainel,
   iniciarMapa,
   renderizarMarcadores,
-  sairDaTelaCheia,
   sincronizarMarcadores,
 } from './views/mapa';
 import {
@@ -231,7 +233,7 @@ function fecharMenu(): void {
 
 /** "Bruno Lima" vira "BR": as duas primeiras letras do primeiro nome. */
 function iniciais(nome: string): string {
-  const primeiro = nome.trim().split(/\s+/)[0] ?? '';
+  const primeiro = nome.trim().split(/\s+/).find((p) => /^\p{L}/u.test(p)) ?? '';
   return primeiro ? primeiro.slice(0, 2).toUpperCase() : '—';
 }
 
@@ -252,6 +254,7 @@ function montarApp(usuario: Usuario): void {
   void carregarContexto().then(() => {
     aplicarPermissoesNoMenu();
     pintarContadorDeConvites();
+    mostrarBotaoDePermissoes();
     ligarAvisos();
     preCarregarTelas();
 
@@ -308,7 +311,6 @@ function desmontarApp(): void {
   desligarAvisos();
   limparContexto();
   esconderFalha();
-  sairDaTelaCheia();
   fecharTodosModais();
   fecharMenu();
   mostrarChat(false);
@@ -355,6 +357,11 @@ function registrarTodasAsAcoes(): void {
       if (id) escolherResultado(id);
     },
     'mapa-popover': (elemento) => alternarPopover(elemento),
+    // permissoes de uma pessoa (cabecalho da tela de usuarios)
+    'abrir-permissoes-usuarios': () => void abrirPermissoesDeUsuarios(),
+    'salvar-perm-sistema': () => void salvarPermissoesDoSistema(),
+    'salvar-perm-projeto': (elemento) => void salvarPermissoesDoProjeto(Number(elemento.dataset.projeto)),
+
     // sino de avisos (no lugar da antiga tela cheia)
     'abrir-avisos': (elemento) => void abrirAvisos(elemento),
     'ir-aviso': (elemento) => irParaAviso(Number(elemento.dataset.indice)),
@@ -464,6 +471,10 @@ function registrarTodasAsAcoes(): void {
       const id = elemento.dataset.id;
       if (id) void recusarProjetoAberto(id);
     },
+    'ver-projeto': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void abrirFichaDoProjeto(id);
+    },
     'abrir-equipe': (elemento) => {
       const id = elemento.dataset.id;
       if (id) abrirEquipe(id);
@@ -473,11 +484,7 @@ function registrarTodasAsAcoes(): void {
       const id = elemento.dataset.id;
       if (id) void removerMembroDaEquipe(id);
     },
-    'abrir-permissoes': (elemento) => {
-      const id = elemento.dataset.id;
-      if (id) abrirPermissoesMembro(id);
-    },
-    'sugerir-permissoes': () => sugerirPermissoesDoPapel(),
+
 
     // histórico de alterações
     'limpar-auditoria': () => limparFiltrosAuditoria(),
@@ -493,8 +500,7 @@ function registrarTodasAsAcoes(): void {
       if (id) abrirEditarReserva(id);
     },
     'excluir-reserva-aberta': () => void excluirReservaAberta(),
-    'salvar-permissoes': () => void salvarPermissoes(),
-    'voltar-equipe': () => voltarParaEquipe(),
+
   });
 }
 
@@ -549,6 +555,15 @@ function ligarFormularios(): void {
   el<HTMLFormElement>('form-projeto')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
     void confirmarProjeto();
+  });
+
+  // Cartao de projeto: clicar em qualquer parte que nao seja botao abre a
+  // ficha (so o titulo era clicavel e ninguem percebia).
+  el('lista-projetos')?.addEventListener('click', (ev) => {
+    const alvo = ev.target as Element;
+    if (alvo.closest('button, a, input, select, label')) return;
+    const cartao = alvo.closest<HTMLElement>('.pcard[data-projeto]');
+    if (cartao?.dataset.projeto) void abrirFichaDoProjeto(cartao.dataset.projeto);
   });
 
   el<HTMLFormElement>('form-lideranca')?.addEventListener('submit', (ev) => {

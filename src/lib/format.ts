@@ -51,9 +51,37 @@ export function dataBR(iso: string): string {
   return dia && mes && ano ? `${dia}/${mes}/${ano}` : iso;
 }
 
-/** "2026-11-06 13:11:02" (ou com T) para "06/11/2026 13:11". */
+/** Fuso em que o sistema mostra as horas: o do Cenargen. */
+const FUSO = 'America/Sao_Paulo';
+
+const NO_FUSO = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: FUSO,
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+/**
+ * "2026-11-06 13:11:02" (ou com T) para "06/11/2026 13:11".
+ *
+ * Quando a data vem com fuso ("2026-11-12T21:53:00.000000Z", o padrão do
+ * Laravel ao serializar datas de model), ela é convertida para o horário de
+ * Brasília. Antes o "Z" era ignorado e os Logs mostravam a hora em UTC,
+ * três horas adiantada.
+ */
 export function dataHoraBR(iso: string): string {
   if (!iso) return '—';
+
+  if (/(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(iso.trim())) {
+    const quando = new Date(iso);
+    if (!Number.isNaN(quando.getTime())) {
+      const p = Object.fromEntries(NO_FUSO.formatToParts(quando).map((x) => [x.type, x.value]));
+      return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
+    }
+  }
 
   const [data = '', hora = ''] = iso.replace('T', ' ').split(' ');
   const minutos = hora.slice(0, 5);
@@ -79,11 +107,14 @@ export function capacidade(n: number, unidade: UnidadeCapacidade): string {
   return unidade === 'VASO' ? plural(n, 'vaso', 'vasos') : plural(n, 'bancada', 'bancadas');
 }
 
-/** "10 de 20 vasos livres" — o que a tabela e a ficha mostram. */
+/**
+ * "10 vasos livres" — o que a tabela e a ficha mostram. Antes era "10 de 20
+ * vasos livres": o "de 20" confundia sobre o que ainda dá para usar.
+ */
 export function ocupacaoResumo(
   disponivel: number,
-  total: number,
+  _total: number,
   unidade: UnidadeCapacidade,
 ): string {
-  return `${disponivel} de ${capacidade(total, unidade)} ${disponivel === 1 ? 'livre' : 'livres'}`;
+  return `${capacidade(disponivel, unidade)} ${disponivel === 1 ? 'livre' : 'livres'}`;
 }

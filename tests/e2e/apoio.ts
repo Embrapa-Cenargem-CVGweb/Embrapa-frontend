@@ -183,7 +183,7 @@ export function linhaDoEspaco(page: Page, codigo: string) {
   return page.locator('#tbody-espacos tr', { has: page.locator(`.code:text-is("${codigo}")`) });
 }
 
-/** A célula de capacidade daquela linha ("12 de 20 vasos livres"). */
+/** A célula de capacidade daquela linha ("12 vasos livres"). */
 export function capacidadeDoEspaco(page: Page, codigo: string) {
   return linhaDoEspaco(page, codigo).locator('td[data-label="Capacidade"]');
 }

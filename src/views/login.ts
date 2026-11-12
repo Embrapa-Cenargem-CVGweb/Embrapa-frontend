@@ -17,6 +17,7 @@ import {
   atualizarSituacaoFuncionario,
   criarFuncionario,
   descartarToken,
+  encerrarSessaoNoServidor,
   getFuncionarios,
   guardarToken,
   login as apiLogin,
@@ -343,6 +344,8 @@ function guardarSessao(usuario: Usuario): void {
 
 export function sair(): void {
   sessao = null;
+  // Primeiro derruba o token no servidor; depois esquece aqui.
+  encerrarSessaoNoServidor();
   descartarToken();
   try {
     sessionStorage.removeItem(CHAVES.sessao);

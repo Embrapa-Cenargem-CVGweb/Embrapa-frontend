@@ -549,39 +549,6 @@ function ligarPopovers(): void {
   });
 }
 
-/**
- * Tela cheia: a lateral some e, onde o navegador deixa, a página inteira vai
- * para tela cheia. É a página e não só o mapa, porque os modais (reservar, ver
- * reserva) ficam fora dele e não apareceriam.
- */
-export function alternarTelaCheia(): void {
-  const app = el('app');
-  if (!app) return;
-
-  const entrar = !app.classList.contains('is-imersivo');
-  marcarTelaCheia(entrar);
-
-  if (entrar) void document.documentElement.requestFullscreen?.().catch(() => {});
-  else if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-}
-
-function marcarTelaCheia(ativa: boolean): void {
-  el('app')?.classList.toggle('is-imersivo', ativa);
-
-  const botao = el('map-btn-tela-cheia');
-  if (!botao) return;
-  botao.setAttribute('aria-pressed', String(ativa));
-  botao.setAttribute('aria-label', ativa ? 'Sair da tela cheia' : 'Tela cheia');
-  botao.innerHTML = html`${icone(ativa ? 'minimize' : 'maximize')}`;
-}
-
-/** Quem sai do mapa (ou da sessão) não pode ficar preso sem a lateral. */
-export function sairDaTelaCheia(): void {
-  if (!document.getElementById('app')?.classList.contains('is-imersivo')) return;
-  marcarTelaCheia(false);
-  if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-}
-
 /* ===========================================================================
    Ficha do espaço
    =========================================================================== */
@@ -844,11 +811,6 @@ export function iniciarMapa(): void {
   ligarBusca();
   ligarPopovers();
   aplicarVista(false);
-
-  // Saiu da tela cheia pelo Esc do navegador: a lateral volta junto.
-  document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement) marcarTelaCheia(false);
-  });
 
   // Esc fecha primeiro o que estiver por cima (popover), depois a ficha —
   // desde que nenhum modal esteja na frente.

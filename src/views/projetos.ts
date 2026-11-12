@@ -23,8 +23,8 @@
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
 import { dataBR } from '../lib/format';
-import { avatar } from '../lib/telas';
-import { abrirModal, confirmar, fecharModal, trocarModal } from '../lib/modal';
+import { avatar, pintarStats } from '../lib/telas';
+import { abrirModal, confirmar, fecharModal } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import {
   adicionarMembro,
@@ -32,10 +32,10 @@ import {
   atualizarMembro,
   atualizarProjeto,
   criarProjeto,
-  definirPermissoes,
   excluirProjeto,
   getCatalogoPermissoes,
   getEquipe,
+  getProjetoDetalhe,
   getPessoasOpcoes,
   getProjetos,
   getStatusProjeto,
@@ -45,8 +45,8 @@ import {
   type DadosProjeto,
   type MembroEquipe,
   type PapelEquipe,
-  type PermissaoProjeto,
   type PessoaOpcao,
+  type ProjetoDetalhe,
   type SituacaoProjeto,
   type StatusProjetoApi,
 } from '../services/api';
@@ -132,8 +132,6 @@ let equipe: MembroEquipe[] = [];
 let equipeSoLeitura = false;
 /** Projeto em edição no formulário; null = projeto novo. */
 let projetoEmEdicao: ProjetoApi | null = null;
-/** Membro aberto na tela de permissões. */
-let membroAberto: MembroEquipe | null = null;
 
 function ehAdmin(): boolean {
   return Boolean(usuarioAtual()?.admin);
@@ -171,6 +169,9 @@ export function mostrarProjetos(): void {
   //
   // Volta à tela: mostra na hora o que já foi lido e atualiza por trás, em vez
   // de deixar a tela vazia esperando a rede.
+  // O botão diz o mesmo que o modal que ele abre.
+  setText('btn-novo-projeto-texto', ehAdmin() ? 'Novo projeto' : 'Propor projeto');
+
   if (jaLeuProjetos) renderizarProjetos();
   else pintarLendoProjetos();
   void carregarProjetos();
@@ -305,7 +306,8 @@ function cartaoDeProjeto(p: ProjetoApi): string {
         : '';
 
   return html`
-    <article class="pcard ${raw(alheio ? 'pcard--alheio' : '')}" aria-label="Projeto ${p.titulo}">
+    <article class="pcard pcard--clicavel ${raw(alheio ? 'pcard--alheio' : '')}" aria-label="Projeto ${p.titulo}"
+             data-projeto="${p.id}" title="Clique para ver a ficha do projeto">
       <div class="pcard__top">
         <span class="pcard__tile">${icone('graduation-cap')}</span>
         <span class="pcard__selos">${raw(selo(p, encerrado))}${raw(semLider)}${raw(meuPapel)}</span>
@@ -320,7 +322,10 @@ function cartaoDeProjeto(p: ProjetoApi): string {
 
       <div>
         <span class="code">${p.codigo}</span>
-        <h3 class="pcard__title">${p.titulo}</h3>
+        <h3 class="pcard__title">
+          <button type="button" class="pcard__abrir" data-action="ver-projeto" data-id="${p.id}"
+                  aria-label="Ver a ficha de ${p.titulo}">${p.titulo}</button>
+        </h3>
         ${raw(p.descricao ? html`<p class="pcard__desc">${p.descricao}</p>` : '')}
         <div class="pcard__meta">
           <span>${p.responsavel ? `Líder: ${p.responsavel.nome}` : 'Sem líder definido'}</span>
@@ -354,10 +359,15 @@ function cartaoDeProjeto(p: ProjetoApi): string {
                        ${icone('user-plus', 'ic ic--sm')}Convidar
                      </button>`
               : '')}
-            <button type="button" class="btn btn--quiet btn--sm"
-                    data-action="abrir-equipe" data-id="${p.id}">
-              ${icone('users', 'ic ic--sm')}${alheio ? 'Ver equipe' : 'Equipe e permissões'}
-            </button>`)}
+            ${raw(alheio
+              ? html`<button type="button" class="btn btn--quiet btn--sm"
+                             data-action="ver-projeto" data-id="${p.id}">
+                       ${icone('eye', 'ic ic--sm')}Ver projeto
+                     </button>`
+              : html`<button type="button" class="btn btn--quiet btn--sm"
+                             data-action="abrir-equipe" data-id="${p.id}">
+                       ${icone('users', 'ic ic--sm')}Equipe
+                     </button>`)}`)}
 
         ${raw(ehAdmin() || souODono(p)
           ? html`<button type="button" class="btn btn--quiet btn--sm btn--icon"
@@ -897,10 +907,7 @@ function linhaDeMembro(m: MembroEquipe): string {
       </td>
       <td data-label="Ações">
         <div class="table__actions">
-          <button type="button" class="btn btn--quiet btn--sm"
-                  data-action="abrir-permissoes" data-id="${m.id}">
-            ${icone('shield-user', 'ic ic--sm')}Permissões
-          </button>
+
           <button type="button" class="btn btn--danger btn--sm btn--icon"
                   data-action="remover-membro" data-id="${m.id}"
                   aria-label="Remover ${m.nome} da equipe">
@@ -1022,105 +1029,129 @@ export function voltarParaProjetos(): void {
   fecharModal(el('modal-equipe'));
 }
 
-/* ===========================================================================
-   Permissões do membro
+/* As permissões de cada pessoa ficam no modal "Permissões" da tela de
+   Usuários (views/permissoes.ts): sistema e por projeto, num lugar só. */
 
-   Quem concede é só o adm (o back cobra isso em `gerenciarPermissoes`). A tela
-   mostra o catálogo agrupado como ele vem da API e marca o que o membro já tem.
+/* ===========================================================================
+   Ficha do projeto (clique no cartão)
+
+   Quem participa, que estufas usa, quanto está reservado e para quê. Os
+   números saem das reservas feitas no mapa: reservou lá, aparece aqui na
+   próxima vez que a ficha abrir.
    =========================================================================== */
 
-export function abrirPermissoesMembro(id: string): void {
-  const membro = equipe.find((m) => String(m.id) === id);
-  if (!membro || !projetoAberto) return;
+const STATUS_RESERVA: Record<string, { rotulo: string; tom: string }> = {
+  ATIVA: { rotulo: 'Aprovada', tom: 'pill--ok' },
+  PENDENTE: { rotulo: 'Aguardando aprovação', tom: 'pill--busy' },
+  CANCELADA: { rotulo: 'Cancelada', tom: 'pill--neutral' },
+};
 
-  membroAberto = membro;
-
-  setText('perm-titulo', `Permissões de ${membro.nome}`);
-  setText(
-    'perm-desc',
-    `Valem só em ${projetoAberto.codigo}. Sem marcar nada, a pessoa apenas consulta.`,
-  );
-
-  pintarPermissoes(membro.permissoes);
-  trocarModal('modal-equipe', 'modal-permissoes');
+function quantidadeTexto(q: { vasos: number; bancadas: number }): string {
+  const partes = [
+    q.vasos ? `${q.vasos} ${q.vasos === 1 ? 'vaso' : 'vasos'}` : '',
+    q.bancadas ? `${q.bancadas} ${q.bancadas === 1 ? 'bancada' : 'bancadas'}` : '',
+  ].filter(Boolean);
+  return partes.length ? partes.join(' e ') : 'nada';
 }
 
-function pintarPermissoes(marcadas: PermissaoProjeto[]): void {
-  const alvo = el('perm-grupos');
-  if (!alvo) return;
+export async function abrirFichaDoProjeto(id: string): Promise<void> {
+  const corpo = el('projeto-ver-corpo');
+  if (!corpo) return;
 
-  if (!catalogo) {
-    alvo.innerHTML = html`
-      <div class="empty">
-        ${icone('circle-x', 'ic ic--xl')}
-        <p class="empty__text">O catálogo de permissões não carregou. Feche e abra de novo.</p>
-      </div>`;
-    return;
-  }
+  const resumo = projetos.find((p) => String(p.id) === id);
+  setText('projeto-ver-titulo', resumo?.titulo ?? 'Projeto');
+  setText('projeto-ver-sub', 'Lendo a ficha…');
+  corpo.innerHTML = '';
+  const acoes = el('projeto-ver-acoes');
+  if (acoes) acoes.innerHTML = '';
+  abrirModal('modal-projeto-ver');
 
-  const tem = new Set(marcadas);
-
-  alvo.innerHTML = juntar(
-    Object.entries(catalogo.grupos).map(
-      ([chaveGrupo, grupo]) => html`
-        <fieldset class="fieldset">
-          <legend class="fieldset__legend">${grupo.titulo}</legend>
-          ${raw(juntar(
-            grupo.itens.map(
-              (item) => html`
-                <label class="perm" for="perm-${chaveGrupo}-${item.chave}">
-                  <input class="perm__check" type="checkbox"
-                         id="perm-${chaveGrupo}-${item.chave}"
-                         value="${item.chave}" ${raw(tem.has(item.chave) ? 'checked' : '')} />
-                  <span class="perm__texto">
-                    <span class="perm__rotulo">${item.rotulo}</span>
-                    <span class="perm__desc">${item.descricao}</span>
-                  </span>
-                </label>`,
-            ),
-          ))}
-        </fieldset>`,
-    ),
-  );
-}
-
-/** Marca o conjunto que o adm costuma dar para aquele papel. Só sugestão. */
-export function sugerirPermissoesDoPapel(): void {
-  if (!membroAberto || !catalogo) return;
-
-  const papel: PapelEquipe = membroAberto.papel ?? 'PESQUISADOR';
-  const sugestao = catalogo.sugestoes[papel] ?? [];
-
-  pintarPermissoes(sugestao);
-  aviso(`Marcado o conjunto típico de ${PAPEL_ROTULO[papel].toLowerCase()}. Revise e salve.`, 'info');
-}
-
-export async function salvarPermissoes(): Promise<void> {
-  if (!membroAberto || !projetoAberto) return;
-
-  const marcadas = qsa<HTMLInputElement>('#perm-grupos input[type="checkbox"]')
-    .filter((caixa) => caixa.checked)
-    .map((caixa) => caixa.value as PermissaoProjeto);
-
+  let ficha: ProjetoDetalhe;
   try {
-    await definirPermissoes(projetoAberto.id, membroAberto.id, marcadas);
+    ficha = await getProjetoDetalhe(Number(id));
   } catch (erro) {
-    aviso(erroDe(erro, 'Não foi possível salvar as permissões.'), 'error');
+    setText('projeto-ver-sub', '');
+    corpo.innerHTML = html`<p class="empty__text">${erroDe(erro, 'Não foi possível ler a ficha do projeto.')}</p>`;
     return;
   }
 
-  const nome = membroAberto.nome;
-  trocarModal('modal-permissoes', 'modal-equipe');
-  await carregarEquipe();
-
-  aviso(
-    marcadas.length
-      ? `${nome}: ${marcadas.length} ${marcadas.length === 1 ? 'permissão' : 'permissões'} em ${projetoAberto.codigo}.`
-      : `${nome} ficou sem permissão de CRUD em ${projetoAberto.codigo}.`,
-    'success',
+  const periodo = ficha.data_inicio || ficha.data_fim
+    ? `${ficha.data_inicio ? dataBR(ficha.data_inicio) : '—'} a ${ficha.data_fim ? dataBR(ficha.data_fim) : 'sem fim'}`
+    : 'Sem período definido';
+  setText('projeto-ver-titulo', ficha.titulo);
+  setText(
+    'projeto-ver-sub',
+    [ficha.codigo, ficha.status?.descricao, `Líder: ${ficha.responsavel?.nome ?? '—'}`, periodo].filter(Boolean).join(' · '),
   );
-}
 
-export function voltarParaEquipe(): void {
-  trocarModal('modal-permissoes', 'modal-equipe');
+  const m = ficha.metricas;
+  corpo.innerHTML = html`
+    ${raw(!ficha.participo
+      ? html`<p class="field__aviso">${icone('eye', 'ic ic--sm')}Você não faz parte deste projeto: dá para ver, não para mexer.</p>`
+      : '')}
+    <div class="stats" id="projeto-ver-stats"></div>
+
+    <section class="ficha__secao" aria-labelledby="ficha-sobre">
+      <h3 class="ficha__titulo" id="ficha-sobre">O que o projeto faz</h3>
+      <p class="ficha__texto">${ficha.descricao || 'Sem descrição.'}</p>
+    </section>
+
+    <section class="ficha__secao" aria-labelledby="ficha-equipe">
+      <h3 class="ficha__titulo" id="ficha-equipe">Equipe (${String(ficha.equipe.length)})</h3>
+      <ul class="ficha__equipe">
+        ${raw(juntar(ficha.equipe.map((pessoa) => html`
+          <li class="ficha__pessoa">
+            ${avatar(pessoa.nome)}
+            <span class="table__stack">
+              <span class="table__name">${pessoa.nome}
+                ${raw(pessoa.lider ? html`<span class="pill pill--booked">líder</span>` : '')}</span>
+              <span class="table__sub">${pessoa.cargo ?? 'sem cargo'}${pessoa.email ? ` · ${pessoa.email}` : ''}</span>
+            </span>
+          </li>`)))}
+      </ul>
+    </section>
+
+    <section class="ficha__secao" aria-labelledby="ficha-estufas">
+      <h3 class="ficha__titulo" id="ficha-estufas">Onde está plantado</h3>
+      ${raw(ficha.reservas.length
+        ? html`<div class="table-wrap"><table class="table">
+            <thead><tr>
+              <th scope="col">Estufa</th><th scope="col">Quantidade</th><th scope="col">Período</th>
+              <th scope="col">Finalidade</th><th scope="col">Situação</th><th scope="col">Reservou</th>
+            </tr></thead>
+            <tbody>${raw(juntar(ficha.reservas.map((r) => {
+              const st = STATUS_RESERVA[r.status] ?? { rotulo: r.status, tom: 'pill--neutral' };
+              return html`<tr class="${raw(r.encerrada ? 'is-off' : '')}">
+                <td data-label="Estufa"><span class="code">${r.estufa?.codigo ?? '—'}</span></td>
+                <td data-label="Quantidade">${String(r.quantidade)} ${r.quantidade === 1 ? r.unidade.replace(/s$/, '') : r.unidade}</td>
+                <td data-label="Período">${dataBR(r.data_inicio)} a ${dataBR(r.data_fim)}</td>
+                <td data-label="Finalidade">${r.finalidade ?? '—'}</td>
+                <td data-label="Situação"><span class="pill ${raw(st.tom)}">${r.encerrada ? 'Terminada' : st.rotulo}</span></td>
+                <td data-label="Reservou">${r.quem ?? '—'}</td>
+              </tr>`;
+            })))}</tbody>
+          </table></div>`
+        : html`<p class="empty__text">Nenhuma estufa reservada ainda. As reservas são feitas pelo mapa.</p>`)}
+    </section>`;
+
+  pintarStats('projeto-ver-stats', [
+    { icone: 'users', numero: m.pessoas, rotulo: m.pessoas === 1 ? 'Pessoa na equipe' : 'Pessoas na equipe' },
+    { icone: 'leaf', numero: m.estufas_em_uso, rotulo: m.estufas_em_uso === 1 ? 'Estufa reservada' : 'Estufas reservadas', tom: 'booked' },
+    { icone: 'calendar-check', numero: m.em_uso_hoje.vasos + m.em_uso_hoje.bancadas, rotulo: `Em uso hoje: ${quantidadeTexto(m.em_uso_hoje)}`, tom: 'ok' },
+    { icone: 'clock', numero: m.pendentes, rotulo: m.pendentes === 1 ? 'Reserva aguardando' : 'Reservas aguardando', tom: m.pendentes ? 'busy' : undefined },
+  ]);
+
+  if (acoes) {
+    acoes.innerHTML = juntar([
+      html`<button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>`,
+      ficha.participo
+        ? html`<button type="button" class="btn btn--quiet" data-action="abrir-equipe" data-id="${ficha.id}">
+                 ${icone('users', 'ic ic--sm')}Equipe</button>`
+        : '',
+      ficha.posso_convidar
+        ? html`<button type="button" class="btn btn--primary" data-action="abrir-convidar" data-id="${ficha.id}" data-titulo="${ficha.titulo}">
+                 ${icone('user-plus', 'ic ic--sm')}Convidar</button>`
+        : '',
+    ]);
+  }
 }

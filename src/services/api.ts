@@ -19,6 +19,22 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 const CHAVE_TOKEN = 'cvgweb:token';
 
+/**
+ * Avisa o servidor que a sessão acabou, para o token deixar de valer lá
+ * também. Antes o "Sair" só apagava o token do navegador: uma cópia dele
+ * continuava funcionando. Não espera resposta nem passa pelos tratamentos de
+ * erro (o token pode já estar morto, e aí não há o que fazer).
+ */
+export function encerrarSessaoNoServidor(): void {
+  const token = tokenSalvo();
+  if (!token) return;
+
+  void fetch(`${API_URL}/logout`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    keepalive: true,
+  }).catch(() => undefined);
+}
 export function tokenSalvo(): string | null {
   try {
     return sessionStorage.getItem(CHAVE_TOKEN);
@@ -60,6 +76,11 @@ function mensagemDoErro(dados: unknown, padrao: string): string {
   // Erros de campo primeiro: são os que explicam o motivo (capacidade, período).
   const primeiro = corpo.errors && Object.values(corpo.errors)[0]?.[0];
   if (primeiro) return primeiro;
+
+  // O limite de tentativas do Laravel responde em ingles ("Too Many Attempts.").
+  if (corpo.message && /too many attempts/i.test(corpo.message)) {
+    return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
+  }
 
   return corpo.message || padrao;
 }
@@ -115,7 +136,23 @@ function erroDaResposta(status: number, dados: unknown, padrao: string): ErroApi
     return new ErroApi(SESSAO_MORTA, status, dados);
   }
 
-  return new ErroApi(mensagemDoErro(dados, padrao), status, dados);
+  // Erro do servidor: a mensagem crua do Laravel (com APP_DEBUG ligado) traz
+  // SQL, host e nome do banco — nada disso serve a quem usa, e expõe demais.
+  if (status >= 500) {
+    return new ErroApi(
+      `${padrao} O servidor teve um problema (erro ${status}). Tente de novo; se continuar, avise a administração.`,
+      status,
+      dados,
+    );
+  }
+
+  // 403 sem frase nossa: o Laravel responde "This action is unauthorized.".
+  const mensagem = mensagemDoErro(dados, padrao);
+  if (status === 403 && /this action is unauthorized|forbidden/i.test(mensagem)) {
+    return new ErroApi('Você não tem permissão para fazer isso.', status, dados);
+  }
+
+  return new ErroApi(mensagem, status, dados);
 }
 
 async function buscar<T>(caminho: string, oQue: string): Promise<T> {
@@ -571,6 +608,45 @@ export function getStatusProjeto(): Promise<StatusProjetoApi[]> {
   return buscar('/status-projeto', 'os status de projeto');
 }
 
+/** Ficha do projeto (modal ao clicar no cartão). */
+export interface ProjetoDetalhe {
+  id: number;
+  codigo: string;
+  titulo: string;
+  descricao: string | null;
+  situacao: SituacaoProjeto;
+  status: { id: number; descricao: string; encerrado: boolean } | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  responsavel: { id: number; nome: string } | null;
+  participo: boolean;
+  sou_lider: boolean;
+  posso_convidar: boolean;
+  equipe: { id: number; nome: string; cargo: string | null; email: string | null; papel: PapelEquipe | null; lider: boolean }[];
+  reservas: {
+    id: number;
+    estufa: { codigo: string; descricao: string | null } | null;
+    unidade: 'vasos' | 'bancadas';
+    quantidade: number;
+    data_inicio: string;
+    data_fim: string;
+    status: 'ATIVA' | 'PENDENTE' | 'CANCELADA';
+    encerrada: boolean;
+    finalidade: string | null;
+    quem: string | null;
+  }[];
+  metricas: {
+    pessoas: number;
+    estufas_em_uso: number;
+    em_uso_hoje: { vasos: number; bancadas: number };
+    reservado: { vasos: number; bancadas: number };
+    pendentes: number;
+  };
+}
+
+export function getProjetoDetalhe(id: number): Promise<ProjetoDetalhe> {
+  return buscar(`/projetos/${id}`, 'a ficha do projeto');
+}
 export function getProjetos(situacao?: SituacaoProjeto): Promise<any> {
   const filtro = situacao ? `&situacao=${situacao}` : '';
   return buscar(`/projetos?per_page=200${filtro}`, 'os projetos');
@@ -727,6 +803,29 @@ export function atualizarMembro(
 }
 
 /** Concede ou revoga permissões de um membro. Só o adm consegue. */
+/** Permissão que vale no sistema todo (dada pelo adm na tela de usuários). */
+export interface PermissaoDeSistema {
+  chave: PermissaoProjeto;
+  rotulo: string;
+  descricao: string;
+}
+
+export interface PermissoesDaPessoa {
+  funcionario: { id: number; nome: string; cargo: string | null };
+  /** Cargo Administrador: já pode tudo, não há o que marcar. */
+  administrador: boolean;
+  globais: PermissaoProjeto[];
+  catalogo_global: PermissaoDeSistema[];
+  projetos: { id: number; codigo: string; titulo: string; papel: PapelEquipe | null; permissoes: PermissaoProjeto[] }[];
+}
+
+export function getPermissoesDaPessoa(id: number): Promise<PermissoesDaPessoa> {
+  return buscar(`/funcionarios/${id}/permissoes`, 'as permissões da pessoa');
+}
+
+export function salvarPermissoesDeSistema(id: number, permissoes: PermissaoProjeto[]): Promise<{ message: string }> {
+  return enviar('PUT', `/funcionarios/${id}/permissoes-globais`, { permissoes }, 'Não foi possível salvar as permissões.');
+}
 export function definirPermissoes(
   projetoId: number,
   funcionarioId: number,
