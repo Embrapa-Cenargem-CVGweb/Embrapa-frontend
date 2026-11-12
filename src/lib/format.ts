@@ -6,13 +6,17 @@
  * mais palavra.
  */
 import { html, icone, raw } from './html';
-import type { StatusInfo, StatusKey } from '../types';
+import type { StatusInfo, StatusKey, UnidadeCapacidade } from '../types';
 
 const STATUS: Record<StatusKey, StatusInfo> = {
   livre: { label: 'Livre', tom: 'ok', icon: 'circle-check' },
+  // Parte da capacidade tomada: ainda dá para reservar o que sobrou.
+  parcial: { label: 'Parcial', tom: 'booked', icon: 'calendar-check' },
   ocupada: { label: 'Ocupada', tom: 'busy', icon: 'user' },
+  // Bloqueio manual da administração, não cálculo das reservas.
   reservada: { label: 'Reservada', tom: 'booked', icon: 'calendar-check' },
   manutencao: { label: 'Manutenção', tom: 'down', icon: 'wrench' },
+  inativa: { label: 'Inativa', tom: 'neutral', icon: 'ban' },
   ativa: { label: 'Ativa', tom: 'ok', icon: 'circle-check' },
   pendente: { label: 'Pendente', tom: 'busy', icon: 'clock' },
   cancelada: { label: 'Cancelada', tom: 'down', icon: 'ban' },
@@ -36,11 +40,25 @@ export function statusPill(key: string): ReturnType<typeof raw> {
   );
 }
 
-/** AAAA-MM-DD para DD/MM/AAAA. */
+/**
+ * AAAA-MM-DD para DD/MM/AAAA. Aceita também data com hora
+ * ("2026-11-10T03:00:00.000000Z"): usa só a parte da data, em vez de colar
+ * a hora no dia ("10T03:00:00.000000Z/11/2026").
+ */
 export function dataBR(iso: string): string {
   if (!iso) return '—';
-  const [ano, mes, dia] = iso.split('-');
+  const [ano, mes, dia] = iso.slice(0, 10).split('-');
   return dia && mes && ano ? `${dia}/${mes}/${ano}` : iso;
+}
+
+/** "2026-11-06 13:11:02" (ou com T) para "06/11/2026 13:11". */
+export function dataHoraBR(iso: string): string {
+  if (!iso) return '—';
+
+  const [data = '', hora = ''] = iso.replace('T', ' ').split(' ');
+  const minutos = hora.slice(0, 5);
+
+  return minutos ? `${dataBR(data)} ${minutos}` : dataBR(data);
 }
 
 /** Data de hoje em AAAA-MM-DD, no fuso local. */
@@ -54,4 +72,18 @@ export function hojeISO(): string {
 /** Plural simples: 1 bancada / 4 bancadas. */
 export function plural(n: number, singular: string, plural_: string): string {
   return `${n} ${n === 1 ? singular : plural_}`;
+}
+
+/** "10 vasos" / "1 bancada", concordando com a unidade do espaço. */
+export function capacidade(n: number, unidade: UnidadeCapacidade): string {
+  return unidade === 'VASO' ? plural(n, 'vaso', 'vasos') : plural(n, 'bancada', 'bancadas');
+}
+
+/** "10 de 20 vasos livres" — o que a tabela e a ficha mostram. */
+export function ocupacaoResumo(
+  disponivel: number,
+  total: number,
+  unidade: UnidadeCapacidade,
+): string {
+  return `${disponivel} de ${capacidade(total, unidade)} ${disponivel === 1 ? 'livre' : 'livres'}`;
 }

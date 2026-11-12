@@ -18,6 +18,48 @@ const origemFoco = new WeakMap<HTMLElement, HTMLElement>();
 /** Nunca recebe inert: é a região viva dos avisos. */
 const SEMPRE_ATIVO = new Set(['toasts']);
 
+/** Seletor de elementos focáveis dentro de um contêiner. */
+const FOCAVEIS = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+/**
+ * Prende o foco dentro do modal do topo: ao apertar Tab no último elemento
+ * focável, o foco volta para o primeiro, e vice-versa com Shift+Tab.
+ * É um reforço ao \: nem todo navegador ou tecnologia assistiva
+ * respeita \ perfeitamente.
+ */
+function prenderFoco(ev: KeyboardEvent): void {
+  if (ev.key !== 'Tab') return;
+
+  const topo = pilha.at(-1);
+  if (!topo) return;
+
+  const dialog = topo.querySelector('[role="dialog"]') ?? topo;
+  const focaveis = Array.from(dialog.querySelectorAll<HTMLElement>(FOCAVEIS))
+    .filter((n) => {
+      const s = getComputedStyle(n);
+      return s.visibility !== 'hidden' && s.display !== 'none';
+    });
+  if (!focaveis.length) return;
+
+  const primeiro = focaveis[0];
+  const ultimo = focaveis[focaveis.length - 1];
+
+  if (ev.shiftKey && document.activeElement === primeiro) {
+    ev.preventDefault();
+    ultimo.focus();
+  } else if (!ev.shiftKey && document.activeElement === ultimo) {
+    ev.preventDefault();
+    primeiro.focus();
+  }
+}
+
 /**
  * Deixa inerte tudo que não é o modal do topo. Com a pilha vazia, devolve a
  * página inteira à interação.
@@ -51,12 +93,37 @@ export function abrirModal(id: string): void {
   (primeiroFocavel(dialog) ?? dialog).focus();
 }
 
+/**
+ * Avisa que um modal vai fechar, ANTES de ele sumir.
+ *
+ * Existe por causa do rascunho da reserva: salvar no `input` é debounced, e
+ * quem fechava o modal e recarregava a página na sequência perdia os últimos
+ * caracteres. O ouvinte roda de forma síncrona no fechamento, então o que está
+ * na tela já está guardado quando a página sai.
+ */
+type AoFechar = (scrim: HTMLElement) => void;
+
+const aoFechar = new Set<AoFechar>();
+
+export function aoFecharModal(ouvinte: AoFechar): void {
+  aoFechar.add(ouvinte);
+}
+
 export function fecharModal(scrim?: HTMLElement | null): void {
   const alvo = scrim ?? pilha.at(-1);
   if (!alvo) return;
 
   const indice = pilha.indexOf(alvo);
   if (indice === -1) return;
+
+  for (const ouvinte of aoFechar) {
+    try {
+      ouvinte(alvo);
+    } catch (erro) {
+      console.error('[CVGWeb] falha ao reagir ao fechamento do modal:', erro);
+    }
+  }
+
   pilha.splice(indice, 1);
 
   show(alvo, false);
@@ -164,8 +231,13 @@ export function confirmar(opts: ConfirmarOpts): Promise<boolean> {
     qsa<HTMLElement>('[data-confirmar]', scrim).forEach((botao) => {
       botao.addEventListener('click', () => encerrar(botao.dataset.confirmar === 'sim'));
     });
+    let mousedownNoScrim = false;
+    scrim.addEventListener('mousedown', (ev) => {
+      mousedownNoScrim = ev.target === scrim;
+    });
     scrim.addEventListener('click', (ev) => {
-      if (ev.target === scrim) encerrar(false);
+      if (ev.target === scrim && mousedownNoScrim) encerrar(false);
+      mousedownNoScrim = false;
     });
   });
 }
@@ -180,10 +252,20 @@ export function iniciarModais(): void {
     if (ev.key === 'Escape' && fecharTopo()) ev.preventDefault();
   });
 
+  // Prende Tab/Shift+Tab dentro do modal (reforço ao inert).
+  document.addEventListener('keydown', prenderFoco);
+
   // Clique no fundo escuro fecha; clique dentro do diálogo não.
+  // Rastreia onde o mousedown começou para não fechar quando o usuário
+  // clica num input e arrasta o mouse para fora do diálogo.
   qsa('.scrim').forEach((scrim) => {
+    let mousedownNoScrim = false;
+    scrim.addEventListener('mousedown', (ev) => {
+      mousedownNoScrim = ev.target === scrim;
+    });
     scrim.addEventListener('click', (ev) => {
-      if (ev.target === scrim) fecharModal(scrim);
+      if (ev.target === scrim && mousedownNoScrim) fecharModal(scrim);
+      mousedownNoScrim = false;
     });
   });
 }

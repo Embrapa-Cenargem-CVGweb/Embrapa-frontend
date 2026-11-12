@@ -70,14 +70,18 @@
      do verde e do telhado. Valem nos dois temas.                          */
   --marker-livre: #00a651;
   --marker-livre-glow: rgb(0 166 81 / 52%);
-  --marker-ocupada: #c07800;
-  --marker-ocupada-glow: rgb(192 120 0 / 48%);
-  --marker-reservada: #0a58d6;
-  --marker-reservada-glow: rgb(10 88 214 / 46%);
-  --marker-manutencao: #d23b3b;
-  --marker-manutencao-glow: rgb(210 59 59 / 46%);
+  --marker-ocupada: #f08c00;
+  --marker-ocupada-glow: rgb(240 140 0 / 48%);
+  --marker-reservada: #2f6fed;
+  --marker-reservada-glow: rgb(47 111 237 / 46%);
+  --marker-manutencao: #e5484d;
+  --marker-manutencao-glow: rgb(229 72 77 / 46%);
   --marker-indefinido: #9aa5a0;
   --marker-aro: #ffffff;
+  /* Espaço selecionado: contorno do prédio e alfinete. */
+  --marker-selecao: #1fbf62;
+  --marker-selecao-fundo: rgb(31 191 98 / 16%);
+  --marker-pino: #0b4729;
   --marker-balao: rgb(8 34 18 / 95%);
 
   /* --- Navegação lateral (escura nos dois temas) -------------------------- */
@@ -87,8 +91,14 @@
   --nav-fg: #e8f0ea;
   --nav-fg-muted: #9fb3a7;
   --nav-hover: rgb(255 255 255 / 8%);
-  --nav-active-bg: #ffffff;
-  --nav-active-fg: #0a3d24;
+  --nav-active-bg: #1d7243;
+  --nav-active-fg: #ffffff;
+  /* Degradê verde da lateral, a onda do rodapé e o avatar com as iniciais. */
+  --nav-grad-a: #0b4729;
+  --nav-grad-b: #06321d;
+  --nav-wave: rgb(52 150 92 / 38%);
+  --nav-avatar-bg: #e3ebe6;
+  --nav-avatar-fg: #17402b;
 
   /* --- Foco --------------------------------------------------------------- */
   --focus: #0043a0;
@@ -139,6 +149,8 @@
   --shadow-1: 0 1px 2px rgb(16 38 26 / 6%);
   --shadow-2: 0 1px 2px rgb(16 38 26 / 6%), 0 4px 12px rgb(16 38 26 / 7%);
   --shadow-3: 0 8px 32px rgb(10 32 20 / 16%), 0 2px 8px rgb(10 32 20 / 8%);
+  /* Controles soltos sobre a foto aérea (busca, botões, legenda). */
+  --shadow-map: 0 6px 20px rgb(6 24 14 / 22%), 0 1px 3px rgb(6 24 14 / 14%);
 
   /* --- Motion ------------------------------------------------------------- */
   --ease: cubic-bezier(0.2, 0, 0.2, 1);
@@ -152,7 +164,7 @@
   --dur-4: 440ms;
 
   /* --- Medidas da casca --------------------------------------------------- */
-  --sidebar-w: 15rem;
+  --sidebar-w: 14.25rem;
   --sidebar-w-rail: 4.25rem;
-  --panel-w: 22rem;
+  --panel-w: 28rem;
 }

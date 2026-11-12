@@ -1,7 +1,8 @@
 /* ===========================================================================
    CVGWeb · Administração
    Uma página: cabeçalho com as ações e a tabela de espaços em altura cheia.
-   Painel, reservas e usuários abrem em modal.
+   O painel abre em modal; reservas, projetos e usuários têm seção própria
+   (classe `.pagina`) e reaproveitam a mesma `.section` daqui.
    =========================================================================== */
 
 .admin {
@@ -98,5 +99,51 @@
 
   .section__tools .search .input {
     width: 100%;
+  }
+}
+
+/* ===========================================================================
+   Página interna genérica
+
+   Mesma moldura da administração, para as outras abas que não são o mapa.
+   O histórico usa esta: cabeçalho, filtros, tabela que ocupa o resto da
+   altura e barra de paginação no pé.
+   =========================================================================== */
+
+.pagina {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-height: 0;
+  padding: var(--s-5) var(--s-6);
+}
+
+/*
+ * Na página a barra de filtros é um bloco com borda inteira; dentro de um
+ * modal ela encosta na parede do diálogo e só precisa da linha de baixo.
+ */
+.pagina .barra-filtros {
+  margin-bottom: var(--s-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.paginacao-barra {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (width <= 40rem) {
+  .pagina {
+    padding: var(--s-4);
+  }
+
+  .paginacao-barra {
+    justify-content: center;
   }
 }

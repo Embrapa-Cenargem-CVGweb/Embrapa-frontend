@@ -6,6 +6,20 @@
   <title>CVGWeb · Cenargen</title>
   <meta name="description" content="Consulta e reserva das casas de vegetação e campos experimentais da Embrapa Cenargen." />
   <meta name="color-scheme" content="light" />
+
+  <!--
+    Content-Security-Policy: restringe de onde o navegador carrega recursos.
+    - default-src 'self': so aceita recursos do proprio dominio.
+    - script-src 'self': impede scripts injetados de terceiros.
+    - style-src 'self' 'unsafe-inline': estilos locais + inline (Leaflet precisa).
+    - img-src 'self' data: https://*.tile.openstreetmap.org: mapas e data-URI.
+    - connect-src 'self' %API_ORIGIN%: a propria origem + a origem da API
+      (VITE_API_URL). O vite.config.ts troca o %API_ORIGIN% no build e no dev.
+    - font-src 'self': fontes locais.
+    - frame-ancestors 'none': ninguem embute esta pagina em iframe.
+  -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' %API_ORIGIN%; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" />
   <meta name="theme-color" content="#f1f5f0" />
 
   <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png" />
@@ -21,6 +35,7 @@
   <link rel="stylesheet" href="/styles/login.css" />
   <link rel="stylesheet" href="/styles/map.css" />
   <link rel="stylesheet" href="/styles/admin.css" />
+  <link rel="stylesheet" href="/styles/telas.css" />
   <link rel="stylesheet" href="/styles/chat.css" />
 
   <script type="module" src="/src/main.ts"></script>
@@ -67,6 +82,7 @@
 <symbol id="i-calendar-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18h6" /> <path d="M16 2v3" /> <path d="M19 15v6" /> <path d="M21 11.5V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h8.3" /> <path d="M3 9h18" /> <path d="M8 2v3" /></symbol>
 <symbol id="i-calendar-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /> <path d="m14 13-4 4" /> <path d="m10 13 4 4" /></symbol>
 <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></symbol>
+<symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /> <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /> <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /> <path d="m2 2 20 20" /></symbol>
 <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /> <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /> <path d="M7 3v4a1 1 0 0 0 1 1h7" /></symbol>
 <symbol id="i-warehouse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21V10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v11" /> <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 1.132-1.803l7.95-3.974a2 2 0 0 1 1.837 0l7.948 3.974A2 2 0 0 1 22 8z" /> <path d="M6 13h12" /> <path d="M6 17h12" /></symbol>
 <symbol id="i-chart-pie" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" /> <path d="M21.21 15.89A10 10 0 1 1 8 2.83" /></symbol>
@@ -78,6 +94,15 @@
 <symbol id="i-message-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></symbol>
 <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8" /> <rect width="16" height="12" x="4" y="8" rx="2" /> <path d="M2 14h2" /> <path d="M20 14h2" /> <path d="M15 13v2" /> <path d="M9 13v2" /></symbol>
 <symbol id="i-send-horizontal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z" /> <path d="M6 12h16" /></symbol>
+<symbol id="i-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6" /></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol>
+<symbol id="i-funnel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0" /> <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" /></symbol>
+<symbol id="i-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3" /> <path d="M21 8V5a2 2 0 0 0-2-2h-3" /> <path d="M3 16v3a2 2 0 0 0 2 2h3" /> <path d="M16 21h3a2 2 0 0 0 2-2v-3" /></symbol>
+<symbol id="i-minimize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3" /> <path d="M21 8h-3a2 2 0 0 1-2-2V3" /> <path d="M3 16h3a2 2 0 0 1 2 2v3" /> <path d="M16 21v-3a2 2 0 0 1 2-2h3" /></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /></symbol>
+<symbol id="i-navigation" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11" /></symbol>
 </svg>
 <!-- icons:end -->
 
@@ -95,28 +120,10 @@
       <img class="login__logo" src="/assets/embrapa.png" alt="Embrapa"
            width="360" height="137" />
       <div>
-        <div class="login__brand-name">CVGWeb</div>
+        <h1 class="login__brand-name">CVGWeb</h1>
         <div class="login__brand-org">Cenargen</div>
       </div>
     </div>
-
-    <h1 class="login__title">Entrar</h1>
-    <p class="login__desc">
-      Gestão dos espaços experimentais e das casas de vegetação do Cenargen.
-    </p>
-
-    <div class="login__shortcuts" role="group" aria-label="Preencher com um perfil de demonstração">
-      <button type="button" class="login__shortcut" data-action="usar-perfil" data-role="pesquisador" aria-pressed="false">
-        <svg class="ic ic--lg" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
-        Pesquisador
-      </button>
-      <button type="button" class="login__shortcut" data-action="usar-perfil" data-role="admin" aria-pressed="false">
-        <svg class="ic ic--lg" aria-hidden="true"><use href="#i-shield-user" /></svg>
-        Administrador
-      </button>
-    </div>
-
-    <p class="login__or">ou use suas credenciais</p>
 
     <form id="form-entrada" novalidate>
       <p class="login__error" id="entrada-erro" role="alert" hidden>
@@ -125,22 +132,190 @@
       </p>
 
       <div class="field">
-        <label class="field__label" for="entrada-usuario">Usuário</label>
-        <input class="input" type="text" id="entrada-usuario" name="usuario"
-               autocomplete="username" autocapitalize="none" spellcheck="false" required />
+        <label class="field__label" for="entrada-usuario">E-mail</label>
+        <input class="input" type="email" id="entrada-usuario" name="email"
+               autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required />
       </div>
 
       <div class="field">
         <label class="field__label" for="entrada-senha">Senha</label>
-        <input class="input" type="password" id="entrada-senha" name="senha"
-               autocomplete="current-password" required />
+        <div class="senha">
+          <input class="input senha__campo" type="password" id="entrada-senha" name="senha"
+                 autocomplete="current-password" required />
+          <button class="senha__botao" type="button" data-action="alternar-senha"
+                  data-campo="entrada-senha" aria-controls="entrada-senha"
+                  aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha">
+            <svg class="ic senha__ic-ver" aria-hidden="true"><use href="#i-eye" /></svg>
+            <svg class="ic senha__ic-ocultar" aria-hidden="true" hidden><use href="#i-eye-off" /></svg>
+          </button>
+        </div>
       </div>
 
       <button class="btn btn--primary login__submit" type="submit" id="entrada-enviar">
         <svg class="ic" aria-hidden="true"><use href="#i-log-in" /></svg>
         Entrar
       </button>
+
+      <p class="login__links">
+        <button type="button" class="login__link" data-action="abrir-esqueci">Esqueci minha senha</button>
+      </p>
     </form>
+
+    <!-- Esqueci a senha: pede o e-mail; o back-end manda o link. -->
+    <form id="form-esqueci" novalidate hidden>
+      <h2 class="login__subtitle">Esqueci minha senha</h2>
+      <p class="login__desc">Enviamos um link para você criar uma senha nova.</p>
+
+      <p class="login__error" id="esqueci-erro" role="alert" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="esqueci-erro-texto"></span>
+      </p>
+
+      <div id="esqueci-campos">
+        <div class="field">
+          <label class="field__label" for="esqueci-email">E-mail</label>
+          <input class="input" type="email" id="esqueci-email" name="email"
+                 autocomplete="email" inputmode="email" spellcheck="false" required />
+        </div>
+
+        <button class="btn btn--primary login__submit" type="submit" id="esqueci-enviar">
+          <svg class="ic" aria-hidden="true"><use href="#i-send-horizontal" /></svg>
+          Enviar link
+        </button>
+      </div>
+
+      <div class="login__ok" id="esqueci-ok" role="status" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-check" /></svg>
+        <span id="esqueci-ok-texto"></span>
+      </div>
+
+      <p class="login__links">
+        <button type="button" class="login__link" data-action="voltar-entrada">Voltar para a entrada</button>
+      </p>
+    </form>
+
+  </div>
+</div>
+
+
+<!-- ===========================================================================
+     Definir senha (link do e-mail: /definir-senha?token=...)
+     =========================================================================== -->
+
+<div class="login" id="tela-definir" hidden>
+  <div class="login__card">
+
+    <div class="login__brand">
+      <img class="login__logo" src="/assets/embrapa.png" alt="Embrapa"
+           width="360" height="137" />
+      <div>
+        <div class="login__brand-name">CVGWeb</div>
+        <div class="login__brand-org">Cenargen</div>
+      </div>
+    </div>
+
+    <!-- conferindo o link -->
+    <div id="definir-conferindo">
+      <h1 class="login__title">Conferindo o link…</h1>
+      <p class="login__desc">Um instante.</p>
+    </div>
+
+    <!-- link inválido ou vencido -->
+    <div id="definir-invalido" hidden>
+      <h1 class="login__title">Link inválido ou vencido</h1>
+      <p class="login__error" role="alert">
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="definir-invalido-texto"></span>
+      </p>
+      <p class="login__desc">
+        Na tela de entrada, use "Esqueci minha senha" para receber um link novo,
+        ou peça à administração para reenviar o convite.
+      </p>
+      <button type="button" class="btn btn--primary login__submit" data-action="ir-entrada">
+        <svg class="ic" aria-hidden="true"><use href="#i-log-in" /></svg>
+        Ir para a entrada
+      </button>
+    </div>
+
+    <!-- formulário -->
+    <form id="form-definir" novalidate hidden>
+      <h1 class="login__title" id="definir-titulo">Crie a sua senha</h1>
+      <p class="login__desc" id="definir-desc"></p>
+
+      <dl class="login__resumo">
+        <div><dt>Nome</dt><dd id="definir-nome">—</dd></div>
+        <div><dt>E-mail de acesso</dt><dd id="definir-email">—</dd></div>
+      </dl>
+
+      <p class="login__error" id="definir-erro" role="alert" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="definir-erro-texto"></span>
+      </p>
+
+      <div class="field">
+        <label class="field__label" for="definir-senha">Nova senha</label>
+        <div class="senha">
+          <input class="input senha__campo" type="password" id="definir-senha" name="senha"
+                 autocomplete="new-password" minlength="8" required />
+          <button class="senha__botao" type="button" data-action="alternar-senha"
+                  data-campo="definir-senha" aria-controls="definir-senha"
+                  aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha">
+            <svg class="ic senha__ic-ver" aria-hidden="true"><use href="#i-eye" /></svg>
+            <svg class="ic senha__ic-ocultar" aria-hidden="true" hidden><use href="#i-eye-off" /></svg>
+          </button>
+        </div>
+        <p class="field__hint">Pelo menos 8 caracteres.</p>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="definir-confirmacao">Repita a senha</label>
+        <div class="senha">
+          <input class="input senha__campo" type="password" id="definir-confirmacao" name="confirmacao"
+                 autocomplete="new-password" minlength="8" required />
+          <button class="senha__botao" type="button" data-action="alternar-senha"
+                  data-campo="definir-confirmacao" aria-controls="definir-confirmacao"
+                  aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha">
+            <svg class="ic senha__ic-ver" aria-hidden="true"><use href="#i-eye" /></svg>
+            <svg class="ic senha__ic-ocultar" aria-hidden="true" hidden><use href="#i-eye-off" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <button class="btn btn--primary login__submit" type="submit" id="definir-enviar">
+        <svg class="ic" aria-hidden="true"><use href="#i-check" /></svg>
+        Salvar senha
+      </button>
+    </form>
+
+    <!-- pronto: resumo do acesso -->
+    <div id="definir-pronto" hidden>
+      <h1 class="login__title">Senha salva</h1>
+      <p class="login__ok" role="status">
+        <svg class="ic" aria-hidden="true"><use href="#i-circle-check" /></svg>
+        <span id="definir-pronto-texto"></span>
+      </p>
+      <p class="login__desc">Estes são os seus dados de acesso. Guarde-os:</p>
+
+      <dl class="login__resumo">
+        <div><dt>E-mail de acesso</dt><dd id="pronto-email">—</dd></div>
+        <div>
+          <dt>Senha</dt>
+          <dd class="login__resumo-senha">
+            <code id="pronto-senha" data-senha="" aria-live="polite">••••••••</code>
+            <button type="button" class="senha__botao" data-action="alternar-senha-pronta"
+                    aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha">
+              <svg class="ic senha__ic-ver" aria-hidden="true"><use href="#i-eye" /></svg>
+              <svg class="ic senha__ic-ocultar" aria-hidden="true" hidden><use href="#i-eye-off" /></svg>
+            </button>
+          </dd>
+        </div>
+      </dl>
+
+      <button type="button" class="btn btn--primary login__submit" data-action="ir-entrada">
+        <svg class="ic" aria-hidden="true"><use href="#i-log-in" /></svg>
+        Entrar no sistema
+      </button>
+    </div>
 
   </div>
 </div>
@@ -168,29 +343,46 @@
         <svg class="ic" aria-hidden="true"><use href="#i-map" /></svg>
         <span>Mapa</span>
       </button>
+      <button type="button" class="nav__item" id="nav-reservas" data-action="ver" data-view="reservas" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg>
+        <span>Reservas</span>
+        <span class="chip__badge" id="badge-pendentes-topo" hidden aria-label="pendentes">0</span>
+      </button>
+      <button type="button" class="nav__item" id="nav-projetos" data-action="ver" data-view="projetos" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
+        <span>Projetos</span>
+      </button>
+      <button type="button" class="nav__item" id="nav-usuarios" data-action="ver" data-view="usuarios" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-users" /></svg>
+        <span>Usuários</span>
+      </button>
       <button type="button" class="nav__item" id="nav-admin" data-action="ver" data-view="admin" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg>
+        <span>Espaços</span>
+      </button>
+      <button type="button" class="nav__item" id="nav-historico" data-action="ver" data-view="historico" hidden>
         <svg class="ic" aria-hidden="true"><use href="#i-shield-check" /></svg>
-        <span>Administração</span>
+        <span>Logs</span>
       </button>
     </nav>
 
     <div class="sidebar__footer">
       <button type="button" class="account" id="conta-btn"
               data-action="alternar-menu" aria-expanded="false" aria-controls="conta-menu">
-        <span class="account__avatar"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg></span>
+        <span class="account__avatar" id="conta-iniciais" aria-hidden="true">&mdash;</span>
         <span class="account__text">
           <span class="account__name" id="conta-nome">&mdash;</span>
           <span class="account__role" id="conta-perfil">&mdash;</span>
         </span>
-        <svg class="ic ic--sm account__caret" aria-hidden="true"><use href="#i-ellipsis-vertical" /></svg>
+        <svg class="ic ic--sm account__caret" aria-hidden="true"><use href="#i-chevron-up" /></svg>
       </button>
 
-      <div class="menu" id="conta-menu" hidden>
-        <button type="button" class="menu__item" data-action="abrir" data-modal="modal-docs">
+      <div class="menu" id="conta-menu" role="menu" hidden>
+        <button type="button" class="menu__item" role="menuitem" data-action="abrir" data-modal="modal-docs">
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-book-open" /></svg>
           Sobre o projeto
         </button>
-        <button type="button" class="menu__item menu__item--danger" data-action="sair">
+        <button type="button" class="menu__item menu__item--danger" role="menuitem" data-action="sair">
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-log-out" /></svg>
           Sair
         </button>
@@ -205,121 +397,240 @@
     <section class="view is-active" id="view-mapa" aria-labelledby="titulo-mapa">
       <h1 class="sr-only" id="titulo-mapa">Mapa dos espaços experimentais</h1>
 
-      <div class="map">
-        <picture>
-          <source srcset="/assets/MapEstufa.webp" type="image/webp" />
-          <img class="map__photo" id="map-foto" src="/assets/MapEstufa.jpg"
-               width="1296" height="1162" fetchpriority="high" decoding="async"
-               alt="Vista aérea do campus do Cenargen. Os espaços aparecem como marcadores sobre a foto e também estão listados na tabela da área de administração." />
-        </picture>
+      <div class="map" id="mapa" data-sem-nomes>
 
-        <div class="map__fallback" id="map-fallback" hidden>
-          <svg class="ic ic--xl" aria-hidden="true"><use href="#i-image-off" /></svg>
-          <p>A foto aérea não carregou. Os marcadores continuam clicáveis nas posições salvas.</p>
+        <!-- Foto e marcadores ficam num palco só, que é o que o zoom e o
+             arrasto movem: os dois andam sempre juntos. -->
+        <div class="map__viewport" id="map-viewport">
+          <div class="map__stage" id="map-palco">
+            <picture>
+              <source srcset="/assets/MapEstufa.webp" type="image/webp" />
+              <img class="map__photo" id="map-foto" src="/assets/MapEstufa.jpg"
+                   width="1296" height="1162" fetchpriority="high" decoding="async" draggable="false"
+                   alt="Vista aérea do campus do Cenargen. Os espaços aparecem como marcadores sobre a foto e também estão listados na tabela da área de administração." />
+            </picture>
+
+            <div class="map__fallback" id="map-fallback" hidden>
+              <svg class="ic ic--xl" aria-hidden="true"><use href="#i-image-off" /></svg>
+              <p>A foto aérea não carregou. Os marcadores continuam clicáveis nas posições salvas.</p>
+            </div>
+
+            <div class="map__markers" id="map-marcadores"></div>
+          </div>
         </div>
 
-        <div class="map__markers" id="map-marcadores"></div>
+        <!-- Busca -->
+        <div class="map-search" id="map-busca-caixa" role="search">
+          <!-- Fechada, a caixa e um botao quadrado com a lupa; o rotulo foca o
+               campo e o :focus-within abre, sem JS. -->
+          <label class="map-search__lupa" for="map-busca" title="Buscar">
+            <svg class="ic map-search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+            <span class="sr-only">Buscar estufa, código ou projeto</span>
+          </label>
+          <input class="map-search__input" id="map-busca" type="search" autocomplete="off" spellcheck="false"
+                 placeholder="Buscar estufa, código ou projeto…"
+                 role="combobox" aria-label="Buscar estufa, código ou projeto"
+                 aria-expanded="false" aria-controls="map-busca-lista" aria-autocomplete="list" />
+          <span class="map-search__keys" id="map-busca-atalho" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+          <ul class="map-search__list" id="map-busca-lista" role="listbox" aria-label="Espaços encontrados" hidden></ul>
+        </div>
 
-        <div class="legend">
+        <!-- Camadas, filtro e avisos (o sino ocupa o lugar da antiga tela cheia) -->
+        <div class="map-tools">
+          <div class="map-tools__item">
+            <button type="button" class="map-btn" id="map-btn-camadas" data-action="mapa-popover" data-alvo="map-pop-camadas"
+                    aria-label="Camadas do mapa" aria-expanded="false" aria-controls="map-pop-camadas">
+              <svg class="ic" aria-hidden="true"><use href="#i-layers" /></svg>
+            </button>
+            <div class="map-pop" id="map-pop-camadas" role="group" aria-labelledby="map-pop-camadas-titulo" hidden>
+              <h2 class="map-pop__title" id="map-pop-camadas-titulo">Camadas</h2>
+              <label class="map-pop__opt">
+                <input type="checkbox" data-camada="marcadores" checked />
+                Marcadores
+              </label>
+              <label class="map-pop__opt">
+                <input type="checkbox" data-camada="nomes" />
+                Nomes dos espaços
+              </label>
+              <label class="map-pop__opt">
+                <input type="checkbox" data-camada="legenda" checked />
+                Legenda
+              </label>
+            </div>
+          </div>
+
+          <div class="map-tools__item">
+            <button type="button" class="map-btn" id="map-btn-filtro" data-action="mapa-popover" data-alvo="map-pop-filtro"
+                    aria-label="Filtrar por disponibilidade" aria-expanded="false" aria-controls="map-pop-filtro">
+              <svg class="ic" aria-hidden="true"><use href="#i-funnel" /></svg>
+            </button>
+            <div class="map-pop" id="map-pop-filtro" role="group" aria-labelledby="map-pop-filtro-titulo" hidden>
+              <h2 class="map-pop__title" id="map-pop-filtro-titulo">Mostrar no mapa</h2>
+              <label class="map-pop__opt" data-status="livre">
+                <input type="checkbox" data-filtro="livre" checked />
+                <span class="ring" aria-hidden="true"></span>
+                Livre
+                <span class="map-pop__count" id="map-conta-livre">0</span>
+              </label>
+              <label class="map-pop__opt" data-status="ocupada">
+                <input type="checkbox" data-filtro="ocupada" checked />
+                <span class="ring" aria-hidden="true"></span>
+                Ocupada
+                <span class="map-pop__count" id="map-conta-ocupada">0</span>
+              </label>
+              <label class="map-pop__opt" data-status="reservada">
+                <input type="checkbox" data-filtro="reservada" checked />
+                <span class="ring" aria-hidden="true"></span>
+                Reservada
+                <span class="map-pop__count" id="map-conta-reservada">0</span>
+              </label>
+              <label class="map-pop__opt" data-status="manutencao">
+                <input type="checkbox" data-filtro="manutencao" checked />
+                <span class="ring" aria-hidden="true"></span>
+                Manutenção
+                <span class="map-pop__count" id="map-conta-manutencao">0</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="map-tools__item">
+            <button type="button" class="map-btn" id="map-btn-avisos" data-action="abrir-avisos" data-alvo="map-pop-avisos"
+                    aria-label="Avisos" aria-expanded="false" aria-controls="map-pop-avisos">
+              <svg class="ic" aria-hidden="true"><use href="#i-bell" /></svg>
+              <span class="map-btn__badge" id="map-avisos-conta" hidden></span>
+            </button>
+            <div class="map-pop map-pop--avisos" id="map-pop-avisos" role="region" aria-labelledby="map-pop-avisos-titulo" hidden>
+              <div class="avisos__topo">
+                <h2 class="map-pop__title" id="map-pop-avisos-titulo">Avisos</h2>
+                <span class="avisos__resumo" id="map-avisos-resumo" aria-live="polite"></span>
+              </div>
+              <ul class="avisos" id="map-avisos-lista"></ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legenda -->
+        <div class="legend" id="map-legenda">
           <h2 class="legend__title">Disponibilidade</h2>
           <ul class="legend__list">
-            <li class="legend__item" data-status="livre">
-              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-check" /></svg></span>
-              Livre
-            </li>
-            <li class="legend__item" data-status="ocupada">
-              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg></span>
-              Ocupada
-            </li>
-            <li class="legend__item" data-status="reservada">
-              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-check" /></svg></span>
-              Reservada
-            </li>
-            <li class="legend__item" data-status="manutencao">
-              <span class="legend__swatch"><svg class="ic ic--sm" aria-hidden="true"><use href="#i-wrench" /></svg></span>
-              Manutenção
-            </li>
+            <li class="legend__item" data-status="livre"><span class="ring" aria-hidden="true"></span>Livre</li>
+            <li class="legend__item" data-status="ocupada"><span class="ring" aria-hidden="true"></span>Ocupada</li>
+            <li class="legend__item" data-status="reservada"><span class="ring" aria-hidden="true"></span>Reservada</li>
+            <li class="legend__item" data-status="manutencao"><span class="ring" aria-hidden="true"></span>Manutenção</li>
           </ul>
+        </div>
+
+        <!-- Zoom e recentralizar -->
+        <div class="map-zoom">
+          <div class="map-zoom__group">
+            <button type="button" class="map-btn" id="map-zoom-mais" data-action="mapa-zoom" data-direcao="mais" aria-label="Aproximar">
+              <svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg>
+            </button>
+            <button type="button" class="map-btn" id="map-zoom-menos" data-action="mapa-zoom" data-direcao="menos" aria-label="Afastar">
+              <svg class="ic" aria-hidden="true"><use href="#i-minus" /></svg>
+            </button>
+          </div>
+          <button type="button" class="map-btn" data-action="mapa-centralizar" aria-label="Recentralizar o mapa">
+            <svg class="ic" aria-hidden="true"><use href="#i-navigation" /></svg>
+          </button>
         </div>
 
         <!-- Ficha do espaço. Fica fora da ordem de tabulação enquanto fechada. -->
         <aside class="panel" id="painel" hidden aria-labelledby="painel-nome" tabindex="-1">
-          <div class="panel__head">
+          <button type="button" class="close-btn panel__close" data-action="fechar-painel" aria-label="Fechar ficha do espaço">
+            <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+          </button>
+
+          <header class="panel__head">
+            <span class="panel__tile" aria-hidden="true"><svg class="ic"><use href="#i-warehouse" /></svg></span>
             <div class="panel__heading">
               <div class="panel__code" id="painel-codigo">&mdash;</div>
               <h2 class="panel__name" id="painel-nome">&mdash;</h2>
-              <div class="panel__type" id="painel-tipo">&mdash;</div>
-              <div class="panel__status" id="painel-status"></div>
             </div>
-            <button type="button" class="close-btn" data-action="fechar-painel" aria-label="Fechar ficha do espaço">
-              <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
-            </button>
-          </div>
+            <div class="panel__status" id="painel-status"></div>
+          </header>
 
           <div class="panel__body">
-            <p class="panel__desc" id="painel-descricao">&mdash;</p>
+            <div class="panel__photo" id="painel-foto" role="img" aria-label="Vista aérea do espaço"></div>
 
-            <dl class="specs">
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-map-pin" /></svg>
-                <dt class="specs__term">Setor</dt>
-                <dd class="specs__value" id="painel-setor">&mdash;</dd>
+            <div class="facts">
+              <dl class="facts__list">
+                <div class="facts__row">
+                  <svg class="ic facts__icon" aria-hidden="true"><use href="#i-layers" /></svg>
+                  <div>
+                    <dt class="facts__term">Tipo</dt>
+                    <dd class="facts__value" id="painel-tipo">&mdash;</dd>
+                  </div>
+                </div>
+                <div class="facts__row">
+                  <svg class="ic facts__icon" aria-hidden="true"><use href="#i-ruler" /></svg>
+                  <div>
+                    <dt class="facts__term">Área</dt>
+                    <dd class="facts__value" id="painel-area">&mdash;</dd>
+                  </div>
+                </div>
+              </dl>
+
+              <div class="gauge">
+                <h3 class="gauge__title" id="painel-capacidade-titulo">Capacidade</h3>
+                <div class="gauge__body">
+                  <div class="gauge__ring">
+                    <svg viewBox="0 0 36 36" aria-hidden="true">
+                      <circle class="gauge__track" cx="18" cy="18" r="15.9155" />
+                      <circle class="gauge__arc" id="painel-arco" cx="18" cy="18" r="15.9155" stroke-dasharray="0 100" />
+                    </svg>
+                    <span class="gauge__num" id="painel-capacidade">&mdash;</span>
+                  </div>
+                  <ul class="gauge__legend">
+                    <li><span class="gauge__dot gauge__dot--uso" aria-hidden="true"></span><span id="painel-em-uso">&mdash;</span></li>
+                    <li><span class="gauge__dot" aria-hidden="true"></span><span id="painel-disponiveis">&mdash;</span></li>
+                  </ul>
+                </div>
               </div>
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-ruler" /></svg>
-                <dt class="specs__term">Área</dt>
-                <dd class="specs__value" id="painel-area">&mdash;</dd>
+            </div>
+
+            <dl class="rows">
+              <div class="rows__row">
+                <svg class="ic rows__icon" aria-hidden="true"><use href="#i-sprout" /></svg>
+                <dt class="rows__term">Projeto atual</dt>
+                <dd class="rows__value" id="painel-projeto">&mdash;</dd>
               </div>
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-grid-3x3" /></svg>
-                <dt class="specs__term">Bancadas</dt>
-                <dd class="specs__value" id="painel-bancadas">&mdash;</dd>
+              <div class="rows__row">
+                <svg class="ic rows__icon" aria-hidden="true"><use href="#i-user" /></svg>
+                <dt class="rows__term">Responsável</dt>
+                <dd class="rows__value" id="painel-responsavel">&mdash;</dd>
               </div>
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-thermometer" /></svg>
-                <dt class="specs__term">Condições médias</dt>
-                <dd class="specs__value" id="painel-condicoes">&mdash;</dd>
-              </div>
-              <div class="specs__row">
-                <svg class="ic specs__icon" aria-hidden="true"><use href="#i-clock" /></svg>
-                <dt class="specs__term">Disponibilidade</dt>
-                <dd class="specs__value" id="painel-disponibilidade">&mdash;</dd>
+              <div class="rows__row">
+                <svg class="ic rows__icon" aria-hidden="true"><use href="#i-calendar-days" /></svg>
+                <dt class="rows__term">Período da ocupação</dt>
+                <dd class="rows__value" id="painel-periodo">&mdash;</dd>
               </div>
             </dl>
 
-            <div class="pots" id="painel-vasos" hidden>
-              <h3 class="pots__title">
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-flask-conical" /></svg>
-                Cabe cerca de
-              </h3>
-              <div class="pots__grid">
-                <div class="pots__cell">
-                  <div class="pots__num" id="painel-vaso-3">&mdash;</div>
-                  <div class="pots__unit">vasos 3 cm</div>
-                </div>
-                <div class="pots__cell">
-                  <div class="pots__num" id="painel-vaso-5">&mdash;</div>
-                  <div class="pots__unit">vasos 5 cm</div>
-                </div>
-                <div class="pots__cell">
-                  <div class="pots__num" id="painel-vaso-10">&mdash;</div>
-                  <div class="pots__unit">vasos 10 cm</div>
-                </div>
+            <section class="upcoming" aria-labelledby="painel-proximas-titulo">
+              <div class="upcoming__head">
+                <h3 class="upcoming__title" id="painel-proximas-titulo">
+                  <svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg>
+                  Próximas reservas
+                </h3>
+                <button type="button" class="upcoming__all" id="painel-ver-todas" data-action="mapa-ver-todas"
+                        aria-expanded="false" aria-controls="painel-proximas" hidden>
+                  <span id="painel-ver-todas-rotulo">Ver todas</span>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+                </button>
               </div>
-            </div>
-
-            <div class="linked" id="painel-reserva" hidden>
-              <h3 class="linked__title">
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-check" /></svg>
-                Reserva vinculada
-              </h3>
-              <p class="linked__project" id="painel-reserva-projeto">&mdash;</p>
-              <p class="linked__meta" id="painel-reserva-meta">&mdash;</p>
-            </div>
+              <ul class="upcoming__list" id="painel-proximas"></ul>
+              <p class="upcoming__empty" id="painel-proximas-vazio" hidden>Nenhuma reserva de hoje em diante.</p>
+            </section>
           </div>
 
           <div class="panel__foot">
-            <button type="button" class="btn btn--primary btn--block" id="painel-acao"></button>
+            <button type="button" class="btn btn--primary btn--block panel__cta" id="painel-acao"></button>
+            <!-- Por que o botão acima está desligado (sem projeto aprovado, por exemplo). -->
+            <p class="panel__impedimento" id="painel-impedimento" role="status" hidden>
+              <svg class="ic" aria-hidden="true"><use href="#i-info" /></svg>
+              <span id="painel-impedimento-texto"></span>
+            </p>
           </div>
         </aside>
       </div>
@@ -331,8 +642,8 @@
 
         <div class="page-head">
           <div>
-            <h1 class="page-head__title" id="titulo-admin">Administração</h1>
-            <p class="page-head__desc">Espaços, reservas e usuários do Cenargen</p>
+            <h1 class="page-head__title" id="titulo-admin">Espaços</h1>
+            <p class="page-head__desc">As estufas e casas de vegetação do Cenargen</p>
           </div>
 
           <div class="page-head__actions">
@@ -340,28 +651,18 @@
               <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chart-pie" /></svg>
               Painel
             </button>
-            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-reservas">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-days" /></svg>
-              Reservas
-              <span class="chip__badge" id="badge-pendentes-topo" hidden>0</span>
-            </button>
-            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-usuarios">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-users" /></svg>
-              Usuários
-            </button>
-            <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
-              Cadastrar usuário
-            </button>
           </div>
         </div>
+
+        <!-- Esta tela ficou só com os espaços: reservas, projetos e usuários
+             viraram seções próprias no menu. -->
+        <div class="stats" id="stats-espacos" aria-label="Resumo dos espaços"></div>
 
         <div class="section" id="sec-espacos">
           <div class="section__head">
             <h2 class="section__title">
-              <svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg>
-              Espaços
-              <span class="count" id="conta-espacos">0</span>
+              Casas de vegetação
+              <span class="count" id="conta-espacos" aria-live="polite">0</span>
             </h2>
             <div class="section__tools">
               <div class="search">
@@ -378,17 +679,18 @@
 
           <div class="table-wrap">
             <table class="table">
-              <caption class="sr-only">Espaços experimentais, com área, capacidade, quem reservou e status editável</caption>
+              <caption class="sr-only">Espaços experimentais, com área, capacidade disponível, quem reservou e a situação editável</caption>
               <thead>
                 <tr>
                   <th scope="col">Código</th>
                   <th scope="col">Nome</th>
                   <th scope="col">Tipo</th>
                   <th scope="col">Área</th>
-                  <th scope="col">Bancadas</th>
+                  <th scope="col">Capacidade</th>
                   <th scope="col">Status</th>
                   <th scope="col">Reservado por</th>
-                  <th scope="col">Alterar status</th>
+                  <th scope="col">Situação</th>
+                  <th scope="col">Editar</th>
                 </tr>
               </thead>
               <tbody id="tbody-espacos"></tbody>
@@ -399,9 +701,366 @@
       </div>
     </section>
 
+    <!-- ===== Reservas ===================================================
+         Tela própria, não modal: aprovar pendência é rotina diária da administração,
+         com filtro e busca — coisa que se percorre, e não um recado que se fecha.
+         ================================================================== -->
+    <section class="view" id="view-reservas" aria-labelledby="titulo-reservas">
+      <div class="pagina">
+
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-reservas">Reservas</h1>
+            <p class="page-head__desc">Aprovar, acompanhar e cancelar</p>
+          </div>
+        </div>
+
+        <div class="stats" id="stats-reservas" aria-label="Resumo das reservas"></div>
+
+        <div class="section" id="sec-reservas">
+          <div class="section__head">
+            <h2 class="section__title">
+              Todas
+              <span class="count" id="conta-reservas" aria-live="polite">0</span>
+            </h2>
+            <div class="section__tools">
+              <div class="chips" role="radiogroup" aria-label="Filtrar reservas por status">
+                <button type="button" class="chip" role="radio" aria-checked="true"
+                        data-action="filtrar-reservas" data-status="todas">Todas</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-reservas" data-status="pendente">
+                  Pendentes
+                  <span class="chip__badge" id="badge-pendentes" hidden aria-label="pendentes">0</span>
+                </button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-reservas" data-status="ativa">Ativas</button>
+              </div>
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="busca-reservas"
+                       placeholder="Buscar por código, espaço, projeto ou responsável" aria-label="Buscar reserva" />
+                <button type="button" class="search__clear" id="limpar-reservas"
+                        data-action="limpar-busca" data-target="reservas" aria-label="Limpar busca de reservas" hidden>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Reservas dos espaços experimentais</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Código</th>
+                  <th scope="col">Espaço</th>
+                  <th scope="col">Responsável</th>
+                  <th scope="col">Quantidade</th>
+                  <th scope="col">Projeto</th>
+                  <th scope="col">Período</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-reservas"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== Projetos ===================================================
+         A equipe e as permissões de cada membro continuam em modal filho: são
+         formulários curtos abertos a partir da linha do projeto.
+         ================================================================== -->
+    <section class="view" id="view-projetos" aria-labelledby="titulo-projetos">
+      <div class="pagina">
+
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-projetos">Projetos</h1>
+            <p class="page-head__desc">Todos os projetos do Cenargen. Você mexe só nos que participa.</p>
+          </div>
+
+          <div class="page-head__actions">
+            <!-- Convites recebidos e enviados: abre um modal, nao uma tela. -->
+            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-convites"
+                    aria-describedby="conta-convites">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-send-horizontal" /></svg>
+              Convites
+              <span class="chip__badge" id="conta-convites" hidden></span>
+            </button>
+            <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-projeto">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-plus" /></svg>
+              Novo projeto
+            </button>
+          </div>
+        </div>
+
+        <div class="section" id="sec-projetos">
+          <div class="section__head">
+            <h2 class="section__title">
+              <span id="titulo-filtro-projetos">Todos</span>
+              <span class="count" id="conta-projetos">0</span>
+            </h2>
+            <div class="section__tools">
+              <div class="chips" role="radiogroup" aria-label="Filtrar projetos">
+                <button type="button" class="chip" role="radio" aria-checked="true"
+                        data-action="filtrar-projetos" data-filtro="todos">Todos</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-projetos" data-filtro="meus">Meus projetos</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-projetos" data-filtro="outros">De outras pessoas</button>
+              </div>
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="busca-projetos"
+                       placeholder="Buscar por codigo, titulo, responsavel ou situacao"
+                       aria-label="Buscar projeto" />
+                <button type="button" class="search__clear" id="limpar-projetos"
+                        data-action="limpar-busca-projetos"
+                        aria-label="Limpar busca de projetos" hidden>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="pcards" id="lista-projetos" aria-label="Projetos de pesquisa"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== Usuários ===================================================
+         Tabela, não cartões: o que se procura aqui é uma pessoa específica — nome
+         completo, e-mail, cargo e situação do acesso lado a lado.
+         ================================================================== -->
+    <section class="view" id="view-usuarios" aria-labelledby="titulo-usuarios">
+      <div class="pagina">
+
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-usuarios">Usuários</h1>
+            <p class="page-head__desc">Quem tem acesso ao sistema — o primeiro acesso é por convite no e-mail</p>
+          </div>
+
+          <div class="page-head__actions">
+            <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
+              Cadastrar usuário
+            </button>
+          </div>
+        </div>
+
+        <!-- O servidor avisa aqui quando o envio de e-mail tem pendência
+             (modo de teste da Resend, chave faltando, modo de registro). -->
+        <div class="banner" id="aviso-email" role="status" hidden>
+          <svg class="ic" aria-hidden="true"><use href="#i-info" /></svg>
+          <ul id="aviso-email-lista"></ul>
+        </div>
+
+        <div class="stats" id="stats-usuarios" aria-label="Resumo dos usuários"></div>
+
+        <div class="section" id="sec-usuarios">
+          <div class="section__head">
+            <h2 class="section__title">
+              Todos
+              <span class="count" id="conta-usuarios">0</span>
+            </h2>
+            <div class="section__tools">
+              <div class="chips" role="radiogroup" aria-label="Filtrar usuários">
+                <button type="button" class="chip" role="radio" aria-checked="true"
+                        data-action="filtrar-usuarios" data-filtro="todos">Todos</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-usuarios" data-filtro="admin">Administradores</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-usuarios" data-filtro="pesquisador">Pesquisadores</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-usuarios" data-filtro="sem-senha">
+                  Sem senha
+                  <span class="chip__badge" id="badge-sem-senha" hidden aria-label="sem senha">0</span>
+                </button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="filtrar-usuarios" data-filtro="inativo">Inativos</button>
+              </div>
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="busca-usuarios"
+                       placeholder="Buscar por nome, e-mail, identificador interno ou cargo"
+                       aria-label="Buscar usuário" />
+                <button type="button" class="search__clear" id="limpar-usuarios"
+                        data-action="limpar-busca" data-target="usuarios"
+                        aria-label="Limpar busca de usuários" hidden>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Usuários com acesso ao sistema, com e-mail, cargo e situação do acesso</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Nome completo</th>
+                  <th scope="col">E-mail</th>
+                  <th scope="col">Identificador interno</th>
+                  <th scope="col">Cargo</th>
+                  <th scope="col">Situação</th>
+                  <th scope="col">Último acesso</th>
+                  <th scope="col">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-usuarios"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== Log de atividade ============================================ -->
+    <section class="view" id="view-historico" aria-labelledby="titulo-historico">
+      <div class="pagina audit-page">
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-historico">Logs</h1>
+            <p class="page-head__desc">Tudo o que foi feito no sistema: quem, o quê e quando</p>
+          </div>
+          <div class="page-head__actions">
+            <button type="button" class="btn btn--quiet btn--sm" id="auditoria-limpar"
+                    data-action="limpar-auditoria" hidden>
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+              Limpar filtros
+            </button>
+          </div>
+        </div>
+
+        <div class="section audit-section" id="sec-auditoria">
+          <div class="audit-filters" aria-label="Filtros principais do log">
+            <div class="field audit-search">
+              <label class="field__label" for="auditoria-busca">Buscar</label>
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="auditoria-busca"
+                       placeholder="Buscar por pessoa, registro ou tipo (ex.: Ana, R012, Reserva)" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-acao">Ação</label>
+              <select class="select" id="auditoria-acao" data-change="filtro-auditoria" data-campo="acao"></select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-pessoa">Pessoa</label>
+              <select class="select" id="auditoria-pessoa" data-change="filtro-auditoria" data-campo="funcionario_id"></select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-de">De</label>
+              <input class="input" type="date" id="auditoria-de" data-change="filtro-auditoria" data-campo="de" />
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-ate">Até</label>
+              <input class="input" type="date" id="auditoria-ate" data-change="filtro-auditoria" data-campo="ate" />
+            </div>
+          </div>
+
+          <details class="audit-filters__advanced">
+            <summary>Filtros avançados</summary>
+            <div class="audit-filters__extra">
+              <div class="field">
+                <label class="field__label" for="auditoria-entidade">Registro</label>
+                <select class="select" id="auditoria-entidade" data-change="filtro-auditoria" data-campo="entidade"></select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="auditoria-projeto">Projeto</label>
+                <select class="select" id="auditoria-projeto" data-change="filtro-auditoria" data-campo="projeto_id"></select>
+              </div>
+            </div>
+          </details>
+
+          <div class="audit-log__head">
+            <h2 class="audit-log__title">Eventos</h2>
+            <span class="audit-log__count"><strong id="conta-auditoria">0</strong> eventos</span>
+          </div>
+
+          <div class="table-wrap audit-log__wrap">
+            <table class="table audit-log">
+              <caption class="sr-only">Log de atividade com data, ação, pessoa, registro e detalhes</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Quando</th>
+                  <th scope="col">Ação</th>
+                  <th scope="col">Pessoa</th>
+                  <th scope="col">Evento</th>
+                  <th scope="col">Detalhe</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-auditoria"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="paginacao-barra audit-pagination">
+          <p class="paginacao__info">
+            Mostrando <strong id="auditoria-intervalo">&mdash;</strong> eventos
+          </p>
+          <div class="paginacao">
+            <button type="button" class="btn btn--quiet btn--sm" id="auditoria-anterior"
+                    data-action="paginar-auditoria" data-direcao="anterior" disabled>Anterior</button>
+            <span class="paginacao__pagina" id="auditoria-pagina">página 1 de 1</span>
+            <button type="button" class="btn btn--quiet btn--sm" id="auditoria-proxima"
+                    data-action="paginar-auditoria" data-direcao="proxima" disabled>Próxima</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
   </main>
 </div>
 
+
+<!-- ===========================================================================
+     Tela de falha
+
+     Aparece quando o sistema nao consegue continuar: API fora do ar, 403, 500.
+     Fica por cima de tudo, inclusive da tela de entrada, e o codigo HTTP
+     aparece de proposito — e o que serve para pedir ajuda ou abrir chamado.
+     =========================================================================== -->
+<div class="falha" id="tela-falha" hidden>
+  <div class="falha__card" role="alert" aria-labelledby="falha-titulo">
+
+    <span class="falha__mark">
+      <svg class="ic ic--xl" aria-hidden="true"><use id="falha-icone" href="#i-circle-x" /></svg>
+    </span>
+
+    <p class="falha__codigo" id="falha-codigo">&mdash;</p>
+    <h1 class="falha__titulo" id="falha-titulo">&mdash;</h1>
+    <p class="falha__desc" id="falha-desc">&mdash;</p>
+
+    <p class="falha__detalhe" id="falha-detalhe" hidden>
+      <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+      <span id="falha-detalhe-texto"></span>
+    </p>
+
+    <div class="falha__acoes">
+      <button type="button" class="btn btn--primary" id="falha-repetir" data-action="tentar-de-novo">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        Tentar de novo
+      </button>
+      <button type="button" class="btn btn--quiet" id="falha-sair" data-action="sair">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-log-out" /></svg>
+        Sair
+      </button>
+    </div>
+
+    <p class="falha__dica" id="falha-dica" hidden>
+      <span id="falha-dica-texto"></span>
+    </p>
+  </div>
+</div>
 
 <!-- ===========================================================================
      Modais
@@ -421,7 +1080,7 @@
       </button>
     </div>
     <div class="dialog__body">
-      <div class="metrics">
+<div class="metrics">
         <button type="button" class="metric" data-action="ir-para" data-target="espacos">
           <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg></span>
           <span class="metric__body">
@@ -445,6 +1104,15 @@
           <span class="metric__body">
             <span class="metric__value" id="m-reservas">&mdash;</span>
             <span class="metric__label">Reservas em aberto</span>
+          </span>
+          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        </button>
+
+        <button type="button" class="metric" data-tone="busy" data-action="ir-para" data-target="reservas-pendente">
+          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-clock" /></svg></span>
+          <span class="metric__body">
+            <span class="metric__value" id="m-pendentes">&mdash;</span>
+            <span class="metric__label">Aguardando aprovação</span>
           </span>
           <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
         </button>
@@ -474,66 +1142,187 @@
   </div>
 </div>
 
-<!-- Todas as reservas -->
-<div class="scrim" id="modal-reservas" hidden>
-  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="reservas-titulo">
+
+
+
+<!-- Cadastro do projeto -->
+<div class="scrim" id="modal-projeto" hidden>
+  <div class="dialog dialog--form" role="dialog" aria-modal="true" aria-labelledby="proj-dialogo-titulo">
     <div class="dialog__head">
-      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg></span>
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg></span>
       <div class="dialog__heading">
-        <h2 class="dialog__title" id="reservas-titulo">Reservas</h2>
-        <p class="dialog__desc">Aprovar, acompanhar e cancelar</p>
+        <h2 class="dialog__title" id="proj-dialogo-titulo">Novo projeto</h2>
+        <p class="dialog__desc">
+          Um projeto não fica preso a uma estufa: cada reserva diz de qual estufa
+          e para qual projeto, então ele pode usar vasos de várias.
+        </p>
       </div>
-      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar reservas">
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar cadastro de projeto">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-projeto" novalidate>
+      <!-- Só para quem propõe: a administração cria direto, sem passar por fila. -->
+      <p class="dialog__nota" id="proj-aviso-proposta" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-clock" /></svg>
+        A proposta vai para a administração. Enquanto não for aprovada, o
+        projeto não aceita reservas.
+      </p>
+
+      <!-- Sem campo de codigo: ele nasce sozinho no back-end (P-2026-001). -->
+      <div class="field">
+        <label class="field__label" for="proj-titulo">Nome do projeto</label>
+        <input class="input" type="text" id="proj-titulo" name="titulo" maxlength="200"
+               placeholder="Plantação de feijão-caupi" required />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="proj-descricao">O que o projeto vai fazer</label>
+        <textarea class="input" id="proj-descricao" name="descricao" rows="3" required
+                  aria-describedby="proj-descricao-ajuda"
+                  placeholder="Objetivo, o que vai ser plantado ou testado, como"></textarea>
+        <p class="field__hint" id="proj-descricao-ajuda">
+          É aqui que se explica o trabalho; as reservas só dizem quanto e quando.
+        </p>
+      </div>
+
+      <!-- Participantes: so na criacao. Depois, a equipe e mexida em
+           "Equipe e permissoes". Entram sem permissao (so leitura). -->
+      <div class="field" id="proj-participantes-campo">
+        <label class="field__label" for="proj-participante">
+          Participantes <span class="field__opcional">opcional</span>
+        </label>
+        <select class="select" id="proj-participante" aria-describedby="proj-participantes-ajuda"></select>
+        <ul class="pessoas" id="proj-participantes" aria-label="Participantes escolhidos"></ul>
+        <p class="field__hint" id="proj-participantes-ajuda">
+          Quem trabalha com você no projeto. Entram na equipe só acompanhando;
+          a administração concede as permissões.
+        </p>
+      </div>
+
+      <div class="form-cols">
+        <fieldset class="fieldset">
+          <legend class="fieldset__legend">Responsabilidade</legend>
+
+          <div class="field">
+            <label class="field__label" for="proj-responsavel">Pesquisador responsavel</label>
+            <select class="select" id="proj-responsavel" name="funcionario_id" required></select>
+            <p class="field__hint">Entra na equipe como lider do projeto.</p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="proj-status">Situacao</label>
+            <select class="select" id="proj-status" name="status_projeto_id" required></select>
+            <p class="field__hint">Suspenso, concluido e cancelado nao aceitam novas reservas.</p>
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend class="fieldset__legend">Periodo</legend>
+
+          <div class="field">
+            <label class="field__label" for="proj-inicio">
+              Inicio <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="date" id="proj-inicio" name="data_inicio" />
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="proj-fim">
+              Fim <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="date" id="proj-fim" name="data_fim" />
+          </div>
+        </fieldset>
+      </div>
+
+      <p class="field__error" id="proj-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="proj-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" form="form-projeto">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        <span id="proj-enviar-texto">Criar projeto</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Equipe do projeto -->
+<div class="scrim" id="modal-equipe" hidden>
+  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="equipe-projeto-nome">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-users" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="equipe-projeto-nome">Equipe</h2>
+        <p class="dialog__desc" id="equipe-projeto-desc">&mdash;</p>
+      </div>
+      <button type="button" class="btn btn--quiet btn--sm" data-action="voltar-projetos">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        Projetos
+      </button>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar equipe">
         <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
       </button>
     </div>
 
     <div class="dialog__body dialog__body--flush">
-      <div class="section" id="sec-reservas">
+      <div class="section" id="sec-equipe">
         <div class="section__head">
           <h3 class="section__title">
-            Todas
-            <span class="count" id="conta-reservas">0</span>
+            Membros
+            <span class="count" id="conta-equipe">0</span>
           </h3>
-          <div class="section__tools">
-            <div class="chips" role="tablist" aria-label="Filtrar reservas por status">
-              <button type="button" class="chip" role="tab" aria-selected="true"
-                      data-action="filtrar-reservas" data-status="todas">Todas</button>
-              <button type="button" class="chip" role="tab" aria-selected="false"
-                      data-action="filtrar-reservas" data-status="pendente">
-                Pendentes
-                <span class="chip__badge" id="badge-pendentes" hidden>0</span>
-              </button>
-              <button type="button" class="chip" role="tab" aria-selected="false"
-                      data-action="filtrar-reservas" data-status="ativa">Ativas</button>
-            </div>
-            <div class="search">
-              <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
-              <input class="input" type="search" id="busca-reservas"
-                     placeholder="Buscar por código, espaço, projeto ou responsável" aria-label="Buscar reserva" />
-              <button type="button" class="search__clear" id="limpar-reservas"
-                      data-action="limpar-busca" data-target="reservas" aria-label="Limpar busca de reservas" hidden>
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
-              </button>
-            </div>
-          </div>
         </div>
+
+        <!--
+          Incluir alguem e um ato so: pessoa, papel e, se quiser, a funcao no
+          projeto. Entra SEM permissao nenhuma, de proposito: conceder CRUD e
+          um segundo passo, explicito, em "Permissoes".
+        -->
+        <form class="barra-inclusao" id="form-equipe-membro" novalidate>
+          <div class="field">
+            <label class="field__label" for="equipe-novo-membro">Incluir na equipe</label>
+            <select class="select" id="equipe-novo-membro"></select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="equipe-novo-papel">Papel</label>
+            <select class="select" id="equipe-novo-papel">
+              <option value="PESQUISADOR">Pesquisador</option>
+              <option value="LIDER">Lider</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="equipe-nova-funcao">
+              Funcao <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="text" id="equipe-nova-funcao" maxlength="80"
+                   placeholder="bolsista, tecnico..." autocomplete="off" />
+          </div>
+          <button type="submit" class="btn btn--primary">
+            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
+            Incluir
+          </button>
+        </form>
 
         <div class="table-wrap">
           <table class="table">
-            <caption class="sr-only">Reservas dos espaços experimentais</caption>
+            <caption class="sr-only">Membros da equipe do projeto, com papel, funcao e quantas permissoes cada um tem</caption>
             <thead>
               <tr>
-                <th scope="col">Código</th>
-                <th scope="col">Espaço</th>
-                <th scope="col">Responsável</th>
-                <th scope="col">Projeto</th>
-                <th scope="col">Período</th>
-                <th scope="col">Status</th>
-                <th scope="col">Ações</th>
+                <th scope="col">Membro</th>
+                <th scope="col">Papel</th>
+                <th scope="col">Funcao</th>
+                <th scope="col">Permissoes</th>
+                <th scope="col">Acoes</th>
               </tr>
             </thead>
-            <tbody id="tbody-reservas"></tbody>
+            <tbody id="tbody-equipe"></tbody>
           </table>
         </div>
       </div>
@@ -541,27 +1330,165 @@
   </div>
 </div>
 
-<!-- Usuarios -->
-<div class="scrim" id="modal-usuarios" hidden>
-  <div class="dialog dialog--wide" role="dialog" aria-modal="true" aria-labelledby="usuarios-titulo">
+<!-- Permissoes do membro naquele projeto -->
+<div class="scrim" id="modal-permissoes" hidden>
+  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="perm-titulo">
     <div class="dialog__head">
-      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-users" /></svg></span>
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-shield-user" /></svg></span>
       <div class="dialog__heading">
-        <h2 class="dialog__title" id="usuarios-titulo">
-          Usuários <span class="count" id="conta-usuarios">0</span>
-        </h2>
-        <p class="dialog__desc">Quem tem acesso ao sistema</p>
+        <h2 class="dialog__title" id="perm-titulo">Permissoes</h2>
+        <p class="dialog__desc" id="perm-desc">&mdash;</p>
       </div>
-      <button type="button" class="btn btn--primary btn--sm" data-action="abrir-novo-usuario">
-        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user-plus" /></svg>
-        Cadastrar
+      <button type="button" class="btn btn--quiet btn--sm" data-action="voltar-equipe">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+        Equipe
       </button>
-      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar usuários">
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar permissoes">
         <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
       </button>
     </div>
+
     <div class="dialog__body">
-      <div class="users-grid" id="grid-usuarios"></div>
+      <div class="form-cols perm-grupos" id="perm-grupos"></div>
+    </div>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="sugerir-permissoes">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-check" /></svg>
+        Sugerir pelo papel
+      </button>
+      <button type="button" class="btn btn--quiet" data-action="voltar-equipe">Cancelar</button>
+      <button type="button" class="btn btn--primary" data-action="salvar-permissoes">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        Salvar permissoes
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Desativar quem lidera projetos: escolher quem assume cada um -->
+<div class="scrim" id="modal-lideranca" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="lideranca-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-ban" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="lideranca-titulo">Desativar este acesso?</h2>
+        <p class="dialog__desc" id="lideranca-desc">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-lideranca" novalidate>
+      <p class="field__aviso" data-tom="atencao">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        Nenhum projeto pode ficar com líder desativado. Escolha quem assume cada
+        um; a pessoa recebe o necessário para conduzir o projeto.
+      </p>
+      <div id="lideranca-projetos" class="convites"></div>
+
+      <p class="field__error" id="lideranca-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="lideranca-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--danger" id="lideranca-enviar" form="form-lideranca">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-ban" /></svg>
+        Passar a liderança e desativar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Convidar pessoas para um projeto -->
+<div class="scrim" id="modal-convidar" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="convidar-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-user-plus" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="convidar-titulo">Convidar para o projeto</h2>
+        <p class="dialog__desc" id="convidar-projeto">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar convite">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-convidar" novalidate>
+      <div class="field">
+        <label class="field__label" for="convidar-busca">Quem você quer convidar</label>
+        <input class="input" type="search" id="convidar-busca" autocomplete="off"
+               placeholder="Digite o nome ou o cargo" aria-controls="convidar-pessoas" />
+        <ul class="opcoes-pessoas" id="convidar-pessoas" aria-label="Pessoas encontradas"></ul>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="convidar-escolhidos-titulo">Vão receber o convite</span>
+        <ul class="pessoas" id="convidar-escolhidos" aria-labelledby="convidar-escolhidos-titulo"></ul>
+        <p class="field__hint" id="convidar-nenhum">Ninguém escolhido ainda.</p>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="convidar-mensagem">
+          Mensagem <span class="field__opcional">opcional</span>
+        </label>
+        <textarea class="input" id="convidar-mensagem" rows="2" maxlength="500"
+                  placeholder="Para que você precisa da pessoa no projeto"></textarea>
+      </div>
+
+      <p class="field__aviso">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        A pessoa recebe o convite no sistema e por e-mail, e só entra na equipe se
+        aceitar. Entra acompanhando o projeto; o que ela pode fazer é definido em
+        Equipe e permissões.
+      </p>
+
+      <p class="field__error" id="convidar-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="convidar-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" id="convidar-enviar" form="form-convidar">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-send-horizontal" /></svg>
+        <span id="convidar-enviar-texto">Enviar convite</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Convites recebidos e enviados -->
+<div class="scrim" id="modal-convites" hidden>
+  <div class="dialog dialog--form" role="dialog" aria-modal="true" aria-labelledby="convites-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-send-horizontal" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="convites-titulo">Convites</h2>
+        <p class="dialog__desc">Projetos para os quais chamaram você, e quem você chamou para os seus.</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar convites">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body">
+      <div class="chips" role="radiogroup" aria-label="Convites">
+        <button type="button" class="chip" role="radio" aria-checked="true"
+                data-action="aba-convites" data-aba="recebidos">
+          Recebidos <span class="chip__badge" id="conta-convites-recebidos" hidden></span>
+        </button>
+        <button type="button" class="chip" role="radio" aria-checked="false"
+                data-action="aba-convites" data-aba="enviados">Enviados</button>
+      </div>
+
+      <div id="convites-recebidos" class="convites"></div>
+      <div id="convites-enviados" class="convites" hidden></div>
     </div>
   </div>
 </div>
@@ -575,7 +1502,7 @@
         <h2 class="dialog__title" id="novo-usuario-titulo">Cadastrar usuário</h2>
         <p class="dialog__desc">
           O sistema é restrito e não tem tela de cadastro aberta. Informe o e-mail
-          para liberar o acesso; a entrada é feita com esse e-mail e a senha padrão.
+          para liberar o acesso: a entrada no sistema é feita só com esse e-mail.
         </p>
       </div>
       <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar cadastro">
@@ -584,6 +1511,16 @@
     </div>
 
     <form class="dialog__body" id="form-novo-usuario" novalidate>
+      <div class="field">
+        <label class="field__label" for="novo-usuario-nome">Nome completo</label>
+        <input class="input" type="text" id="novo-usuario-nome" name="nome"
+               maxlength="150" placeholder="Ana Paula Ribeiro" autocomplete="off"
+               aria-describedby="novo-usuario-nome-ajuda" required />
+        <p class="field__hint" id="novo-usuario-nome-ajuda">
+          É este nome que aparece na lista de usuários e nas reservas.
+        </p>
+      </div>
+
       <div class="field">
         <label class="field__label" for="novo-usuario-email">E-mail</label>
         <input class="input" type="email" id="novo-usuario-email" name="email"
@@ -595,26 +1532,408 @@
         </p>
       </div>
 
-      <div class="field">
-        <span class="field__label" id="novo-usuario-perfil-titulo">Perfil de acesso</span>
-        <div class="segmented" role="radiogroup" aria-labelledby="novo-usuario-perfil-titulo" id="novo-usuario-perfil">
-          <button type="button" class="segmented__option" role="radio" aria-checked="true" data-role="pesquisador">
-            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg>
-            Pesquisador
-          </button>
-          <button type="button" class="segmented__option" role="radio" aria-checked="false" data-role="admin">
-            <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-user" /></svg>
-            Administrador
-          </button>
+      <!--
+        O e-mail e o unico identificador de entrada: nao ha usuario/nick.
+        O cargo tambem define o acesso: Administrador entra como adm do
+        sistema; os demais cargos, como funcionario comum.
+      -->
+      <fieldset class="fieldset">
+        <legend class="fieldset__legend">Dados funcionais</legend>
+
+        <div class="field-row">
+          <div class="field">
+            <label class="field__label" for="novo-usuario-cargo">Cargo</label>
+            <select class="select" id="novo-usuario-cargo" name="cargo_id"
+                    aria-describedby="novo-usuario-cargo-ajuda" required></select>
+            <p class="field__hint" id="novo-usuario-cargo-ajuda">
+              Administrador tem acesso à administração do sistema.
+            </p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="novo-usuario-matricula">
+              Identificador interno <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="text" id="novo-usuario-matricula" name="matricula"
+                   maxlength="20" autocomplete="off" />
+          </div>
         </div>
-      </div>
+      </fieldset>
+
+      <p class="field__hint">
+        O usuário é cadastrado sem senha: ele recebe neste e-mail um link para
+        criar a própria senha, válido por 48 horas. Nem a administração conhece
+        a senha de ninguém.
+      </p>
+
     </form>
 
     <div class="dialog__foot">
       <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
-      <button type="submit" class="btn btn--primary" form="form-novo-usuario">
+      <button type="submit" class="btn btn--primary" id="novo-usuario-enviar" form="form-novo-usuario">
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-check" /></svg>
         Cadastrar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Editar usuario -->
+<div class="scrim" id="modal-usuario-editar" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="editar-usuario-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-user" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="editar-usuario-titulo">&mdash;</h2>
+        <p class="dialog__desc" id="editar-usuario-desc">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar edição de usuário">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-editar-usuario" novalidate>
+
+      <div class="resumo" id="editar-usuario-resumo">
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Acesso</span>
+          <span class="resumo__valor" id="editar-usuario-situacao">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Último acesso</span>
+          <span class="resumo__valor" id="editar-usuario-acesso">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Projetos</span>
+          <span class="resumo__valor" id="editar-usuario-projetos">&mdash;</span>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="editar-usuario-nome">Nome completo</label>
+          <input class="input" type="text" id="editar-usuario-nome" maxlength="150" required />
+          <p class="field__hint">Corrigir aqui corrige nas reservas e no histórico.</p>
+        </div>
+        <div class="field">
+          <label class="field__label" for="editar-usuario-email">E-mail</label>
+          <input class="input" type="email" id="editar-usuario-email" autocapitalize="none"
+                 spellcheck="false" required />
+          <p class="field__hint">O e-mail é usado para entrar no sistema.</p>
+        </div>
+      </div>
+
+      <fieldset class="fieldset">
+        <legend class="fieldset__legend">Dados funcionais</legend>
+        <div class="field-row">
+          <div class="field">
+            <label class="field__label" for="editar-usuario-cargo">Cargo</label>
+            <select class="select" id="editar-usuario-cargo" required></select>
+            <p class="field__hint">Administrador tem acesso à administração do sistema.</p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="editar-usuario-matricula">
+              Identificador interno <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="text" id="editar-usuario-matricula" maxlength="20" />
+          </div>
+        </div>
+      </fieldset>
+
+      <p class="field__aviso">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-shield-check" /></svg>
+        A senha não aparece aqui, para ninguém. Para a pessoa definir outra, use
+        &ldquo;Convite&rdquo; na lista de usuários.
+      </p>
+
+      <p class="field__error" id="editar-usuario-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="editar-usuario-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" id="editar-usuario-enviar" form="form-editar-usuario">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        Salvar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Editar reserva -->
+<div class="scrim" id="modal-reserva-editar" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="editar-reserva-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-calendar-check" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="editar-reserva-titulo">&mdash;</h2>
+        <p class="dialog__desc" id="editar-reserva-desc">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar edição de reserva">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-editar-reserva" novalidate>
+
+      <div class="resumo">
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Situação</span>
+          <span class="resumo__valor" id="editar-reserva-status">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Responsável</span>
+          <span class="resumo__valor" id="editar-reserva-responsavel">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Capacidade do espaço</span>
+          <span class="resumo__valor" id="editar-reserva-capacidade">&mdash;</span>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="editar-reserva-inicio">Início</label>
+          <input class="input" type="date" id="editar-reserva-inicio" required />
+        </div>
+        <div class="field">
+          <label class="field__label" for="editar-reserva-fim">Fim</label>
+          <input class="input" type="date" id="editar-reserva-fim" required />
+        </div>
+      </div>
+
+      <p class="field__aviso" id="editar-reserva-disponibilidade" aria-live="polite" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        <span id="editar-reserva-disponibilidade-texto"></span>
+      </p>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="editar-reserva-quantidade">Quantidade</label>
+          <div class="field__inline">
+            <input class="input" type="number" id="editar-reserva-quantidade" min="1" required />
+            <span class="field__sufixo" id="editar-reserva-unidade">vasos</span>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="editar-reserva-finalidade">Finalidade</label>
+          <input class="input" type="text" id="editar-reserva-finalidade" maxlength="255"
+                 list="lista-finalidades" autocomplete="off" required />
+        </div>
+      </div>
+
+
+      <p class="field__aviso" data-tom="atencao">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        Mudar período ou quantidade devolve a reserva para pendente: a aprovação
+        valia para o que foi aprovado, e a capacidade é conferida de novo.
+      </p>
+
+      <p class="field__error" id="editar-reserva-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="editar-reserva-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot dialog__foot--espalhado">
+      <button type="button" class="btn btn--danger btn--sm" data-action="excluir-reserva-aberta">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-trash-2" /></svg>
+        Excluir reserva
+      </button>
+      <div class="dialog__foot-acoes">
+        <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+        <button type="submit" class="btn btn--primary" id="editar-reserva-enviar" form="form-editar-reserva">
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+          Salvar alterações
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Alterar / cadastrar espaço -->
+<!--
+  Duas colunas de assunto em vez de quatro linhas de dois campos: antes cada
+  linha tinha um campo com texto de ajuda e outro sem, e o curto deixava um
+  buraco do tamanho da ajuda do vizinho. Agora identificação e capacidade ficam
+  cada uma no seu bloco, da mesma altura, e a faixa do topo mostra a ocupação
+  da estufa escolhida — que era a informação que faltava para decidir.
+-->
+<div class="scrim" id="modal-espaco" hidden>
+  <div class="dialog dialog--form" role="dialog" aria-modal="true" aria-labelledby="espaco-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="espaco-titulo">Alterar estufa</h2>
+        <p class="dialog__desc" id="espaco-descricao">
+          Escolha a estufa pelo código e corrija o que mudou no cadastro.
+        </p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar cadastro de espaço">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <form class="dialog__body" id="form-espaco" novalidate>
+      <!--
+        As estufas do Cenargen são 50, nem mais nem menos: o caminho normal
+        aqui é ESCOLHER uma e alterar o cadastro dela. Por isso o campo de
+        código sugere o que já existe — digitar "CVG0" lista as estufas e
+        escolher uma traz o cadastro inteiro.
+      -->
+      <div class="field-row">
+        <div class="field">
+          <label class="field__label" for="espaco-codigo">Código da estufa</label>
+          <div class="combo">
+            <svg class="ic ic--sm combo__icone" aria-hidden="true"><use href="#i-search" /></svg>
+            <input class="input combo__campo" type="text" id="espaco-codigo" name="codigo"
+                   maxlength="20" placeholder="CVG01" autocapitalize="characters"
+                   autocomplete="off" spellcheck="false" required
+                   role="combobox" aria-expanded="false" aria-controls="espaco-sugestoes"
+                   aria-autocomplete="list" aria-describedby="espaco-codigo-ajuda" />
+            <ul class="combo__lista combo__lista--larga" id="espaco-sugestoes" role="listbox"
+                aria-label="Estufas que casam com o código digitado" hidden></ul>
+          </div>
+          <p class="field__hint" id="espaco-codigo-ajuda">
+            Digite <strong>CVG0</strong> e escolha na lista. O número define a posição no mapa.
+          </p>
+        </div>
+        <div class="field">
+          <label class="field__label" for="espaco-descricao-campo">Nome da estufa</label>
+          <input class="input" type="text" id="espaco-descricao-campo" name="descricao"
+                 maxlength="150" placeholder="Estufa 01" required />
+        </div>
+      </div>
+
+      <p class="combo__alvo" id="espaco-alvo" aria-live="polite"></p>
+
+      <!-- Como está a estufa escolhida, hoje. Só aparece depois da escolha. -->
+      <div class="resumo" id="espaco-resumo" hidden>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Capacidade</span>
+          <span class="resumo__valor" id="espaco-resumo-capacidade">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Em uso hoje</span>
+          <span class="resumo__valor" id="espaco-resumo-ocupado">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Livre hoje</span>
+          <span class="resumo__valor" id="espaco-resumo-livre">&mdash;</span>
+        </div>
+        <div class="resumo__item">
+          <span class="resumo__rotulo">Reservas vigentes</span>
+          <span class="resumo__valor" id="espaco-resumo-reservas">&mdash;</span>
+        </div>
+      </div>
+
+      <div class="form-cols">
+        <fieldset class="fieldset">
+          <legend class="fieldset__legend">Identificação</legend>
+
+          <div class="field">
+            <label class="field__label" for="espaco-tipo">
+              Tipo <span class="field__opcional">opcional</span>
+            </label>
+            <!--
+              Texto livre de propósito: a administração escreve o tipo que o
+              espaço tem, não o que uma lista nossa previu. O datalist sugere o
+              que já existe no cadastro e não limita a digitação.
+            -->
+            <input class="input" type="text" id="espaco-tipo" name="tipo" maxlength="60"
+                   list="lista-tipos-espaco" autocomplete="off"
+                   placeholder="Casa de vegetação" aria-describedby="espaco-tipo-ajuda" />
+            <datalist id="lista-tipos-espaco"></datalist>
+            <p class="field__hint" id="espaco-tipo-ajuda">Em branco até ser conferido em campo. Texto livre; a lista só sugere.</p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="espaco-localizacao">
+              Setor <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="text" id="espaco-localizacao" name="localizacao"
+                   maxlength="60" list="lista-setores-espaco" autocomplete="off"
+                   placeholder="Setor Norte" />
+            <datalist id="lista-setores-espaco"></datalist>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="espaco-area">
+              Área em m² <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input input--numero" type="number" id="espaco-area" name="area_m2"
+                   min="0" step="1" placeholder="204" />
+          </div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend class="fieldset__legend">Capacidade e situação</legend>
+
+          <div class="field">
+            <label class="field__label" for="espaco-capacidade-total">Capacidade reservável</label>
+            <div class="field__inline">
+              <input class="input input--numero" type="number" id="espaco-capacidade-total"
+                     name="capacidade_total" min="0" step="1" value="0" required
+                     aria-describedby="espaco-capacidade-ajuda" />
+              <select class="select" id="espaco-unidade" name="unidade_capacidade"
+                      aria-label="Unidade da capacidade">
+                <option value="VASO">vasos</option>
+                <option value="BANCADA">bancadas</option>
+              </select>
+            </div>
+            <p class="field__hint" id="espaco-capacidade-ajuda">
+              É o que as reservas consomem. Reduzir abaixo do que já está reservado é recusado.
+            </p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="espaco-bancadas">
+              Bancadas <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input input--numero" type="number" id="espaco-bancadas" name="capacidade"
+                   min="0" step="1" placeholder="4" aria-describedby="espaco-bancadas-ajuda" />
+            <p class="field__hint" id="espaco-bancadas-ajuda">
+              Informativo, quando a capacidade é contada em vasos.
+            </p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="espaco-situacao">Situação</label>
+            <select class="select" id="espaco-situacao" name="status"
+                    aria-describedby="espaco-situacao-ajuda">
+              <option value="ATIVA">Disponível para reserva</option>
+              <option value="RESERVADA">Reservada</option>
+              <option value="OCUPADA">Ocupada</option>
+              <option value="MANUTENCAO">Em manutenção</option>
+              <option value="INATIVA">Inativa</option>
+            </select>
+            <p class="field__hint" id="espaco-situacao-ajuda">
+              Reservada e ocupada seguram a estufa sem criar reserva. Só a primeira aceita pedido novo.
+            </p>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="espaco-obs">
+          Observações <span class="field__opcional">opcional</span>
+        </label>
+        <input class="input" type="text" id="espaco-obs" name="obs"
+               placeholder="Estrutura, irrigação, controle de temperatura" />
+      </div>
+
+      <p class="field__error" id="espaco-erro" role="alert" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
+        <span id="espaco-erro-texto"></span>
+      </p>
+    </form>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
+      <button type="submit" class="btn btn--primary" id="espaco-enviar" form="form-espaco">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        <span id="espaco-enviar-texto">Salvar</span>
       </button>
     </div>
   </div>
@@ -645,6 +1964,10 @@
           <div class="datagrid__value" id="reservar-bancadas">&mdash;</div>
         </div>
         <div>
+          <div class="datagrid__label">Disponível</div>
+          <div class="datagrid__value" id="reservar-capacidade">&mdash;</div>
+        </div>
+        <div>
           <div class="datagrid__label">Status</div>
           <div class="datagrid__value" id="reservar-status">&mdash;</div>
         </div>
@@ -662,34 +1985,52 @@
       </div>
 
       <div class="field">
-        <label class="field__label" for="reservar-projeto">Projeto</label>
-        <select class="select" id="reservar-projeto" name="projeto_id" required>
-          <option value="">Selecione o projeto</option>
-          <option>CRISPR-Soja: resistência a nematódeos</option>
-          <option>Biofortificação em feijão</option>
-          <option>Resistência fúngica em arroz</option>
-          <option>Melhoramento de milho tropical</option>
-        </select>
+        <label class="field__label" for="reservar-quantidade">
+          Quantas unidades você precisa
+        </label>
+        <div class="field__inline">
+          <input class="input input--numero" type="number" id="reservar-quantidade"
+                 name="quantidade" min="1" step="1" value="1" required
+                 aria-describedby="reservar-quantidade-ajuda" />
+          <span class="field__sufixo" id="reservar-unidade">vasos</span>
+        </div>
+        <p class="field__hint" id="reservar-quantidade-ajuda">
+          Você reserva só o que vai usar; o resto da estufa continua disponível
+          para outro pesquisador no mesmo período.
+        </p>
+      </div>
+
+      <!-- Resposta do back-end sobre o período escolhido: quanto sobra e com
+           quem está o resto. Preenchido por consultarDisponibilidade(). -->
+      <p class="field__aviso" id="reservar-aviso" data-tom="ok" role="status" aria-live="polite" hidden>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+        <span id="reservar-aviso-texto"></span>
+      </p>
+
+      <div class="field">
+        <label class="field__label" for="reservar-projeto">Para qual projeto</label>
+        <!-- Preenchido em views/reservas.ts com os projetos em que você pode
+             reservar, so pelo nome. -->
+        <select class="select" id="reservar-projeto" name="projeto_id" required
+                aria-describedby="reservar-projeto-ajuda"></select>
+        <p class="field__hint" id="reservar-projeto-ajuda">Aparecem só os projetos em que você pode reservar.</p>
       </div>
 
       <div class="field">
         <label class="field__label" for="reservar-finalidade">Finalidade</label>
         <input class="input" type="text" id="reservar-finalidade" name="finalidade"
-               placeholder="Ensaio de resistência a nematódeos" required />
+               list="lista-finalidades" autocomplete="off"
+               placeholder="Para que o espaço será usado" required />
+        <!-- Sugestões do que já foi usado antes, montadas em views/reservas.ts -->
+        <datalist id="lista-finalidades"></datalist>
       </div>
 
-      <div class="field">
-        <label class="field__label" for="reservar-obs">
-          Observações <span class="field__opcional">opcional</span>
-        </label>
-        <input class="input" type="text" id="reservar-obs" name="obs"
-               placeholder="Precisa de irrigação automática" />
-      </div>
     </form>
 
     <div class="dialog__foot">
-      <button type="button" class="btn btn--quiet" data-action="fechar">Cancelar</button>
-      <button type="submit" class="btn btn--primary" form="form-reservar">
+      <!-- Cancelar descarta o rascunho de propósito; clicar fora ou Esc, não. -->
+      <button type="button" class="btn btn--quiet" data-action="descartar-reserva">Cancelar</button>
+      <button type="submit" class="btn btn--primary" id="reservar-enviar" form="form-reservar">
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
         Reservar
       </button>
@@ -730,6 +2071,10 @@
           <div class="datagrid__value" id="ver-reserva-fim">&mdash;</div>
         </div>
         <div>
+          <div class="datagrid__label">Quantidade</div>
+          <div class="datagrid__value" id="ver-reserva-quantidade">&mdash;</div>
+        </div>
+        <div>
           <div class="datagrid__label">Projeto</div>
           <div class="datagrid__value" id="ver-reserva-projeto">&mdash;</div>
         </div>
@@ -746,6 +2091,11 @@
 
     <div class="dialog__foot">
       <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
+      <button type="button" class="btn btn--quiet" id="ver-reserva-editar"
+              data-action="editar-reserva-atual">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-wrench" /></svg>
+        Editar
+      </button>
       <button type="button" class="btn btn--danger" id="ver-reserva-cancelar"
               data-action="cancelar-reserva-atual">
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-x" /></svg>
@@ -775,23 +2125,23 @@
     <div class="dialog__body">
       <h3 class="field__label">Quem desenvolve</h3>
       <div class="linklist">
-        <a class="linklist__item" href="https://github.com/lucas19fonseca" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/lucas19fonseca" target="_blank" rel="noopener noreferrer" aria-label="lucas19fonseca (abre em nova aba)">
           lucas19fonseca
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
-        <a class="linklist__item" href="https://github.com/MiguelCastro0" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/MiguelCastro0" target="_blank" rel="noopener noreferrer" aria-label="MiguelCastro0 (abre em nova aba)">
           MiguelCastro0
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
-        <a class="linklist__item" href="https://github.com/lucasdpsa01" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/lucasdpsa01" target="_blank" rel="noopener noreferrer" aria-label="lucasdpsa01 (abre em nova aba)">
           lucasdpsa01
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
-        <a class="linklist__item" href="https://github.com/LuisGuilherme345" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/LuisGuilherme345" target="_blank" rel="noopener noreferrer" aria-label="LuisGuilherme345 (abre em nova aba)">
           LuisGuilherme345
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
-        <a class="linklist__item" href="https://github.com/FelipeTolentino21" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/FelipeTolentino21" target="_blank" rel="noopener noreferrer" aria-label="FelipeTolentino21 (abre em nova aba)">
           FelipeTolentino21
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
@@ -801,7 +2151,7 @@
     <div class="dialog__foot">
       <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
       <a class="btn btn--primary" href="https://github.com/Embrapa-Cenargem-Dashboard-Interativo"
-         target="_blank" rel="noopener noreferrer">
+         target="_blank" rel="noopener noreferrer" aria-label="Repositórios (abre em nova aba)">
         Repositórios
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
       </a>
@@ -851,10 +2201,10 @@
     </p>
   </section>
 
-  <button type="button" class="chat__fab" id="chat-fab" data-action="chat-alternar"
-          aria-expanded="false" aria-controls="chat-janela">
+  <button type="button" class="map-btn chat__fab" id="chat-fab" data-action="chat-alternar"
+          aria-expanded="false" aria-controls="chat-janela"
+          aria-label="Assistente" title="Assistente">
     <svg class="ic" aria-hidden="true"><use href="#i-message-circle" /></svg>
-    <span class="chat__fab-label">Assistente</span>
   </button>
 
 </div>

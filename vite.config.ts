@@ -1,20 +1,81 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
+
+/**
+ * A CSP do index.html fecha o connect-src em 'self'. A API vive em outra
+ * origem (outra porta em desenvolvimento, outro host em producao), entao o
+ * marcador %API_ORIGIN% e trocado aqui pela origem de VITE_API_URL - a mesma
+ * variavel que o front ja usa para falar com o Laravel. Sem isso o navegador
+ * corta toda chamada antes de sair e a tela mostra so "Failed to fetch".
+ */
+function cspOrigemDaApi(apiUrl: string): Plugin {
+  let origem = '';
+  try {
+    origem = apiUrl ? new URL(apiUrl).origin : '';
+  } catch {
+    console.warn(`[cvgweb] VITE_API_URL invalida: ${apiUrl}`);
+  }
+
+  return {
+    name: 'cvgweb:csp-origem-da-api',
+    transformIndexHtml: {
+      order: 'pre',
+      handler: (html) => html.replaceAll('%API_ORIGIN%', origem),
+    },
+  };
+}
 
 /**
  * Front-end estático em TypeScript, sem framework.
  * O index.html da raiz é o ponto de entrada e carrega /src/main.ts como módulo.
  */
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const apiUrl = env.VITE_API_URL ?? process.env.VITE_API_URL ?? '';
+
+  return {
   root: '.',
+
+  plugins: [cspOrigemDaApi(apiUrl)],
 
   server: {
     port: 5173,
     open: true,
-    // Pastas sincronizadas (OneDrive, Drive) não emitem eventos de arquivo
-    // confiáveis; o polling garante o recarregamento ao salvar.
+
+    /*
+     * Pastas sincronizadas (OneDrive, Drive) não emitem eventos de arquivo
+     * confiáveis; o polling garante o recarregamento ao salvar.
+     *
+     * O custo é a tela piscando: nenhum módulo aqui aceita HMR, então QUALQUER
+     * arquivo que mude vira recarregamento inteiro da página — e o OneDrive
+     * reescreve arquivos com o mesmo conteúdo só para sincronizar, o que o
+     * polling por mtime não distingue de uma edição de verdade.
+     *
+     * Daí o intervalo mais folgado e a lista do que o watcher deve ignorar:
+     * nada aqui é importado pela aplicação, e cada um deles sozinho já causava
+     * recarregamento (o relatório do Playwright, por exemplo, escreve dezenas
+     * de arquivos ao rodar os testes).
+     */
     watch: {
-      usePolling: true,
-      interval: 400,
+      // VITE_WATCH_POLLING=false desliga o polling de vez, se a maquina
+      // estiver emitindo os eventos de arquivo direito.
+      usePolling: process.env.VITE_WATCH_POLLING !== 'false',
+      interval: 1000,
+      binaryInterval: 2000,
+      // Uma rajada de escritas (sincronizacao, salvar varios arquivos) vira um
+      // recarregamento so, em vez de um por arquivo.
+      awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 150 },
+      ignored: [
+        '**/.git/**',
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/tests/**',
+        '**/test-results/**',
+        '**/playwright-report/**',
+        // Restos de sincronização do OneDrive.
+        '**/*.tmp',
+        '**/~$*',
+        '**/*.partial',
+      ],
     },
   },
 
@@ -27,4 +88,5 @@ export default defineConfig({
     assetsInlineLimit: 2048,
     reportCompressedSize: true,
   },
+  };
 });

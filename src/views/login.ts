@@ -1,82 +1,42 @@
 /**
- * Entrada no sistema.
+ * Entrada no sistema e gestão de usuários.
  *
- * Dois caminhos, escolhidos por `MODO_DEMO`:
+ * `/login` autentica no back-end e devolve o token do Sanctum e o
+ * funcionário. O cadastro de usuário vai para o banco: o back-end grava sem
+ * senha e manda por e-mail o link de criação de senha.
  *
- * - Com a API configurada, `/login` autentica de verdade e devolve o token e o
- *   funcionário. O token vai para o localStorage e acompanha as requisições.
- * - Sem API, uma lista local de usuários permite apresentar o sistema sem
- *   back-end. A validação acontece no cliente e não protege nada.
- *
- * Os dois caminhos produzem o mesmo `Usuario`, por isso o resto do app não
- * precisa saber de onde veio a sessão.
+ * Não há caminho local: sem API, não há login. Autenticação conferida no
+ * cliente não protege nada, e manter os dois caminhos fazia a tela mentir
+ * sobre o que estava gravado.
  */
-import { el, qsa, setText, show } from '../lib/dom';
-import { MODO_DEMO } from '../lib/ambiente';
+import { el, setText, show } from '../lib/dom';
+import { esconderSenha } from '../lib/senha';
 import { aviso } from '../lib/toast';
 import {
+  atualizarFuncionario,
+  atualizarSituacaoFuncionario,
+  criarFuncionario,
   descartarToken,
+  getFuncionarios,
   guardarToken,
   login as apiLogin,
+  reenviarConvite,
   tokenSalvo,
+  type EnvioDoConvite,
   type FuncionarioApi,
 } from '../services/api';
-import type { PerfilUsuario, Usuario } from '../types';
+import type { SituacaoUsuario, Usuario } from '../types';
 
 const CHAVES = {
-  usuarios: 'cvgweb:usuarios',
   sessao: 'cvgweb:sessao',
 } as const;
 
-/** Senha atribuída a quem o administrador cadastra, no modo demonstração. */
-const SENHA_PADRAO = 'embrapa123';
-
-/** Teto de administradores simultâneos, no modo demonstração. */
-const MAX_ADMINS = 2;
-
-const SEMENTE: Usuario[] = [
-  { id: 'U01', nome: 'Rafael Lima', admin: false, cargo: 'Pesquisador', login: 'pesquisador', senha: 'embrapa123' },
-  { id: 'U02', nome: 'Admin Cenargen', admin: true, cargo: 'Administrador', login: 'admin', senha: 'admin123' },
-  { id: 'U03', nome: 'Ana Oliveira', admin: false, cargo: 'Pesquisador', login: 'ana', senha: 'embrapa123' },
-];
-
-/** O que os atalhos da tela de entrada preenchem, em cada modo. */
-const ATALHOS: Record<string, { login: string; senha: string }> = MODO_DEMO
-  ? {
-    pesquisador: { login: 'pesquisador', senha: 'embrapa123' },
-    admin: { login: 'admin', senha: 'admin123' },
-  }
-  : {
-    pesquisador: { login: 'rafael.lima', senha: '123456' },
-    admin: { login: 'admin', senha: 'admin123' },
-  };
-
 /* ===========================================================================
-   Lista local (modo demonstração)
+   Lista de usuários
    =========================================================================== */
 
-function carregarUsuarios(): Usuario[] {
-  try {
-    const salvos = localStorage.getItem(CHAVES.usuarios);
-    if (salvos) {
-      const lidos = JSON.parse(salvos) as Usuario[];
-      if (Array.isArray(lidos) && lidos.length) return lidos;
-    }
-  } catch {
-    /* dados corrompidos: volta para a semente */
-  }
-  return SEMENTE.map((u) => ({ ...u }));
-}
-
-const USUARIOS: Usuario[] = carregarUsuarios();
-
-function salvarUsuarios(): void {
-  try {
-    localStorage.setItem(CHAVES.usuarios, JSON.stringify(USUARIOS));
-  } catch {
-    /* storage indisponível */
-  }
-}
+/** Cache da lista mostrada na administração; vem de /funcionarios. */
+const USUARIOS: Usuario[] = [];
 
 let sessao: Usuario | null = null;
 
@@ -88,31 +48,67 @@ export function listarUsuarios(): readonly Usuario[] {
   return USUARIOS;
 }
 
+/** Converte o funcionário da API no usuário que o app usa. */
+function daApi(funcionario: FuncionarioApi): Usuario {
+  const admin = Boolean(funcionario.super_usuario) || funcionario.tipo === 'SU';
+  return {
+    id: String(funcionario.id),
+    nome: funcionario.nome,
+    admin,
+    cargo: funcionario.cargo || (admin ? 'Administrador' : 'Funcionário'),
+    email: funcionario.email,
+    matricula: funcionario.matricula ?? undefined,
+    cargoId: funcionario.cargo_id ?? undefined,
+    projetos: funcionario.projetos,
+    ultimoAcesso: funcionario.ultimo_acesso_em ?? undefined,
+    situacao: (funcionario.situacao as SituacaoUsuario | undefined)
+      ?? (funcionario.ativo === false ? 'INATIVO' : 'ATIVO'),
+    convite: funcionario.convite ?? null,
+  };
+}
+
+/** Leitura de usuários em andamento: quem pedir junto reaproveita a mesma. */
+let lendoUsuarios: Promise<void> | null = null;
+
+/**
+ * Relê a lista de usuários do banco. Várias telas pedem a lista ao mesmo
+ * tempo (pré-carga, administração, projetos): enquanto uma leitura está no
+ * ar, as outras esperam por ela em vez de disparar outra requisição.
+ *
+ * `depoisDeSalvar`: a leitura em andamento pode ter saído antes da gravação e
+ * trazer a lista antiga, então começa uma nova.
+ */
+export function recarregarUsuarios(depoisDeSalvar = false): Promise<void> {
+  if (depoisDeSalvar) lendoUsuarios = null;
+
+  const leitura = (lendoUsuarios ??= (async () => {
+    const resposta = await getFuncionarios();
+    const lista: FuncionarioApi[] = resposta.data ?? resposta;
+
+    USUARIOS.length = 0;
+    for (const funcionario of lista) USUARIOS.push(daApi(funcionario));
+  })().finally(() => {
+    if (lendoUsuarios === leitura) lendoUsuarios = null;
+  }));
+
+  return leitura;
+}
+
 /* ===========================================================================
-   Cadastro e exclusão
+   Cadastro, exclusão e acesso
    =========================================================================== */
 
 export interface ResultadoCadastro {
   ok: boolean;
   erro?: string;
   usuario?: Usuario;
-  senha?: string;
+  /** Mensagem do back-end, que diz para onde o convite foi. */
+  mensagem?: string;
+  /** O que aconteceu com o e-mail do convite (saiu, não saiu, link manual). */
+  convite?: EnvioDoConvite;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-/** A gestão de usuários ainda não tem endpoint na API. */
-const SEM_ENDPOINT =
-  'A gestão de usuários ainda não está ligada à API. Por enquanto ela só '
-  + 'funciona no modo demonstração.';
-
-function proximoId(): string {
-  const maior = USUARIOS.reduce((max, u) => {
-    const n = Number.parseInt(u.id.replace(/\D/g, ''), 10);
-    return Number.isNaN(n) ? max : Math.max(max, n);
-  }, 0);
-  return `U${String(maior + 1).padStart(2, '0')}`;
-}
 
 /** "ana.paula@embrapa.br" vira "Ana Paula". */
 function nomeDoEmail(email: string): string {
@@ -126,40 +122,106 @@ function nomeDoEmail(email: string): string {
   );
 }
 
-function totalAdmins(): number {
-  return USUARIOS.filter((u) => u.admin).length;
+/**
+ * Cadastra o usuário. O nome vem do formulário; quando não vier, é deduzido do
+ * e-mail — o que serve para não travar o cadastro, mas rende "Ana Paula" onde
+ * o certo seria "Ana Paula Ribeiro", e é esse nome que aparece na lista e nas
+ * reservas. Por isso o formulário pede o nome completo.
+ *
+ * Não há usuário/nick: a pessoa entra só com o e-mail. O cargo é obrigatório e
+ * também decide o acesso (Administrador = adm do sistema).
+ */
+export interface DadosNovoUsuario {
+  /** Identificador interno (coluna `matricula` na API). */
+  matricula?: string;
+  cargoId: number | null;
 }
 
-export function cadastrarUsuario(
+export async function cadastrarUsuario(
   emailBruto: string,
-  perfil: PerfilUsuario = 'pesquisador',
-): ResultadoCadastro {
-  if (!MODO_DEMO) return { ok: false, erro: SEM_ENDPOINT };
-
+  nomeBruto: string,
+  extras: DadosNovoUsuario,
+): Promise<ResultadoCadastro> {
   const email = emailBruto.trim().toLowerCase();
+  const nome = nomeBruto.trim();
 
   if (!EMAIL.test(email)) {
     return { ok: false, erro: 'Informe um e-mail válido, como nome@embrapa.br.' };
   }
-  if (USUARIOS.some((u) => u.login.toLowerCase() === email)) {
-    return { ok: false, erro: 'Este e-mail já tem acesso ao sistema.' };
-  }
-  if (perfil === 'admin' && totalAdmins() >= MAX_ADMINS) {
-    return { ok: false, erro: `O sistema aceita no máximo ${MAX_ADMINS} administradores.` };
+
+  if (!extras.cargoId) {
+    return { ok: false, erro: 'Selecione o cargo da pessoa.' };
   }
 
-  const usuario: Usuario = {
-    id: proximoId(),
-    nome: nomeDoEmail(email),
-    admin: perfil === 'admin',
-    cargo: perfil === 'admin' ? 'Administrador' : 'Pesquisador',
-    login: email,
-    senha: SENHA_PADRAO,
-  };
-  USUARIOS.push(usuario);
-  salvarUsuarios();
+  try {
+    const resposta = await criarFuncionario({
+      nome: nome || nomeDoEmail(email),
+      email,
+      matricula: (extras.matricula ?? '').trim() || undefined,
+      // O cargo decide quem é adm; o perfil legado (/SU/) é montado no back-end.
+      cargo_id: extras.cargoId,
+    });
 
-  return { ok: true, usuario, senha: SENHA_PADRAO };
+    await recarregarUsuarios(true);
+
+    return {
+      ok: true,
+      usuario: resposta?.id ? daApi(resposta as FuncionarioApi) : undefined,
+      mensagem: resposta?.message,
+      convite: resposta?.convite as EnvioDoConvite | undefined,
+    };
+  } catch (erro) {
+    return { ok: false, erro: erro instanceof Error ? erro.message : 'Não foi possível cadastrar.' };
+  }
+}
+
+/**
+ * Salva a edição de um usuário.
+ *
+ * O back-end valida com `sometimes`, então o que não for enviado fica como
+ * está — e ele mesmo decide o que esta pessoa tem direito de alterar: dar ou
+ * tirar o cargo Administrador, por exemplo, é só do adm.
+ */
+export async function editarUsuario(
+  id: string,
+  dados: {
+    nome: string;
+    email: string;
+    matricula?: string;
+    cargoId: number | null;
+  },
+): Promise<ResultadoCadastro> {
+  const email = dados.email.trim().toLowerCase();
+
+  if (!dados.nome.trim()) {
+    return { ok: false, erro: 'Informe o nome completo da pessoa.' };
+  }
+
+  if (!EMAIL.test(email)) {
+    return { ok: false, erro: 'Informe um e-mail válido, como nome@embrapa.br.' };
+  }
+
+  if (!dados.cargoId) {
+    return { ok: false, erro: 'Selecione o cargo da pessoa.' };
+  }
+
+  try {
+    const resposta = await atualizarFuncionario(Number(id), {
+      nome: dados.nome.trim(),
+      email,
+      matricula: (dados.matricula ?? '').trim() || null,
+      cargo_id: dados.cargoId,
+    });
+
+    await recarregarUsuarios(true);
+
+    return {
+      ok: true,
+      usuario: resposta?.id ? daApi(resposta as FuncionarioApi) : undefined,
+    };
+  } catch (erro) {
+    return { ok: false, erro: erro instanceof Error ? erro.message : 'Não foi possível salvar.' };
+  }
 }
 
 export interface ResultadoExclusao {
@@ -168,53 +230,39 @@ export interface ResultadoExclusao {
   eraEuMesmo?: boolean;
 }
 
-export function excluirUsuario(id: string): ResultadoExclusao {
-  if (!MODO_DEMO) return { ok: false, erro: SEM_ENDPOINT };
-
-  const indice = USUARIOS.findIndex((u) => u.id === id);
-  if (indice === -1) return { ok: false, erro: 'Usuário não encontrado.' };
-
-  const usuario = USUARIOS[indice];
-  if (usuario.admin && totalAdmins() <= 1) {
-    return { ok: false, erro: 'O sistema precisa de pelo menos um administrador.' };
+/** Desativa ou reativa o acesso sem apagar o histórico. */
+export async function alternarAcessoUsuario(
+  id: string,
+  ativo: boolean,
+  novosLideres?: Record<number, number>,
+): Promise<ResultadoExclusao> {
+  try {
+    await atualizarSituacaoFuncionario(Number(id), ativo, novosLideres);
+    await recarregarUsuarios(true);
+    return { ok: true, eraEuMesmo: sessao?.id === id && !ativo };
+  } catch (erro) {
+    return { ok: false, erro: erro instanceof Error ? erro.message : 'Não foi possível alterar o acesso.' };
   }
+}
 
-  const eraEuMesmo = sessao?.id === id;
-  USUARIOS.splice(indice, 1);
-  salvarUsuarios();
-  return { ok: true, eraEuMesmo };
+/** Reenvia o link de criação de senha. */
+export async function reenviarConviteUsuario(id: string): Promise<ResultadoCadastro> {
+  try {
+    const resposta = await reenviarConvite(Number(id));
+    await recarregarUsuarios(true);
+    return {
+      ok: true,
+      mensagem: resposta?.message ?? 'Convite enviado.',
+      convite: resposta?.convite as EnvioDoConvite | undefined,
+    };
+  } catch (erro) {
+    return { ok: false, erro: erro instanceof Error ? erro.message : 'Não foi possível enviar o convite.' };
+  }
 }
 
 /* ===========================================================================
    Entrada e saída
    =========================================================================== */
-
-/** Converte o funcionário da API no usuário que o app usa. */
-function daApi(funcionario: FuncionarioApi): Usuario {
-  const admin = Boolean(funcionario.super_usuario) || funcionario.tipo === 'SU';
-  return {
-    id: String(funcionario.id),
-    nome: funcionario.nome,
-    admin,
-    cargo: funcionario.cargo || (admin ? 'Administrador' : 'Funcionário'),
-    login: funcionario.nick ?? String(funcionario.id),
-  };
-}
-
-export function preencherPerfilDemo(perfil: string): void {
-  const atalho = ATALHOS[perfil];
-  if (!atalho) return;
-
-  for (const botao of qsa('[data-action="usar-perfil"]')) {
-    botao.setAttribute('aria-pressed', String(botao.dataset.role === perfil));
-  }
-
-  const usuario = el<HTMLInputElement>('entrada-usuario');
-  const senha = el<HTMLInputElement>('entrada-senha');
-  if (usuario) usuario.value = atalho.login;
-  if (senha) senha.value = atalho.senha;
-  mostrarErro(null);
-}
 
 function mostrarErro(mensagem: string | null): void {
   const caixa = el('entrada-erro');
@@ -235,6 +283,8 @@ function limparSenha(): void {
     campo.value = '';
     campo.focus();
   }
+  // Senha errada: esconde de novo, para o campo nao ficar exposto na tela.
+  esconderSenha('entrada-senha');
 }
 
 /** Callbacks que a casca da aplicação registra no boot. */
@@ -242,11 +292,11 @@ let aoEntrar: (usuario: Usuario) => void = () => {};
 let aoSair: () => void = () => {};
 
 export async function entrar(): Promise<void> {
-  const login = (el<HTMLInputElement>('entrada-usuario')?.value ?? '').trim();
+  const email = (el<HTMLInputElement>('entrada-usuario')?.value ?? '').trim().toLowerCase();
   const senha = el<HTMLInputElement>('entrada-senha')?.value ?? '';
 
-  if (!login || !senha) {
-    mostrarErro('Informe usuário e senha.');
+  if (!email || !senha) {
+    mostrarErro('Informe seu e-mail e senha.');
     return;
   }
 
@@ -254,8 +304,9 @@ export async function entrar(): Promise<void> {
   if (botao) botao.disabled = true;
 
   try {
-    sessao = MODO_DEMO ? entrarLocal(login, senha) : await entrarPelaApi(login, senha);
+    sessao = await entrarPelaApi(email, senha);
   } catch (erro) {
+    // A API explica o caso mais comum: acesso ainda sem senha criada.
     mostrarErro(erro instanceof Error ? erro.message : 'Não foi possível entrar.');
     limparSenha();
     return;
@@ -274,25 +325,17 @@ export async function entrar(): Promise<void> {
   aoEntrar(sessao);
 }
 
-function entrarLocal(login: string, senha: string): Usuario | null {
-  return USUARIOS.find((u) => u.login === login && u.senha === senha) ?? null;
-}
-
-async function entrarPelaApi(login: string, senha: string): Promise<Usuario> {
-  const resposta = await apiLogin(login, senha);
+async function entrarPelaApi(email: string, senha: string): Promise<Usuario> {
+  const resposta = await apiLogin(email, senha);
   guardarToken(resposta.token);
   return daApi(resposta.funcionario);
 }
 
 function guardarSessao(usuario: Usuario): void {
   try {
-    // No modo demonstração basta o id: o usuário vem da lista local, assim
-    // mudanças de perfil e exclusões valem na volta. Com a API, o funcionário
-    // é guardado inteiro, já que não há lista local para consultar.
-    localStorage.setItem(
-      CHAVES.sessao,
-      MODO_DEMO ? usuario.id : JSON.stringify(usuario),
-    );
+    // O funcionário é guardado inteiro: não há lista local para consultar na
+    // volta, e a sessão só vale enquanto o token do Sanctum estiver salvo.
+    sessionStorage.setItem(CHAVES.sessao, JSON.stringify(usuario));
   } catch {
     /* storage indisponível */
   }
@@ -302,7 +345,10 @@ export function sair(): void {
   sessao = null;
   descartarToken();
   try {
-    localStorage.removeItem(CHAVES.sessao);
+    sessionStorage.removeItem(CHAVES.sessao);
+    // Limpa rascunhos de reserva ao sair — dado do formulário não deve
+    // sobreviver ao logout, especialmente em computadores compartilhados.
+    localStorage.removeItem('cvgweb:rascunho-reserva:v1');
   } catch {
     /* storage indisponível */
   }
@@ -311,13 +357,24 @@ export function sair(): void {
     const node = el<HTMLInputElement>(campo);
     if (node) node.value = '';
   }
-  for (const botao of qsa('[data-action="usar-perfil"]')) {
-    botao.setAttribute('aria-pressed', 'false');
-  }
+  esconderSenha('entrada-senha');
   mostrarErro(null);
 
   aoSair();
   el<HTMLInputElement>('entrada-usuario')?.focus();
+}
+
+/**
+ * Diz o que fazer ao entrar e ao sair, sem restaurar sessão nenhuma. É o que
+ * a tela de definir senha precisa: ela não restaura sessão, mas o "Entrar"
+ * logo depois de criar a senha tem de abrir o sistema.
+ */
+export function ligarAutenticacao(
+  entrou: (usuario: Usuario) => void,
+  saiu: () => void,
+): void {
+  aoEntrar = entrou;
+  aoSair = saiu;
 }
 
 /** Restaura a sessão salva, quando ela ainda é válida. */
@@ -325,12 +382,11 @@ export function iniciarAutenticacao(
   entrou: (usuario: Usuario) => void,
   saiu: () => void,
 ): void {
-  aoEntrar = entrou;
-  aoSair = saiu;
+  ligarAutenticacao(entrou, saiu);
 
   let salvo: string | null = null;
   try {
-    salvo = localStorage.getItem(CHAVES.sessao);
+    salvo = sessionStorage.getItem(CHAVES.sessao);
   } catch {
     /* storage indisponível */
   }
@@ -345,7 +401,7 @@ export function iniciarAutenticacao(
   if (salvo) {
     descartarToken();
     try {
-      localStorage.removeItem(CHAVES.sessao);
+      sessionStorage.removeItem(CHAVES.sessao);
     } catch {
       /* storage indisponível */
     }
@@ -355,9 +411,7 @@ export function iniciarAutenticacao(
 }
 
 function recuperarSessao(salvo: string): Usuario | null {
-  if (MODO_DEMO) return USUARIOS.find((u) => u.id === salvo) ?? null;
-
-  // Com a API, a sessão só vale enquanto houver token.
+  // A sessão só vale enquanto houver token.
   if (!tokenSalvo()) return null;
   try {
     const usuario = JSON.parse(salvo) as Usuario;

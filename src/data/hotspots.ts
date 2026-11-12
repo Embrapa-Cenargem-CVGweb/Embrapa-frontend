@@ -1,11 +1,43 @@
 /**
  * Posição de cada estufa sobre a foto aérea do campus (% relativo à imagem).
- * O tamanho do alvo de clique é constante e vem do CSS (.estufa-hotspot).
+ *
+ * `left`/`top` são o canto do alvo de clique antigo (2,6% × 3%), não o centro
+ * do prédio: `pegada()` faz a conta e devolve o centro e o tamanho aproximado
+ * do telhado, que é o que o marcador ocupa e o que o contorno de seleção
+ * desenha.
  */
 interface HotspotPos {
   id: string;
   left: number;   // %
   top: number;    // %
+}
+
+/** Retângulo do prédio na foto: centro e tamanho, em % da imagem. */
+export interface Pegada {
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+}
+
+/** Metade do alvo antigo: leva do canto salvo ao centro do prédio. */
+const MEIO = { x: 1.3, y: 1.5 };
+
+/**
+ * Tamanho do telhado por fileira. As estufas de uma mesma fileira têm quase a
+ * mesma planta, então a medida sai da altura (`top`) em vez de 50 números.
+ */
+function tamanho(top: number): { w: number; h: number; dy: number } {
+  if (top < 13) return { w: 2.9, h: 9.2, dy: 0 };      // a comprida do canto
+  if (top < 25) return { w: 2.8, h: 6.6, dy: -0.4 };   // fileira de cima
+  if (top < 40) return { w: 2.4, h: 6.8, dy: 0.4 };    // conjunto da direita
+  if (top < 80) return { w: 2.7, h: 7.4, dy: 1.6 };    // fileira do meio
+  return { w: 2.9, h: 9.0, dy: 0.6 };                  // fileira de baixo
+}
+
+export function pegada({ left, top }: HotspotPos): Pegada {
+  const { w, h, dy } = tamanho(top);
+  return { cx: left + MEIO.x, cy: top + MEIO.y + dy, w, h };
 }
 
 export const HOTSPOTS: HotspotPos[] = [
