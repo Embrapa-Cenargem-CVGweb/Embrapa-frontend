@@ -79,6 +79,7 @@ import {
   abrirEditarProjeto,
   abrirEquipe,
   abrirNovoProjeto,
+  decidirProjeto,
   abrirPermissoesMembro,
   alterarPapelMembro,
   buscarProjetos,
@@ -87,6 +88,7 @@ import {
   limparBuscaDeProjetos,
   mostrarProjetos,
   pedirExclusaoProjeto,
+  recusarProjetoAberto,
   removerMembroDaEquipe,
   salvarPermissoes,
   sugerirPermissoesDoPapel,
@@ -131,17 +133,48 @@ import {
 } from './views/reservas';
 import type { PerfilUsuario } from './types';
 import { aoNavegar, type Secao } from './lib/navegacao';
+import { carregarContexto, limparContexto, pode } from './data/contexto';
 
-/** Seções restritas a quem administra. */
-const RESTRITAS: Secao[] = ['reservas', 'projetos', 'usuarios', 'admin', 'historico'];
+/**
+ * Quem enxerga cada seção.
+ *
+ * Mapa, Reservas e Projetos são de todo mundo: o back-end já devolve só o que
+ * é da pessoa (as reservas dos projetos dela, os projetos em que ela está), e
+ * sem essas telas o pesquisador não tem como escolher o projeto ao reservar
+ * nem acompanhar o que pediu. As outras três dependem de permissão concedida
+ * em algum projeto — ou de ser a administração.
+ */
+function podeVerSecao(secao: Secao): boolean {
+  if (usuarioAtual()?.admin) return true;
+
+  switch (secao) {
+    case 'usuarios':
+      return pode('cadastrar_funcionario');
+    case 'admin':
+      return pode('configurar_casa');
+    case 'historico':
+      return pode('ver_auditoria');
+    default:
+      return true;
+  }
+}
+
+/** Liga os itens do menu ao que a pessoa realmente alcança. */
+function aplicarPermissoesNoMenu(): void {
+  show(el('nav-reservas'), true);
+  show(el('nav-projetos'), true);
+  show(el('nav-usuarios'), podeVerSecao('usuarios'));
+  show(el('nav-admin'), podeVerSecao('admin'));
+  show(el('nav-historico'), podeVerSecao('historico'));
+}
 
 /* ===========================================================================
    Navegação entre views
    =========================================================================== */
 
 function mostrarSecao(secao: Secao): void {
-  if (RESTRITAS.includes(secao) && !usuarioAtual()?.admin) {
-    aviso('Esta área é restrita a administradores.', 'error');
+  if (!podeVerSecao(secao)) {
+    aviso('Você não tem acesso a esta área.', 'error');
     return;
   }
 
@@ -202,12 +235,13 @@ function montarApp(usuario: Usuario): void {
   setText('conta-nome', usuario.nome);
   setText('conta-iniciais', iniciais(usuario.nome));
   setText('conta-perfil', usuario.cargo);
-  for (const id of ['nav-reservas', 'nav-projetos', 'nav-usuarios', 'nav-admin', 'nav-historico']) {
-    show(el(id), usuario.admin);
-  }
+  // Antes do contexto chegar, mostra só o que não depende de permissão; o
+  // resto aparece quando a resposta de /me/contexto diz o que ela alcança.
+  aplicarPermissoesNoMenu();
 
   mostrarSecao('mapa');
-  void carregarInventario(usuario);
+  void carregarInventario();
+  void carregarContexto().then(() => aplicarPermissoesNoMenu());
 }
 
 /**
@@ -217,7 +251,7 @@ function montarApp(usuario: Usuario): void {
  * mapa vazio: antes, sem API, a tela subia sem nenhum marcador e sem dizer
  * nada — parecia que o cadastro das 50 estufas havia desaparecido.
  */
-async function carregarInventario(usuario: Usuario): Promise<void> {
+async function carregarInventario(): Promise<void> {
   try {
     await carregarEstado('manter');
   } catch (erro) {
@@ -227,10 +261,11 @@ async function carregarInventario(usuario: Usuario): Promise<void> {
 
   esconderFalha();
   renderizarMarcadores();
-  if (usuario.admin) renderizarAdmin();
+  if (podeVerSecao('admin')) renderizarAdmin();
 }
 
 function desmontarApp(): void {
+  limparContexto();
   esconderFalha();
   sairDaTelaCheia();
   fecharTodosModais();
@@ -361,6 +396,14 @@ function registrarTodasAsAcoes(): void {
     'excluir-projeto': (elemento) => {
       const id = elemento.dataset.id;
       if (id) void pedirExclusaoProjeto(id);
+    },
+    'aprovar-projeto': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void decidirProjeto(id);
+    },
+    'recusar-projeto': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void recusarProjetoAberto(id);
     },
     'abrir-equipe': (elemento) => {
       const id = elemento.dataset.id;
@@ -641,13 +684,12 @@ export function iniciarApp(): void {
   // Uma mudança de dado atualiza marcadores e, se estiver aberta, a administração.
   aoMudar(() => {
     sincronizarMarcadores();
-    if (usuarioAtual()?.admin) renderizarAdmin();
+    if (podeVerSecao('admin')) renderizarAdmin();
   });
 
   // "Tentar de novo" refaz exatamente o que falhou: reler o inventário.
   aoRepetir(() => {
-    const usuario = usuarioAtual();
-    if (usuario) void carregarInventario(usuario);
+    if (usuarioAtual()) void carregarInventario();
   });
 
   // Token morto no meio da sessão: a pessoa volta para a entrada na hora, em

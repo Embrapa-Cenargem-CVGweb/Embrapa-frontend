@@ -6,6 +6,20 @@
   <title>CVGWeb · Cenargen</title>
   <meta name="description" content="Consulta e reserva das casas de vegetação e campos experimentais da Embrapa Cenargen." />
   <meta name="color-scheme" content="light" />
+
+  <!--
+    Content-Security-Policy: restringe de onde o navegador carrega recursos.
+    - default-src 'self': so aceita recursos do proprio dominio.
+    - script-src 'self': impede scripts injetados de terceiros.
+    - style-src 'self' 'unsafe-inline': estilos locais + inline (Leaflet precisa).
+    - img-src 'self' data: https://*.tile.openstreetmap.org: mapas e data-URI.
+    - connect-src 'self' %API_ORIGIN%: a propria origem + a origem da API
+      (VITE_API_URL). O vite.config.ts troca o %API_ORIGIN% no build e no dev.
+    - font-src 'self': fontes locais.
+    - frame-ancestors 'none': ninguem embute esta pagina em iframe.
+  -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' %API_ORIGIN%; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" />
   <meta name="theme-color" content="#f1f5f0" />
 
   <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png" />
@@ -105,15 +119,10 @@
       <img class="login__logo" src="/assets/embrapa.png" alt="Embrapa"
            width="360" height="137" />
       <div>
-        <div class="login__brand-name">CVGWeb</div>
+        <h1 class="login__brand-name">CVGWeb</h1>
         <div class="login__brand-org">Cenargen</div>
       </div>
     </div>
-
-    <h1 class="login__title">Entrar</h1>
-    <p class="login__desc">
-      Gestão dos espaços experimentais e das casas de vegetação do Cenargen.
-    </p>
 
     <form id="form-entrada" novalidate>
       <p class="login__error" id="entrada-erro" role="alert" hidden>
@@ -154,10 +163,7 @@
     <!-- Esqueci a senha: pede o e-mail; o back-end manda o link. -->
     <form id="form-esqueci" novalidate hidden>
       <h2 class="login__subtitle">Esqueci minha senha</h2>
-      <p class="login__desc">
-        Informe o e-mail do seu cadastro. Se ele existir, você recebe um link
-        para definir uma senha nova.
-      </p>
+      <p class="login__desc">Enviamos um link para você criar uma senha nova.</p>
 
       <p class="login__error" id="esqueci-erro" role="alert" hidden>
         <svg class="ic" aria-hidden="true"><use href="#i-circle-x" /></svg>
@@ -339,7 +345,7 @@
       <button type="button" class="nav__item" id="nav-reservas" data-action="ver" data-view="reservas" hidden>
         <svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg>
         <span>Reservas</span>
-        <span class="chip__badge" id="badge-pendentes-topo" hidden>0</span>
+        <span class="chip__badge" id="badge-pendentes-topo" hidden aria-label="pendentes">0</span>
       </button>
       <button type="button" class="nav__item" id="nav-projetos" data-action="ver" data-view="projetos" hidden>
         <svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg>
@@ -370,12 +376,12 @@
         <svg class="ic ic--sm account__caret" aria-hidden="true"><use href="#i-chevron-up" /></svg>
       </button>
 
-      <div class="menu" id="conta-menu" hidden>
-        <button type="button" class="menu__item" data-action="abrir" data-modal="modal-docs">
+      <div class="menu" id="conta-menu" role="menu" hidden>
+        <button type="button" class="menu__item" role="menuitem" data-action="abrir" data-modal="modal-docs">
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-book-open" /></svg>
           Sobre o projeto
         </button>
-        <button type="button" class="menu__item menu__item--danger" data-action="sair">
+        <button type="button" class="menu__item menu__item--danger" role="menuitem" data-action="sair">
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-log-out" /></svg>
           Sair
         </button>
@@ -414,7 +420,12 @@
 
         <!-- Busca -->
         <div class="map-search" id="map-busca-caixa" role="search">
-          <svg class="ic map-search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+          <!-- Fechada, a caixa e um botao quadrado com a lupa; o rotulo foca o
+               campo e o :focus-within abre, sem JS. -->
+          <label class="map-search__lupa" for="map-busca" title="Buscar">
+            <svg class="ic map-search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+            <span class="sr-only">Buscar estufa, código ou projeto</span>
+          </label>
           <input class="map-search__input" id="map-busca" type="search" autocomplete="off" spellcheck="false"
                  placeholder="Buscar estufa, código ou projeto…"
                  role="combobox" aria-label="Buscar estufa, código ou projeto"
@@ -430,8 +441,8 @@
                     aria-label="Camadas do mapa" aria-expanded="false" aria-controls="map-pop-camadas">
               <svg class="ic" aria-hidden="true"><use href="#i-layers" /></svg>
             </button>
-            <div class="map-pop" id="map-pop-camadas" hidden>
-              <h2 class="map-pop__title">Camadas</h2>
+            <div class="map-pop" id="map-pop-camadas" role="group" aria-labelledby="map-pop-camadas-titulo" hidden>
+              <h2 class="map-pop__title" id="map-pop-camadas-titulo">Camadas</h2>
               <label class="map-pop__opt">
                 <input type="checkbox" data-camada="marcadores" checked />
                 Marcadores
@@ -452,8 +463,8 @@
                     aria-label="Filtrar por disponibilidade" aria-expanded="false" aria-controls="map-pop-filtro">
               <svg class="ic" aria-hidden="true"><use href="#i-funnel" /></svg>
             </button>
-            <div class="map-pop" id="map-pop-filtro" hidden>
-              <h2 class="map-pop__title">Mostrar no mapa</h2>
+            <div class="map-pop" id="map-pop-filtro" role="group" aria-labelledby="map-pop-filtro-titulo" hidden>
+              <h2 class="map-pop__title" id="map-pop-filtro-titulo">Mostrar no mapa</h2>
               <label class="map-pop__opt" data-status="livre">
                 <input type="checkbox" data-filtro="livre" checked />
                 <span class="ring" aria-hidden="true"></span>
@@ -604,6 +615,11 @@
 
           <div class="panel__foot">
             <button type="button" class="btn btn--primary btn--block panel__cta" id="painel-acao"></button>
+            <!-- Por que o botão acima está desligado (sem projeto aprovado, por exemplo). -->
+            <p class="panel__impedimento" id="painel-impedimento" role="status" hidden>
+              <svg class="ic" aria-hidden="true"><use href="#i-info" /></svg>
+              <span id="painel-impedimento-texto"></span>
+            </p>
           </div>
         </aside>
       </div>
@@ -635,7 +651,7 @@
           <div class="section__head">
             <h2 class="section__title">
               Casas de vegetação
-              <span class="count" id="conta-espacos">0</span>
+              <span class="count" id="conta-espacos" aria-live="polite">0</span>
             </h2>
             <div class="section__tools">
               <button type="button" class="btn btn--primary btn--sm" data-action="abrir-alterar-espaco">
@@ -698,18 +714,18 @@
           <div class="section__head">
             <h2 class="section__title">
               Todas
-              <span class="count" id="conta-reservas">0</span>
+              <span class="count" id="conta-reservas" aria-live="polite">0</span>
             </h2>
             <div class="section__tools">
-              <div class="chips" role="tablist" aria-label="Filtrar reservas por status">
-                <button type="button" class="chip" role="tab" aria-selected="true"
+              <div class="chips" role="radiogroup" aria-label="Filtrar reservas por status">
+                <button type="button" class="chip" role="radio" aria-checked="true"
                         data-action="filtrar-reservas" data-status="todas">Todas</button>
-                <button type="button" class="chip" role="tab" aria-selected="false"
+                <button type="button" class="chip" role="radio" aria-checked="false"
                         data-action="filtrar-reservas" data-status="pendente">
                   Pendentes
-                  <span class="chip__badge" id="badge-pendentes" hidden>0</span>
+                  <span class="chip__badge" id="badge-pendentes" hidden aria-label="pendentes">0</span>
                 </button>
-                <button type="button" class="chip" role="tab" aria-selected="false"
+                <button type="button" class="chip" role="radio" aria-checked="false"
                         data-action="filtrar-reservas" data-status="ativa">Ativas</button>
               </div>
               <div class="search">
@@ -832,19 +848,19 @@
               <span class="count" id="conta-usuarios">0</span>
             </h2>
             <div class="section__tools">
-              <div class="chips" role="tablist" aria-label="Filtrar usuários">
-                <button type="button" class="chip" role="tab" aria-selected="true"
+              <div class="chips" role="radiogroup" aria-label="Filtrar usuários">
+                <button type="button" class="chip" role="radio" aria-checked="true"
                         data-action="filtrar-usuarios" data-filtro="todos">Todos</button>
-                <button type="button" class="chip" role="tab" aria-selected="false"
+                <button type="button" class="chip" role="radio" aria-checked="false"
                         data-action="filtrar-usuarios" data-filtro="admin">Administradores</button>
-                <button type="button" class="chip" role="tab" aria-selected="false"
+                <button type="button" class="chip" role="radio" aria-checked="false"
                         data-action="filtrar-usuarios" data-filtro="pesquisador">Pesquisadores</button>
-                <button type="button" class="chip" role="tab" aria-selected="false"
+                <button type="button" class="chip" role="radio" aria-checked="false"
                         data-action="filtrar-usuarios" data-filtro="sem-senha">
                   Sem senha
-                  <span class="chip__badge" id="badge-sem-senha" hidden>0</span>
+                  <span class="chip__badge" id="badge-sem-senha" hidden aria-label="sem senha">0</span>
                 </button>
-                <button type="button" class="chip" role="tab" aria-selected="false"
+                <button type="button" class="chip" role="radio" aria-checked="false"
                         data-action="filtrar-usuarios" data-filtro="inativo">Inativos</button>
               </div>
               <div class="search">
@@ -1127,6 +1143,13 @@
     </div>
 
     <form class="dialog__body" id="form-projeto" novalidate>
+      <!-- Só para quem propõe: a administração cria direto, sem passar por fila. -->
+      <p class="dialog__nota" id="proj-aviso-proposta" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-clock" /></svg>
+        A proposta vai para a administração. Enquanto não for aprovada, o
+        projeto não aceita reservas.
+      </p>
+
       <div class="field-row">
         <div class="field">
           <label class="field__label" for="proj-codigo">Codigo</label>
@@ -1872,7 +1895,7 @@
 
       <!-- Resposta do back-end sobre o período escolhido: quanto sobra e com
            quem está o resto. Preenchido por consultarDisponibilidade(). -->
-      <p class="field__aviso" id="reservar-aviso" data-tom="ok" role="status" hidden>
+      <p class="field__aviso" id="reservar-aviso" data-tom="ok" role="status" aria-live="polite" hidden>
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
         <span id="reservar-aviso-texto"></span>
       </p>
@@ -2003,23 +2026,23 @@
     <div class="dialog__body">
       <h3 class="field__label">Quem desenvolve</h3>
       <div class="linklist">
-        <a class="linklist__item" href="https://github.com/lucas19fonseca" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/lucas19fonseca" target="_blank" rel="noopener noreferrer" aria-label="lucas19fonseca (abre em nova aba)">
           lucas19fonseca
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
-        <a class="linklist__item" href="https://github.com/MiguelCastro0" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/MiguelCastro0" target="_blank" rel="noopener noreferrer" aria-label="MiguelCastro0 (abre em nova aba)">
           MiguelCastro0
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
-        <a class="linklist__item" href="https://github.com/lucasdpsa01" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/lucasdpsa01" target="_blank" rel="noopener noreferrer" aria-label="lucasdpsa01 (abre em nova aba)">
           lucasdpsa01
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
-        <a class="linklist__item" href="https://github.com/LuisGuilherme345" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/LuisGuilherme345" target="_blank" rel="noopener noreferrer" aria-label="LuisGuilherme345 (abre em nova aba)">
           LuisGuilherme345
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
-        <a class="linklist__item" href="https://github.com/FelipeTolentino21" target="_blank" rel="noopener noreferrer">
+        <a class="linklist__item" href="https://github.com/FelipeTolentino21" target="_blank" rel="noopener noreferrer" aria-label="FelipeTolentino21 (abre em nova aba)">
           FelipeTolentino21
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
         </a>
@@ -2029,7 +2052,7 @@
     <div class="dialog__foot">
       <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
       <a class="btn btn--primary" href="https://github.com/Embrapa-Cenargem-Dashboard-Interativo"
-         target="_blank" rel="noopener noreferrer">
+         target="_blank" rel="noopener noreferrer" aria-label="Repositórios (abre em nova aba)">
         Repositórios
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
       </a>
@@ -2079,10 +2102,10 @@
     </p>
   </section>
 
-  <button type="button" class="chat__fab" id="chat-fab" data-action="chat-alternar"
-          aria-expanded="false" aria-controls="chat-janela">
+  <button type="button" class="map-btn chat__fab" id="chat-fab" data-action="chat-alternar"
+          aria-expanded="false" aria-controls="chat-janela"
+          aria-label="Assistente" title="Assistente">
     <svg class="ic" aria-hidden="true"><use href="#i-message-circle" /></svg>
-    <span class="chat__fab-label">Assistente</span>
   </button>
 
 </div>

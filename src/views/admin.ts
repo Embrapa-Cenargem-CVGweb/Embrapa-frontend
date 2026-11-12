@@ -1058,7 +1058,7 @@ export function buscarReservas(termo: string): void {
 export function filtrarReservas(status: FiltroReserva, botao?: HTMLElement): void {
   filtroReservas = status;
   for (const chip of qsa('[data-action="filtrar-reservas"]')) {
-    chip.setAttribute('aria-selected', String(chip === botao || chip.dataset.status === status));
+    chip.setAttribute('aria-checked', String(chip === botao || chip.dataset.status === status));
   }
   renderizarReservas();
 }
@@ -1253,7 +1253,7 @@ export function buscarUsuarios(termo: string): void {
 export function filtrarUsuarios(filtro: FiltroUsuario): void {
   filtroUsuarios = filtro;
   for (const chip of qsa('[data-action="filtrar-usuarios"]')) {
-    chip.setAttribute('aria-selected', String(chip.dataset.filtro === filtro));
+    chip.setAttribute('aria-checked', String(chip.dataset.filtro === filtro));
   }
   renderizarUsuarios();
 }

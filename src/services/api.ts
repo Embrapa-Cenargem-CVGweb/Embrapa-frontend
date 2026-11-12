@@ -6,6 +6,7 @@
  *
  * Toda escrita passa por aqui — antes o front só sabia ler, e reserva,
  * aprovação, cancelamento e cadastro de usuário morriam no localStorage.
+ * O token agora usa sessionStorage: expira ao fechar o navegador.
  *
  * Erro de validação do Laravel (422) vem como `{ message, errors: { campo:
  * [...] } }`. `mensagemDoErro` desembrulha isso para a frase que o back-end
@@ -20,7 +21,7 @@ const CHAVE_TOKEN = 'cvgweb:token';
 
 export function tokenSalvo(): string | null {
   try {
-    return localStorage.getItem(CHAVE_TOKEN);
+    return sessionStorage.getItem(CHAVE_TOKEN);
   } catch {
     return null;
   }
@@ -28,7 +29,7 @@ export function tokenSalvo(): string | null {
 
 export function guardarToken(token: string): void {
   try {
-    localStorage.setItem(CHAVE_TOKEN, token);
+    sessionStorage.setItem(CHAVE_TOKEN, token);
   } catch {
     /* storage indisponível */
   }
@@ -36,7 +37,7 @@ export function guardarToken(token: string): void {
 
 export function descartarToken(): void {
   try {
-    localStorage.removeItem(CHAVE_TOKEN);
+    sessionStorage.removeItem(CHAVE_TOKEN);
   } catch {
     /* storage indisponível */
   }
@@ -461,6 +462,8 @@ export interface CasaDoProjeto {
   }[];
 }
 
+export type SituacaoProjeto = 'PENDENTE' | 'APROVADO' | 'RECUSADO';
+
 export interface ProjetoDoContexto {
   id: number;
   codigo: string;
@@ -471,6 +474,10 @@ export interface ProjetoDoContexto {
   status?: string | null;
   /** Situação que não aceita novas reservas (suspenso, concluído, cancelado). */
   encerrado: boolean;
+  /** Situação da proposta. Só APROVADO aceita reserva. */
+  situacao: SituacaoProjeto;
+  /** Preenchido quando a administração recusou a proposta. */
+  motivo_recusa?: string | null;
   responsavel?: { id: number; nome: string } | null;
   sou_lider: boolean;
   funcao?: string | null;
@@ -496,6 +503,10 @@ export interface Contexto {
   pode: {
     gerenciar_projetos: boolean;
     gerenciar_permissoes: boolean;
+    /** Propor um projeto novo — qualquer pessoa ativa pode. */
+    criar_projeto: boolean;
+    /** Decidir sobre as propostas dos outros — só a administração. */
+    aprovar_projeto: boolean;
     ver_auditoria: boolean;
     criar_reserva: boolean;
     aprovar_reserva: boolean;
@@ -536,8 +547,19 @@ export function getStatusProjeto(): Promise<StatusProjetoApi[]> {
   return buscar('/status-projeto', 'os status de projeto');
 }
 
-export function getProjetos(): Promise<any> {
-  return buscar('/projetos?per_page=200', 'os projetos');
+export function getProjetos(situacao?: SituacaoProjeto): Promise<any> {
+  const filtro = situacao ? `&situacao=${situacao}` : '';
+  return buscar(`/projetos?per_page=200${filtro}`, 'os projetos');
+}
+
+/** Administração aceita a proposta: o projeto passa a valer para reservas. */
+export function aprovarProjeto(id: number): Promise<any> {
+  return enviar('POST', `/projetos/${id}/aprovar`, undefined, 'Não foi possível aprovar o projeto.');
+}
+
+/** Administração recusa a proposta, dizendo o motivo. */
+export function recusarProjeto(id: number, motivo: string): Promise<any> {
+  return enviar('POST', `/projetos/${id}/recusar`, { motivo }, 'Não foi possível recusar o projeto.');
 }
 
 export interface DadosProjeto {

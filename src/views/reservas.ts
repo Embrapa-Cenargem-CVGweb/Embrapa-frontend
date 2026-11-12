@@ -25,11 +25,16 @@ import { capacidade, dataBR, hojeISO, ocupacaoResumo, plural, statusPill } from 
 import { abrirModal, confirmar, fecharModal, fecharTodosModais, trocarModal } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import {
+  carregarContexto,
+  contextoAtual,
+  motivoParaNaoReservar,
+  projetosParaReservar,
+} from '../data/contexto';
+import {
   cancelarReserva as apiCancelar,
   atualizarReserva,
   criarReserva,
   excluirReserva,
-  getContexto,
   getDisponibilidade,
 } from '../services/api';
 import { fecharPainel } from './mapa';
@@ -62,10 +67,16 @@ let carregandoProjetos = false;
 async function garantirProjetos(): Promise<ProjetoDoCampo[]> {
   if (projetosDoCampo) return projetosDoCampo;
 
-  const contexto = await getContexto();
-  projetosDoCampo = contexto.projetos
-    .filter((p) => contexto.adm || p.permissoes.includes('reserva.criar'))
-    .map((p) => ({ id: p.id, codigo: p.codigo, titulo: p.titulo }));
+  // A regra de quais projetos servem para reservar (aprovados, não encerrados
+  // e com permissão) mora em data/contexto: a ficha do espaço usa a mesma para
+  // decidir se o botão abre, e as duas precisam concordar.
+  if (!contextoAtual()) await carregarContexto();
+
+  projetosDoCampo = projetosParaReservar().map((p) => ({
+    id: p.id,
+    codigo: p.codigo,
+    titulo: p.titulo,
+  }));
 
   return projetosDoCampo;
 }
@@ -89,7 +100,7 @@ function pintarProjetos(lista: ProjetoDoCampo[]): void {
   if (ajuda) {
     ajuda.textContent = lista.length
       ? 'Aparecem só os projetos em que você pode reservar.'
-      : 'Você ainda não tem permissão de reserva em nenhum projeto. Procure a administração.';
+      : motivoParaNaoReservar() ?? 'Nenhum projeto disponível para reserva.';
   }
 }
 

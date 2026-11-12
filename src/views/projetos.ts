@@ -4,7 +4,10 @@
  * Esta é a tela onde o modelo de acesso do CVGWeb é configurado, e o desenho
  * segue o que o back-end cobra:
  *
- *   - criar e excluir projeto é do adm; editar depende de `projeto.editar`;
+ *   - qualquer pesquisador ativo PROPÕE um projeto, e ele nasce PENDENTE: só
+ *     passa a valer quando a administração aprova. Excluir continua sendo do
+ *     adm; editar depende de `projeto.editar` — ou de ser o autor de uma
+ *     proposta que ainda não foi aceita;
  *   - o responsável do projeto é o LÍDER da equipe, e os dois andam juntos:
  *     trocar o responsável troca o papel no vínculo;
  *   - ser líder NÃO dá CRUD. Sem concessão explícita do adm, só o adm faz CRUD
@@ -25,6 +28,7 @@ import { abrirModal, confirmar, fecharModal, trocarModal } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import {
   adicionarMembro,
+  aprovarProjeto,
   atualizarMembro,
   atualizarProjeto,
   criarProjeto,
@@ -34,15 +38,18 @@ import {
   getEquipe,
   getProjetos,
   getStatusProjeto,
+  recusarProjeto,
   removerMembro,
   type CatalogoPermissoes,
   type DadosProjeto,
   type MembroEquipe,
   type PapelEquipe,
   type PermissaoProjeto,
+  type SituacaoProjeto,
   type StatusProjetoApi,
 } from '../services/api';
 import { listarUsuarios, recarregarUsuarios, usuarioAtual } from './login';
+import { pode, recarregarContexto } from '../data/contexto';
 
 /** Projeto como `/projetos` devolve. */
 interface ProjetoApi {
@@ -59,6 +66,21 @@ interface ProjetoApi {
   /** Quem está na equipe (id e nome), para os avatares do cartão. */
   colaboradores?: { id: number; nome: string }[];
   colaboradores_count?: number;
+  /** Situação da proposta. Ausente em resposta antiga: trata-se como aprovada. */
+  situacao?: SituacaoProjeto;
+  motivo_recusa?: string | null;
+  aprovador?: { id: number; nome: string } | null;
+}
+
+/** Proposta ainda não decidida pela administração. */
+function estaPendente(p: ProjetoApi): boolean {
+  return p.situacao === 'PENDENTE';
+}
+
+/** Quem pode mexer no projeto: o adm, ou o autor enquanto a proposta espera. */
+function souODono(p: ProjetoApi): boolean {
+  const eu = usuarioAtual();
+  return Boolean(eu && String(p.responsavel?.id ?? p.funcionario_id ?? '') === String(eu.id));
 }
 
 const PAPEL_ROTULO: Record<PapelEquipe, string> = {
@@ -109,11 +131,9 @@ function erroDe(erro: unknown, padrao: string): string {
 
 /** Entrada da seção de projetos: a casca chama ao mostrar a tela. */
 export function mostrarProjetos(): void {
-  if (!ehAdmin()) {
-    aviso('Só a administração configura projetos.', 'error');
-    return;
-  }
-
+  // A lista é de todo mundo: o back-end devolve ao pesquisador só os projetos
+  // em que ele está (e as propostas dele), e sem esta tela ele não teria como
+  // saber qual projeto informar na hora de reservar.
   void carregarProjetos();
 }
 
@@ -173,6 +193,31 @@ const AVATARES_NO_CARTAO = 4;
  * Um projeto por cartão: situação, código, título, líder, período e a equipe.
  * As ações são as mesmas que a tabela antiga tinha na última coluna.
  */
+/**
+ * A etiqueta do topo. A situação da proposta fala mais alto que o andamento da
+ * pesquisa: de nada adianta ler "Em andamento" num projeto que ainda não foi
+ * aprovado.
+ */
+function selo(p: ProjetoApi, encerrado: boolean): string {
+  if (estaPendente(p)) {
+    return html`<span class="pill pill--booked">
+      ${icone('clock', 'ic ic--sm')}Aguardando aprovação
+    </span>`;
+  }
+
+  if (p.situacao === 'RECUSADO') {
+    return html`<span class="pill pill--down">${icone('ban', 'ic ic--sm')}Recusado</span>`;
+  }
+
+  if (!p.status) {
+    return html`<span class="pill pill--neutral">Sem situação</span>`;
+  }
+
+  return html`<span class="pill ${raw(encerrado ? 'pill--down' : 'pill--ok')}">
+    ${icone(encerrado ? 'ban' : 'circle-check', 'ic ic--sm')}${p.status.descricao}
+  </span>`;
+}
+
 function cartaoDeProjeto(p: ProjetoApi): string {
   const encerrado = p.status?.encerrado ?? false;
   const equipe = p.colaboradores ?? [];
@@ -187,12 +232,15 @@ function cartaoDeProjeto(p: ProjetoApi): string {
     <article class="pcard" aria-label="Projeto ${p.codigo}">
       <div class="pcard__top">
         <span class="pcard__tile">${icone('graduation-cap')}</span>
-        ${raw(p.status
-          ? html`<span class="pill ${raw(encerrado ? 'pill--down' : 'pill--ok')}">
-                   ${icone(encerrado ? 'ban' : 'circle-check', 'ic ic--sm')}${p.status.descricao}
-                 </span>`
-          : html`<span class="pill pill--neutral">Sem situação</span>`)}
+        ${raw(selo(p, encerrado))}
       </div>
+
+      ${raw(p.situacao === 'RECUSADO' && p.motivo_recusa
+        ? html`<p class="pcard__aviso">Recusado: ${p.motivo_recusa}</p>`
+        : '')}
+      ${raw(estaPendente(p)
+        ? html`<p class="pcard__aviso">Aguardando a administração. Não aceita reserva até ser aprovado.</p>`
+        : '')}
 
       <div>
         <span class="code">${p.codigo}</span>
@@ -212,20 +260,37 @@ function cartaoDeProjeto(p: ProjetoApi): string {
       </div>
 
       <div class="pcard__actions">
-        <button type="button" class="btn btn--quiet btn--sm"
-                data-action="abrir-equipe" data-id="${p.id}">
-          ${icone('users', 'ic ic--sm')}Equipe e permissões
-        </button>
-        <button type="button" class="btn btn--quiet btn--sm btn--icon"
-                data-action="editar-projeto" data-id="${p.id}"
-                aria-label="Editar ${p.codigo}">
-          ${icone('wrench', 'ic ic--sm')}
-        </button>
-        <button type="button" class="btn btn--danger btn--sm btn--icon"
-                data-action="excluir-projeto" data-id="${p.id}"
-                aria-label="Excluir ${p.codigo}">
-          ${icone('trash-2', 'ic ic--sm')}
-        </button>
+        ${raw(estaPendente(p) && pode('aprovar_projeto')
+          ? html`
+            <button type="button" class="btn btn--primary btn--sm"
+                    data-action="aprovar-projeto" data-id="${p.id}">
+              ${icone('circle-check', 'ic ic--sm')}Aprovar
+            </button>
+            <button type="button" class="btn btn--quiet btn--sm"
+                    data-action="recusar-projeto" data-id="${p.id}">
+              ${icone('ban', 'ic ic--sm')}Recusar
+            </button>`
+          : html`
+            <button type="button" class="btn btn--quiet btn--sm"
+                    data-action="abrir-equipe" data-id="${p.id}">
+              ${icone('users', 'ic ic--sm')}Equipe e permissões
+            </button>`)}
+
+        ${raw(ehAdmin() || souODono(p)
+          ? html`<button type="button" class="btn btn--quiet btn--sm btn--icon"
+                         data-action="editar-projeto" data-id="${p.id}"
+                         aria-label="Editar ${p.codigo}">
+                   ${icone('wrench', 'ic ic--sm')}
+                 </button>`
+          : '')}
+
+        ${raw(ehAdmin()
+          ? html`<button type="button" class="btn btn--danger btn--sm btn--icon"
+                         data-action="excluir-projeto" data-id="${p.id}"
+                         aria-label="Excluir ${p.codigo}">
+                   ${icone('trash-2', 'ic ic--sm')}
+                 </button>`
+          : '')}
       </div>
     </article>`;
 }
@@ -251,8 +316,11 @@ export function abrirNovoProjeto(): void {
   projetoEmEdicao = null;
   prepararFormulario();
 
-  setText('proj-dialogo-titulo', 'Novo projeto');
-  setText('proj-enviar-texto', 'Criar projeto');
+  // Pesquisador propõe; administração cria direto. A palavra muda porque o
+  // resultado muda: a proposta dele ainda vai esperar o aval de alguém.
+  setText('proj-dialogo-titulo', ehAdmin() ? 'Novo projeto' : 'Propor projeto');
+  setText('proj-enviar-texto', ehAdmin() ? 'Criar projeto' : 'Enviar proposta');
+  show(el('proj-aviso-proposta'), !ehAdmin());
 
   irParaFormulario();
 }
@@ -289,6 +357,11 @@ function prepararFormulario(): void {
   mostrarErro(null);
   pintarStatus();
   pintarResponsaveis();
+
+  // Situação e responsável são decisão da administração: na proposta, o autor
+  // é o responsável e o status inicial vem do back-end.
+  show(el('proj-status')?.closest('.field') ?? null, ehAdmin());
+  show(el('proj-responsavel')?.closest('.field') ?? null, ehAdmin());
 }
 
 function pintarStatus(): void {
@@ -343,7 +416,7 @@ export async function confirmarProjeto(): Promise<void> {
     return;
   }
 
-  if (!status || !responsavel) {
+  if (ehAdmin() && (!status || !responsavel)) {
     mostrarErro('Escolha a situação e o pesquisador responsável.');
     return;
   }
@@ -359,8 +432,10 @@ export async function confirmarProjeto(): Promise<void> {
     descricao: valorDe('proj-descricao') || null,
     data_inicio: inicio || null,
     data_fim: fim || null,
-    status_projeto_id: Number(status),
-    funcionario_id: Number(responsavel),
+    // Em branco só acontece na proposta: o back-end usa o status inicial e
+    // põe quem propôs como responsável.
+    status_projeto_id: status ? Number(status) : null,
+    funcionario_id: responsavel ? Number(responsavel) : null,
   };
 
   try {
@@ -374,8 +449,97 @@ export async function confirmarProjeto(): Promise<void> {
   const criado = !projetoEmEdicao;
   fecharModal(el('modal-projeto'));
   await carregarProjetos();
+  await recarregarContexto();
 
-  aviso(criado ? `Projeto ${codigo} criado.` : `Projeto ${codigo} salvo.`, 'success');
+  if (!criado) {
+    aviso(`Projeto ${codigo} salvo.`, 'success');
+  } else if (ehAdmin()) {
+    aviso(`Projeto ${codigo} criado.`, 'success');
+  } else {
+    aviso(`Proposta ${codigo} enviada. A administração vai avaliar.`, 'success');
+  }
+}
+
+/* ===========================================================================
+   Decisão da administração sobre a proposta
+   =========================================================================== */
+
+/**
+ * Aprovar passa o projeto a valer e concede ao autor o mínimo para tocá-lo
+ * (quem aprova decide isso no back-end). Como as permissões da pessoa logada
+ * podem ter mudado, o contexto é relido na sequência.
+ */
+export async function decidirProjeto(id: string): Promise<void> {
+  const projeto = projetos.find((p) => String(p.id) === id);
+  if (!projeto) return;
+
+  const ok = await confirmar({
+    titulo: `Aprovar ${projeto.codigo}?`,
+    mensagem: html`
+      <strong>${projeto.titulo}</strong> passa a valer e aceita reservas.
+      ${projeto.responsavel ? `${projeto.responsavel.nome} fica como líder` : 'O autor fica como líder'}
+      e recebe as permissões básicas do próprio projeto: criar, editar e
+      cancelar reserva, editar o projeto e incluir gente na equipe.`,
+    confirmar: 'Aprovar',
+    icone: 'circle-check',
+  });
+  if (!ok) return;
+
+  try {
+    await aprovarProjeto(projeto.id);
+  } catch (erro) {
+    aviso(erroDe(erro, 'Não foi possível aprovar o projeto.'), 'error');
+    return;
+  }
+
+  await carregarProjetos();
+  await recarregarContexto();
+  aviso(`Projeto ${projeto.codigo} aprovado.`, 'success');
+}
+
+/** Recusar exige dizer por quê: o autor precisa saber o que corrigir. */
+export async function recusarProjetoAberto(id: string): Promise<void> {
+  const projeto = projetos.find((p) => String(p.id) === id);
+  if (!projeto) return;
+
+  // O diálogo é montado na hora por `confirmar`, então o campo só existe
+  // depois; a delegação guarda o que foi digitado enquanto ele está aberto.
+  let motivo = '';
+  const capturar = (ev: Event): void => {
+    const alvo = ev.target as HTMLInputElement | null;
+    if (alvo?.id === 'recusa-motivo') motivo = alvo.value;
+  };
+  document.addEventListener('input', capturar);
+
+  const ok = await confirmar({
+    titulo: `Recusar ${projeto.codigo}?`,
+    mensagem: html`
+      O autor vê o motivo em Projetos e pode corrigir e propor de novo.
+      <br /><br />
+      <input class="input" id="recusa-motivo" type="text" maxlength="255"
+             placeholder="Por que a proposta não foi aceita" aria-label="Motivo da recusa" />`,
+    confirmar: 'Recusar',
+    perigo: true,
+    icone: 'ban',
+  });
+
+  document.removeEventListener('input', capturar);
+  if (!ok) return;
+
+  if (!motivo.trim()) {
+    aviso('Diga o motivo da recusa.', 'error');
+    return;
+  }
+
+  try {
+    await recusarProjeto(projeto.id, motivo.trim());
+  } catch (erro) {
+    aviso(erroDe(erro, 'Não foi possível recusar o projeto.'), 'error');
+    return;
+  }
+
+  await carregarProjetos();
+  aviso(`Projeto ${projeto.codigo} recusado.`, 'success');
 }
 
 export async function pedirExclusaoProjeto(id: string): Promise<void> {

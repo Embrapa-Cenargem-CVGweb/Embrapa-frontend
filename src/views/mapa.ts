@@ -17,6 +17,7 @@ import { capacidade, dataBR, statusInfo, statusPill } from '../lib/format';
 import { modalAberto } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import type { Estufa, EstufaStatus, Reserva } from '../types';
+import { motivoParaNaoReservar } from '../data/contexto';
 
 let espacoAtivo: string | null = null;
 let fechandoPainel: number | undefined;
@@ -397,6 +398,10 @@ function pintarResultados(): void {
   show(lista, aberta);
   campo.setAttribute('aria-expanded', String(aberta));
 
+  // A caixa é um quadrado com a lupa até receber foco. Com texto digitado ela
+  // continua aberta mesmo sem foco, senão encolheria por cima dos resultados.
+  el('map-busca-caixa')?.classList.toggle('is-preenchida', aberta);
+
   if (!aberta) {
     lista.replaceChildren();
     campo.removeAttribute('aria-activedescendant');
@@ -466,6 +471,15 @@ function ligarBusca(): void {
 
   campo.addEventListener('input', pintarResultados);
   campo.addEventListener('focus', pintarResultados);
+
+  // A caixa cresce ao receber foco e encolhe ao sair sem nada digitado. O CSS
+  // ja faz isso com :focus-within; a classe e o mesmo gatilho por JS, para o
+  // comportamento nao depender do suporte do navegador ao seletor.
+  const caixa = el('map-busca-caixa');
+  campo.addEventListener('focus', () => caixa?.classList.add('is-aberta'));
+  campo.addEventListener('blur', () => {
+    if (!campo.value.trim()) caixa?.classList.remove('is-aberta');
+  });
 
   campo.addEventListener('keydown', (ev) => {
     if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
@@ -706,6 +720,15 @@ function preencherPainel(id: string): void {
   configurarAcao(estufa, id, reserva?.id);
 }
 
+/** Recado abaixo do botão quando a pessoa ainda não pode reservar. */
+function mostrarImpedimento(motivo: string | null): void {
+  const aviso = el('painel-impedimento');
+  if (!aviso) return;
+
+  setText('painel-impedimento-texto', motivo ?? '');
+  show(aviso, Boolean(motivo));
+}
+
 function configurarAcao(estufa: Estufa, id: string, reservaId?: string): void {
   const botao = el<HTMLButtonElement>('painel-acao');
   if (!botao) return;
@@ -715,11 +738,20 @@ function configurarAcao(estufa: Estufa, id: string, reservaId?: string): void {
   delete botao.dataset.id;
 
   if (aceitaReserva(estufa)) {
-    botao.dataset.action = 'abrir-reservar';
+    // Reservar exige um projeto aprovado com permissão de criar reserva. Sem
+    // isso o botão abriria um formulário que a API ia recusar no fim — então
+    // ele explica o que falta, em vez de deixar a pessoa preencher à toa.
+    const impedimento = motivoParaNaoReservar();
+
+    botao.dataset.action = impedimento ? 'sem-acao' : 'abrir-reservar';
     botao.dataset.id = id;
+    botao.disabled = Boolean(impedimento);
     botao.innerHTML = html`${icone('calendar-plus')}Solicitar reserva`;
+    mostrarImpedimento(impedimento);
     return;
   }
+
+  mostrarImpedimento(null);
 
   if (reservaId) {
     botao.dataset.action = 'ver-reserva';

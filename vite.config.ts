@@ -1,11 +1,41 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
+
+/**
+ * A CSP do index.html fecha o connect-src em 'self'. A API vive em outra
+ * origem (outra porta em desenvolvimento, outro host em producao), entao o
+ * marcador %API_ORIGIN% e trocado aqui pela origem de VITE_API_URL - a mesma
+ * variavel que o front ja usa para falar com o Laravel. Sem isso o navegador
+ * corta toda chamada antes de sair e a tela mostra so "Failed to fetch".
+ */
+function cspOrigemDaApi(apiUrl: string): Plugin {
+  let origem = '';
+  try {
+    origem = apiUrl ? new URL(apiUrl).origin : '';
+  } catch {
+    console.warn(`[cvgweb] VITE_API_URL invalida: ${apiUrl}`);
+  }
+
+  return {
+    name: 'cvgweb:csp-origem-da-api',
+    transformIndexHtml: {
+      order: 'pre',
+      handler: (html) => html.replaceAll('%API_ORIGIN%', origem),
+    },
+  };
+}
 
 /**
  * Front-end estático em TypeScript, sem framework.
  * O index.html da raiz é o ponto de entrada e carrega /src/main.ts como módulo.
  */
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const apiUrl = env.VITE_API_URL ?? process.env.VITE_API_URL ?? '';
+
+  return {
   root: '.',
+
+  plugins: [cspOrigemDaApi(apiUrl)],
 
   server: {
     port: 5173,
@@ -58,4 +88,5 @@ export default defineConfig({
     assetsInlineLimit: 2048,
     reportCompressedSize: true,
   },
+  };
 });

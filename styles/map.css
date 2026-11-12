@@ -343,7 +343,15 @@
 
 /* --- Busca --------------------------------------------------------------- */
 
+/*
+ * Em repouso a busca e um botao quadrado como os outros do mapa: so a lupa.
+ * Ao receber foco (clique na lupa ou Ctrl+K) ela cresce ate a largura cheia e,
+ * ao sair sem texto digitado, volta a encolher. Sem JS: quem abre e fecha sao
+ * :focus-within e :placeholder-shown.
+ */
 .map-search {
+  --map-search-w: min(35rem, calc(100% - 15rem));
+
   position: absolute;
   top: var(--s-4);
   left: var(--s-4);
@@ -351,12 +359,32 @@
   display: flex;
   gap: var(--s-3);
   align-items: center;
-  width: min(35rem, calc(100% - 15rem));
+  justify-content: flex-start;
+  width: 3.125rem;
   height: 3.125rem;
-  padding: 0 var(--s-3) 0 var(--s-4);
+  padding: 0;
   background: var(--surface);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-map);
+  transition: width var(--dur-3) var(--ease-panel),
+    padding var(--dur-3) var(--ease-panel);
+}
+
+/* Aberta: com o foco dentro ou com algo digitado (a lista de resultados
+   precisa continuar visivel enquanto a pessoa le o que encontrou). */
+.map-search:focus-within {
+  width: var(--map-search-w);
+  padding: 0 var(--s-3) 0 var(--s-4);
+}
+
+.map-search.is-preenchida,
+.map-search.is-aberta {
+  width: var(--map-search-w);
+  padding: 0 var(--s-3) 0 var(--s-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-search { transition: none; }
 }
 
 .map-search:focus-within {
@@ -364,10 +392,30 @@
   outline-offset: var(--focus-offset);
 }
 
+/* A lupa ocupa o quadrado inteiro enquanto fechada, para o alvo de clique ser
+   o botao todo; aberta, encolhe para o tamanho do icone. */
+.map-search__lupa {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 3.125rem;
+  height: 3.125rem;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: width var(--dur-3) var(--ease-panel), color var(--dur-1) var(--ease);
+}
+
+.map-search__lupa:hover { color: var(--accent); }
+
+.map-search:focus-within .map-search__lupa,
+.map-search.is-preenchida .map-search__lupa,
+.map-search.is-aberta .map-search__lupa {
+  width: 1.25rem;
+}
+
 .map-search__icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: var(--fg-2);
 }
 
 .map-search__input {
@@ -379,6 +427,14 @@
   background: none;
   border: 0;
   outline: none;
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.map-search:focus-within .map-search__input,
+.map-search.is-preenchida .map-search__input,
+.map-search.is-aberta .map-search__input {
+  opacity: 1;
 }
 
 .map-search__input::placeholder {
@@ -390,9 +446,14 @@
 }
 
 .map-search__keys {
-  display: flex;
+  display: none;
   flex: none;
   gap: var(--s-1);
+}
+
+/* O atalho so faz sentido com a caixa aberta; fechada, nao cabe. */
+.map-search:focus-within .map-search__keys {
+  display: flex;
 }
 
 .map-search__keys kbd {
@@ -409,11 +470,27 @@
   border-radius: var(--r-sm);
 }
 
+/* Explicação abaixo do botão da ficha quando ele está desabilitado. */
+.panel__impedimento {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+  margin-top: var(--s-3);
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+}
+
+.panel__impedimento[hidden] {
+  display: none;
+}
+
 .map-search__list {
   position: absolute;
   top: calc(100% + var(--s-2));
-  right: 0;
   left: 0;
+  /* Nao herda --map-search-w: dentro da caixa, o 100% daquele calc seria a
+     largura dela (50px quando fechada). A lista se mede pela viewport. */
+  width: min(35rem, calc(100vw - 2 * var(--s-4)));
   max-height: min(24rem, 60vh);
   padding: var(--s-2);
   overflow-y: auto;
@@ -1088,16 +1165,19 @@
    =========================================================================== */
 
 @media (width <= 48rem) {
+  /* Fechada continua o quadrado; aberta, ocupa a largura toda da tela. */
   .map-search {
-    width: calc(100% - var(--s-4) * 2);
+    --map-search-w: calc(100% - var(--s-4) * 2);
   }
 
-  /* Sem espaço ao lado da busca, os botões descem para baixo dela. */
-  .map-tools {
+  /* Sem espaço ao lado da busca, os botões descem para baixo dela — mas só
+     enquanto ela estiver aberta; fechada, cabem todos na mesma linha. */
+  .map:has(.map-search:focus-within) .map-tools,
+  .map:has(.map-search.is-preenchida) .map-tools {
     top: calc(var(--s-4) + 3.125rem + var(--s-3));
   }
 
-  .map-search__keys {
+  .map-search:focus-within .map-search__keys {
     display: none;
   }
 }

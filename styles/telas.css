@@ -289,6 +289,15 @@
   overflow-wrap: anywhere;
 }
 
+/* Recado curto no cartão: proposta esperando aprovação ou motivo da recusa. */
+.pcard__aviso {
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+  background: var(--surface-3);
+  border-radius: var(--r-md);
+}
+
 .pcard__meta {
   display: grid;
   gap: 2px;

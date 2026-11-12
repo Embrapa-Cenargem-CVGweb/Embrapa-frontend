@@ -338,7 +338,7 @@ function guardarSessao(usuario: Usuario): void {
   try {
     // O funcionário é guardado inteiro: não há lista local para consultar na
     // volta, e a sessão só vale enquanto o token do Sanctum estiver salvo.
-    localStorage.setItem(CHAVES.sessao, JSON.stringify(usuario));
+    sessionStorage.setItem(CHAVES.sessao, JSON.stringify(usuario));
   } catch {
     /* storage indisponível */
   }
@@ -348,7 +348,10 @@ export function sair(): void {
   sessao = null;
   descartarToken();
   try {
-    localStorage.removeItem(CHAVES.sessao);
+    sessionStorage.removeItem(CHAVES.sessao);
+    // Limpa rascunhos de reserva ao sair — dado do formulário não deve
+    // sobreviver ao logout, especialmente em computadores compartilhados.
+    localStorage.removeItem('cvgweb:rascunho-reserva:v1');
   } catch {
     /* storage indisponível */
   }
@@ -374,7 +377,7 @@ export function iniciarAutenticacao(
 
   let salvo: string | null = null;
   try {
-    salvo = localStorage.getItem(CHAVES.sessao);
+    salvo = sessionStorage.getItem(CHAVES.sessao);
   } catch {
     /* storage indisponível */
   }
@@ -389,7 +392,7 @@ export function iniciarAutenticacao(
   if (salvo) {
     descartarToken();
     try {
-      localStorage.removeItem(CHAVES.sessao);
+      sessionStorage.removeItem(CHAVES.sessao);
     } catch {
       /* storage indisponível */
     }

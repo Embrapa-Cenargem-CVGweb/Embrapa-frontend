@@ -36,8 +36,6 @@
    Em tela estreita a ficha ocupa a largura toda, então ele continua no canto,
    por cima, só um pouco mais alto para não tapar "Reservar este espaço".
 
-   Enquanto a ficha está aberta ele encolhe para só o ícone; o rótulo
-   "Assistente" volta quando a ficha fecha.
    --------------------------------------------------------------------------- */
 
 body:has(.panel.is-open) .chat {
@@ -58,45 +56,22 @@ body:has(.panel.is-open) .chat {
   }
 }
 
-body:has(.panel.is-open) .chat__fab-label {
-  display: none;
-}
-
-body:has(.panel.is-open) .chat__fab {
-  padding: var(--s-3);
-  border-radius: var(--r-pill);
-}
-
 /* --- Botão flutuante ------------------------------------------------------ */
 
+/*
+ * Mesmo botao dos controles do mapa (.map-btn): quadrado, branco, com a
+ * sombra do mapa - e, aberto, o fundo de destaque que o .map-btn ja da a
+ * [aria-expanded="true"]. Aqui fica so o que e do assistente.
+ */
 .chat__fab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  padding: var(--s-3) var(--s-4);
   font: inherit;
-  font-size: var(--text-md);
-  font-weight: var(--fw-semibold);
-  color: var(--accent-fg);
   cursor: pointer;
-  background: var(--accent);
   border: 0;
-  border-radius: var(--r-pill);
-  box-shadow: var(--shadow-3);
-  transition: background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
-.chat__fab:hover { background: var(--accent-hover); }
 .chat__fab:active { transform: scale(0.97); }
-
-.chat__fab[aria-expanded="true"] .chat__fab-label {
-  display: none;
-}
-
-.chat__fab .ic {
-  width: 1.25rem;
-  height: 1.25rem;
-}
 
 /* --- Janela --------------------------------------------------------------- */
 
