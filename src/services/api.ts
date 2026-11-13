@@ -240,13 +240,58 @@ export function getFuncionarios(): Promise<any> {
  */
 export function getDisponibilidade(
   casaId: number,
-  opcoes: { de: string; ate: string; quantidade?: number; ignorarReserva?: number },
+  opcoes: { de: string; ate: string; quantidade?: number; ignorarReserva?: number; unidade?: string },
 ): Promise<Disponibilidade> {
   const busca = new URLSearchParams({ de: opcoes.de, ate: opcoes.ate });
+  if (opcoes.unidade) busca.set('unidade', opcoes.unidade);
   if (opcoes.quantidade) busca.set('quantidade', String(opcoes.quantidade));
   if (opcoes.ignorarReserva) busca.set('ignorar_reserva', String(opcoes.ignorarReserva));
 
   return buscar(`/casas-vegetacao/${casaId}/disponibilidade?${busca}`, 'a disponibilidade do espaço');
+}
+
+/* ===========================================================================
+   Calendário de ocupação
+   =========================================================================== */
+
+export interface ReservaDoCalendario {
+  id: number;
+  /** Datas inteiras da reserva (AAAA-MM-DD), mesmo que passem do intervalo pedido. */
+  inicio: string;
+  fim: string;
+  quantidade: number;
+  unidade: 'VASO' | 'BANCADA';
+  status: 'ATIVA' | 'PENDENTE';
+  projeto?: string | null;
+  responsavel?: string | null;
+  finalidade?: string | null;
+  /** A reserva é de quem está logado. */
+  minha: boolean;
+}
+
+export interface CasaDoCalendario {
+  id: number;
+  codigo: string;
+  descricao?: string | null;
+  localizacao?: string | null;
+  status: string;
+  aceita_reserva: boolean;
+  unidade: 'VASO' | 'BANCADA';
+  /** O que se reserva na estufa e quanto cabe de cada coisa. */
+  capacidades: Partial<Record<'VASO' | 'BANCADA', number>>;
+  reservas: ReservaDoCalendario[];
+}
+
+export interface CalendarioOcupacao {
+  de: string;
+  ate: string;
+  hoje: string;
+  casas: CasaDoCalendario[];
+}
+
+/** Estufas e reservas vigentes que cruzam o intervalo (até 100 dias). */
+export function getCalendario(de: string, ate: string): Promise<CalendarioOcupacao> {
+  return buscar(`/casas-vegetacao/calendario?de=${de}&ate=${ate}`, 'o calendário de ocupação');
 }
 
 /* ===========================================================================
@@ -256,6 +301,8 @@ export function getDisponibilidade(
 export interface NovaReserva {
   casa_vegetacao_id: number;
   quantidade: number;
+  /** VASO ou BANCADA; sem informar, a unidade principal da estufa. */
+  unidade?: 'VASO' | 'BANCADA';
   data_inicio: string;
   data_fim: string;
   finalidade: string;

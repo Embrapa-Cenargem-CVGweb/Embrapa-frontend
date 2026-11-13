@@ -209,7 +209,6 @@ function pintarMetricas(m: Metricas): void {
  * resume o resto.
  */
 function celulaReservadoPor(id: string): string {
-  const estufa = ESTUFAS[id];
   const atuais = reservasDoEspaco(id);
 
   if (!atuais.length) return html`<span class="table__muted">&mdash;</span>`;
@@ -223,7 +222,7 @@ function celulaReservadoPor(id: string): string {
         <span class="table__name">
           ${reserva.pesquisador?.trim() || 'Responsável não informado'}
           <span class="table__sub">
-            &middot; ${capacidade(reserva.quantidade, estufa.unidade)}
+            &middot; ${capacidade(reserva.quantidade, reserva.unidade)}
             ${raw(reserva.status === 'pendente'
               ? html` <span class="pill pill--busy">${icone('clock', 'ic ic--sm')}pendente</span>`
               : '')}
@@ -297,9 +296,11 @@ function renderizarEspacos(): void {
         <td data-label="Capacidade">
           <div class="table__stack">
             <span class="table__name">${ocupacaoResumo(e.disponivel, e.capacidadeTotal, e.unidade)}</span>
-            ${raw(e.cap > 0
-              ? html`<span class="table__sub">${e.cap} ${e.cap === 1 ? 'bancada' : 'bancadas'}</span>`
-              : '')}
+            ${raw(e.capacidadePor.BANCADA && e.unidade === 'VASO'
+              ? html`<span class="table__sub">${ocupacaoResumo(e.livrePor.BANCADA ?? 0, e.cap, 'BANCADA')} de ${e.cap}</span>`
+              : e.cap > 0
+                ? html`<span class="table__sub">${e.cap} ${e.cap === 1 ? 'bancada' : 'bancadas'}</span>`
+                : '')}
           </div>
         </td>
         <td data-label="Status">${statusPill(e.status)}</td>
@@ -957,7 +958,7 @@ function linhaDeReserva(r: Reserva): string {
           ? html`<span class="who">${avatar(r.pesquisador)}${r.pesquisador}</span>`
           : html`<span class="table__muted">não informado</span>`)}
       </td>
-      <td data-label="Quantidade">${capacidade(r.quantidade, estufa?.unidade ?? 'VASO')}</td>
+      <td data-label="Quantidade">${capacidade(r.quantidade, r.unidade)}</td>
       <td data-label="Projeto" class="table__truncate" title="${r.projeto}">
         ${raw(r.projeto ? html`${r.projeto}` : html`<span class="table__muted">&mdash;</span>`)}
       </td>
@@ -1037,7 +1038,7 @@ export async function cancelarReserva(id: string): Promise<void> {
     titulo: 'Cancelar esta reserva?',
     mensagem: html`
       A reserva <strong>${reserva.id}</strong> de ${nome}
-      (${capacidade(reserva.quantidade, estufa?.unidade ?? 'VASO')}, a partir de
+      (${capacidade(reserva.quantidade, reserva.unidade)}, a partir de
       ${dataBR(reserva.data)}) sai da agenda e a capacidade volta a ficar
       disponível. Não é possível desfazer.`,
     icone: 'calendar-x',

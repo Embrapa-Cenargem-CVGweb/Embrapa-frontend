@@ -65,6 +65,17 @@ export interface Estufa {
   ocupado: number;
   /** Quanto sobra hoje. */
   disponivel: number;
+  /**
+   * O que se reserva aqui, a unidade principal primeiro. Vasos e bancadas são
+   * contas separadas: numa estufa de vasos, as bancadas também se reservam.
+   */
+  unidades: UnidadeCapacidade[];
+  /** Capacidade de cada unidade reservável. */
+  capacidadePor: Partial<Record<UnidadeCapacidade, number>>;
+  /** Quanto sobra hoje em cada unidade reservável. */
+  livrePor: Partial<Record<UnidadeCapacidade, number>>;
+  /** Há reserva hoje, em qualquer unidade. */
+  algoReservado?: boolean;
   /** Nome do símbolo no sprite, sem o prefixo `i-`. */
   icon: string;
   desc: string;
@@ -83,6 +94,8 @@ export interface Reserva {
   dataFim: string;
   /** Quantas unidades (vasos ou bancadas) esta reserva toma. */
   quantidade: number;
+  /** O que a reserva toma: vasos ou bancadas. */
+  unidade: UnidadeCapacidade;
   /** Código do projeto vinculado. */
   projeto: string;
   /** Título do projeto, quando a API o devolve junto. */
@@ -146,6 +159,8 @@ export interface Disponibilidade {
   ocupado: number;
   disponivel: number;
   unidade: UnidadeCapacidade;
+  /** O que se pode reservar na estufa, a principal primeiro. */
+  unidades?: UnidadeCapacidade[];
   aceita_reserva: boolean;
   mensagem: string;
   cabe?: boolean;

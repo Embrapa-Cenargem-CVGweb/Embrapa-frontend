@@ -595,6 +595,15 @@ function preencherCapacidade(estufa: Estufa): void {
   const unidade = estufa.unidade === 'VASO' ? 'vasos' : 'bancadas';
   setText('painel-capacidade-titulo', `Capacidade (${unidade})`);
 
+  // As bancadas de uma estufa de vasos se reservam à parte: a linha extra
+  // diz quantas sobram hoje.
+  const bancadas = estufa.unidade === 'VASO' ? estufa.capacidadePor.BANCADA ?? 0 : 0;
+  show(el('painel-bancadas-linha'), bancadas > 0);
+  if (bancadas > 0) {
+    const livres = estufa.livrePor.BANCADA ?? 0;
+    setText('painel-bancadas', `${livres} de ${bancadas} ${bancadas === 1 ? 'bancada livre' : 'bancadas livres'}`);
+  }
+
   const arco = document.getElementById('painel-arco');
   const total = estufa.capacidadeTotal;
 
@@ -617,7 +626,7 @@ function preencherCapacidade(estufa: Estufa): void {
   arco?.toggleAttribute('hidden', emUso === 0);
 }
 
-function preencherProximas(id: string, estufa: Estufa): void {
+function preencherProximas(id: string): void {
   const lista = el('painel-proximas');
   if (!lista) return;
 
@@ -630,7 +639,7 @@ function preencherProximas(id: string, estufa: Estufa): void {
         <span class="booking__tile">${icone('calendar-days')}</span>
         <span class="booking__text">
           <span class="booking__title">${reserva.id}${reserva.projeto ? ` — ${reserva.projeto}` : ''}</span>
-          <span class="booking__meta">${capacidade(reserva.quantidade, estufa.unidade)}</span>
+          <span class="booking__meta">${capacidade(reserva.quantidade, reserva.unidade)}</span>
         </span>
         <span class="booking__side">
           ${pillDaReserva(reserva)}
@@ -651,7 +660,7 @@ function preencherProximas(id: string, estufa: Estufa): void {
 export function alternarProximas(): void {
   if (!espacoAtivo || !ESTUFAS[espacoAtivo]) return;
   mostrarTodas = !mostrarTodas;
-  preencherProximas(espacoAtivo, ESTUFAS[espacoAtivo]);
+  preencherProximas(espacoAtivo);
 }
 
 function preencherPainel(id: string): void {
@@ -683,7 +692,7 @@ function preencherPainel(id: string): void {
   setText('painel-responsavel', reserva?.pesquisador?.trim() || '—');
   setText('painel-periodo', reserva ? `${dataBR(reserva.data)} a ${dataBR(reserva.dataFim)}` : '—');
 
-  preencherProximas(id, estufa);
+  preencherProximas(id);
   configurarAcao(estufa, id, reserva?.id);
 }
 

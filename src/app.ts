@@ -138,10 +138,12 @@ import {
   consultarDisponibilidade,
   consultarDisponibilidadeDaEdicao,
   editarReservaAberta,
+  escolherUnidade,
   excluirReservaAberta,
   guardarRascunhoDaReserva,
   verReserva,
 } from './views/reservas';
+import { acoesDoCalendario, mostrarCalendario } from './views/calendario';
 import { aoNavegar, type Secao } from './lib/navegacao';
 import { carregarContexto, limparContexto, pode } from './data/contexto';
 
@@ -171,6 +173,7 @@ function podeVerSecao(secao: Secao): boolean {
 
 /** Liga os itens do menu ao que a pessoa realmente alcança. */
 function aplicarPermissoesNoMenu(): void {
+  show(el('nav-calendario'), true);
   show(el('nav-reservas'), true);
   show(el('nav-projetos'), true);
   show(el('nav-usuarios'), podeVerSecao('usuarios'));
@@ -203,6 +206,7 @@ function mostrarSecao(secao: Secao): void {
   chatSoNoMapa(secao === 'mapa');
 
   if (secao === 'admin') renderizarAdmin();
+  if (secao === 'calendario') mostrarCalendario();
   if (secao === 'reservas') mostrarReservas();
   if (secao === 'projetos') mostrarProjetos();
   if (secao === 'usuarios') mostrarUsuarios();
@@ -376,6 +380,11 @@ function registrarTodasAsAcoes(): void {
       const id = elemento.dataset.id;
       if (id) abrirModalReservar(id);
     },
+    'reservar-unidade': (elemento) => {
+      escolherUnidade(elemento.dataset.unidade);
+      guardarRascunhoDaReserva();
+    },
+    ...acoesDoCalendario,
     'ver-reserva': (elemento) => {
       const id = elemento.dataset.id;
       if (id) verReserva(id);

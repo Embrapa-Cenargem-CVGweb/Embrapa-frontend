@@ -36,6 +36,7 @@
   <link rel="stylesheet" href="/styles/map.css" />
   <link rel="stylesheet" href="/styles/admin.css" />
   <link rel="stylesheet" href="/styles/telas.css" />
+  <link rel="stylesheet" href="/styles/calendario.css" />
   <link rel="stylesheet" href="/styles/chat.css" />
 
   <script type="module" src="/src/main.ts"></script>
@@ -94,6 +95,9 @@
 <symbol id="i-message-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></symbol>
 <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8" /> <rect width="16" height="12" x="4" y="8" rx="2" /> <path d="M2 14h2" /> <path d="M20 14h2" /> <path d="M15 13v2" /> <path d="M9 13v2" /></symbol>
 <symbol id="i-send-horizontal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z" /> <path d="M6 12h16" /></symbol>
+<symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></symbol>
+<symbol id="i-calendar-range" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /> <path d="M16 2v4" /> <path d="M3 10h18" /> <path d="M8 2v4" /> <path d="M17 14h-6" /> <path d="M13 18H7" /> <path d="M7 14h.01" /> <path d="M17 18h.01" /></symbol>
 <symbol id="i-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6" /></symbol>
 <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /> <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /> <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol>
 <symbol id="i-funnel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></symbol>
@@ -343,6 +347,10 @@
         <svg class="ic" aria-hidden="true"><use href="#i-map" /></svg>
         <span>Mapa</span>
       </button>
+      <button type="button" class="nav__item" id="nav-calendario" data-action="ver" data-view="calendario" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#i-calendar-range" /></svg>
+        <span>Calendário</span>
+      </button>
       <button type="button" class="nav__item" id="nav-reservas" data-action="ver" data-view="reservas" hidden>
         <svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg>
         <span>Reservas</span>
@@ -584,6 +592,7 @@
                   <ul class="gauge__legend">
                     <li><span class="gauge__dot gauge__dot--uso" aria-hidden="true"></span><span id="painel-em-uso">&mdash;</span></li>
                     <li><span class="gauge__dot" aria-hidden="true"></span><span id="painel-disponiveis">&mdash;</span></li>
+                    <li id="painel-bancadas-linha" hidden><span class="gauge__dot" aria-hidden="true"></span><span id="painel-bancadas">&mdash;</span></li>
                   </ul>
                 </div>
               </div>
@@ -705,6 +714,97 @@
          Tela própria, não modal: aprovar pendência é rotina diária da administração,
          com filtro e busca — coisa que se percorre, e não um recado que se fecha.
          ================================================================== -->
+    <!-- ===== Calendário de ocupação =======================================
+         Estufas nas linhas, dias do mês nas colunas. A grade é desenhada por
+         views/calendario.ts a partir de /casas-vegetacao/calendario.
+         ================================================================== -->
+    <section class="view" id="view-calendario" aria-labelledby="titulo-calendario">
+      <div class="pagina">
+
+        <div class="page-head">
+          <div>
+            <h1 class="page-head__title" id="titulo-calendario">Calendário</h1>
+            <p class="page-head__desc">Quando cada estufa está livre, dia a dia</p>
+          </div>
+          <div class="cal-mes" role="group" aria-label="Mês mostrado">
+            <button type="button" class="cal-mes__seta" data-action="cal-mes" data-passo="-1" aria-label="Mês anterior">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-left" /></svg>
+            </button>
+            <span class="cal-mes__nome" id="cal-mes" aria-live="polite">&mdash;</span>
+            <button type="button" class="cal-mes__seta" data-action="cal-mes" data-passo="1" aria-label="Próximo mês">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+            </button>
+            <button type="button" class="btn btn--quiet btn--sm" data-action="cal-mes" data-passo="0">Hoje</button>
+          </div>
+        </div>
+
+        <div class="stats" id="stats-calendario" aria-label="Resumo da ocupação"></div>
+
+        <p class="field__aviso" id="cal-conflitos" data-tom="erro" role="status" hidden>
+          <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
+          <span id="cal-conflitos-texto"></span>
+        </p>
+
+        <div class="section" id="sec-calendario">
+          <div class="section__head">
+            <h2 class="section__title">
+              Estufas
+              <span class="count" id="conta-calendario" aria-live="polite">0</span>
+            </h2>
+            <div class="section__tools">
+              <div class="cal-unidade" role="radiogroup" aria-label="O que mostrar">
+                <button type="button" role="radio" aria-checked="true"
+                        data-action="cal-unidade" data-unidade="VASO">Vasos</button>
+                <button type="button" role="radio" aria-checked="false"
+                        data-action="cal-unidade" data-unidade="BANCADA">Bancadas</button>
+              </div>
+              <div class="chips" role="radiogroup" aria-label="Filtrar estufas">
+                <button type="button" class="chip" role="radio" aria-checked="true"
+                        data-action="cal-filtro" data-filtro="todas">Todas</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="cal-filtro" data-filtro="vaga">Com vaga</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="cal-filtro" data-filtro="lotadas">Lotadas</button>
+                <button type="button" class="chip" role="radio" aria-checked="false"
+                        data-action="cal-filtro" data-filtro="fora">Fora de uso</button>
+              </div>
+              <div class="cal-periodo">
+                <label class="cal-periodo__rotulo" for="cal-de">Período</label>
+                <input class="input" type="date" id="cal-de" aria-label="Início do período" />
+                <span aria-hidden="true">a</span>
+                <input class="input" type="date" id="cal-ate" aria-label="Fim do período" />
+                <button type="button" class="search__clear cal-periodo__limpar" id="cal-limpar-periodo"
+                        data-action="cal-limpar-periodo" aria-label="Limpar período" hidden>
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                </button>
+              </div>
+              <div class="search">
+                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <input class="input" type="search" id="busca-calendario"
+                       placeholder="Buscar estufa" aria-label="Buscar estufa" />
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap cal-wrap" id="cal-wrap">
+            <table class="cal" id="cal-grade">
+              <caption class="sr-only">Ocupação das estufas em cada dia do mês</caption>
+            </table>
+          </div>
+
+          <ul class="cal-legenda" aria-label="Legenda">
+            <li><span class="cal-legenda__cor" data-estado="livre"></span>Livre</li>
+            <li><span class="cal-legenda__cor" data-estado="parcial" data-nivel="2">5</span>Parcial: o número é o que sobra</li>
+            <li><span class="cal-legenda__cor" data-estado="cheia"></span>Lotada</li>
+            <li><span class="cal-legenda__cor" data-estado="fora"></span>Fora de uso</li>
+            <li><span class="cal-legenda__cor" data-estado="livre" data-minha></span>Você tem reserva</li>
+            <li class="cal-legenda__dica">Clique num quadrinho para ver quem está na estufa; clique em dois dias do cabeçalho para marcar um período.</li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
     <section class="view" id="view-reservas" aria-labelledby="titulo-reservas">
       <div class="pagina">
 
@@ -2000,6 +2100,12 @@
         </div>
       </div>
 
+      <!-- Só aparece quando a estufa tem vasos E bancadas para reservar. -->
+      <div class="field" id="reservar-unidades-campo" hidden>
+        <span class="field__label" id="reservar-unidades-rotulo">O que você quer reservar</span>
+        <div class="segmented" id="reservar-unidades" role="radiogroup" aria-labelledby="reservar-unidades-rotulo"></div>
+      </div>
+
       <div class="field">
         <label class="field__label" for="reservar-quantidade">
           Quantas unidades você precisa
@@ -2010,6 +2116,8 @@
                  aria-describedby="reservar-quantidade-ajuda" />
           <span class="field__sufixo" id="reservar-unidade">vasos</span>
         </div>
+        <!-- VASO ou BANCADA; os botões de #reservar-unidades mudam este valor. -->
+        <input type="hidden" id="reservar-unidade-valor" name="unidade" value="VASO" />
         <p class="field__hint" id="reservar-quantidade-ajuda">
           Você reserva só o que vai usar; o resto da estufa continua disponível
           para outro pesquisador no mesmo período.
@@ -2024,11 +2132,21 @@
       </p>
 
       <div class="field">
-        <label class="field__label" for="reservar-projeto">Para qual projeto</label>
-        <!-- Preenchido em views/reservas.ts com os projetos em que você pode
-             reservar, so pelo nome. -->
-        <select class="select" id="reservar-projeto" name="projeto_id" required
-                aria-describedby="reservar-projeto-ajuda"></select>
+        <label class="field__label" for="reservar-projeto-busca">Para qual projeto</label>
+        <!-- Busca com sugestões (views/reservas.ts): filtra pelo nome enquanto a
+             pessoa digita. O id escolhido vai para #reservar-projeto. -->
+        <div class="combo">
+          <svg class="ic ic--sm combo__icone" aria-hidden="true"><use href="#i-search" /></svg>
+          <input class="input combo__campo" type="text" id="reservar-projeto-busca"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="reservar-projeto-lista" autocomplete="off" spellcheck="false"
+                 placeholder="Digite para buscar o projeto"
+                 aria-describedby="reservar-projeto-ajuda reservar-projeto-erro" />
+          <ul class="combo__lista" id="reservar-projeto-lista" role="listbox"
+              aria-label="Projetos em que você pode reservar" hidden></ul>
+        </div>
+        <input type="hidden" id="reservar-projeto" name="projeto_id" />
+        <p class="field__error" id="reservar-projeto-erro" hidden>Escolha um projeto da lista.</p>
         <p class="field__hint" id="reservar-projeto-ajuda">Aparecem só os projetos em que você pode reservar.</p>
       </div>
 
@@ -2055,6 +2173,43 @@
 </div>
 
 <!-- Ver reserva -->
+<!-- ===== Calendário: um dia de uma estufa ============================== -->
+<div class="scrim" id="modal-cal-dia" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cal-dia-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="cal-dia-titulo">&mdash;</h2>
+        <p class="dialog__desc" id="cal-dia-desc">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body">
+      <div class="cal-medidores" id="cal-dia-medidores"></div>
+
+      <ul class="cal-previsao" id="cal-dia-previsao" hidden></ul>
+
+      <h3 class="cal-dia__subtitulo">
+        Quem está na estufa neste dia
+        <span class="count" id="cal-dia-conta">0</span>
+      </h3>
+      <ul class="cal-reservas" id="cal-dia-reservas"></ul>
+    </div>
+
+    <div class="dialog__foot cal-dia__pe">
+      <p class="cal-dia__motivo" id="cal-dia-motivo" hidden></p>
+      <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
+      <button type="button" class="btn btn--primary" id="cal-dia-reservar" data-action="cal-reservar-dia">
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-plus" /></svg>
+        Reservar a partir deste dia
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="scrim" id="modal-ver-reserva" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ver-reserva-titulo">
     <div class="dialog__head">

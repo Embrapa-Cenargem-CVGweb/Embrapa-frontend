@@ -69,6 +69,7 @@ interface ReservaApi {
   id: number;
   casa_vegetacao_id: number;
   quantidade?: number;
+  unidade?: UnidadeCapacidade;
   data_inicio?: string;
   data_fim?: string;
   projeto?: { codigo?: string; titulo?: string };
@@ -136,6 +137,12 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
       // Tipo em aberto até a administração informar: vazio, não um palpite.
       const tipo = casa.tipo?.trim() ?? '';
       const capacidadeTotal = casa.ocupacao?.capacidade_total ?? casa.capacidade_total ?? 0;
+      const unidade = casa.ocupacao?.unidade ?? casa.unidade_capacidade ?? 'VASO';
+      const bancadas = casa.capacidade ?? 0;
+      // Mesma regra do back-end (CasaVegetacao::capacidadeEm): a principal usa
+      // a capacidade reservável; numa estufa de vasos, as bancadas contam à parte.
+      const capacidadePor: Partial<Record<UnidadeCapacidade, number>> = { [unidade]: capacidadeTotal };
+      if (unidade === 'VASO' && bancadas > 0) capacidadePor.BANCADA = bancadas;
 
       ESTUFAS[chave] = {
         codigo: casa.codigo ?? chave,
@@ -147,10 +154,13 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
         situacao: casa.status ?? (casa.ativa === false ? 'MANUTENCAO' : 'ATIVA'),
         area: casa.area_m2 ? `${casa.area_m2} m²` : '—',
         cap: casa.capacidade ?? 0,
-        unidade: casa.ocupacao?.unidade ?? casa.unidade_capacidade ?? 'VASO',
+        unidade,
         capacidadeTotal,
         ocupado: casa.ocupacao?.ocupado ?? 0,
         disponivel: casa.ocupacao?.disponivel ?? capacidadeTotal,
+        unidades: Object.keys(capacidadePor) as UnidadeCapacidade[],
+        capacidadePor,
+        livrePor: { ...capacidadePor },
         icon: iconeDoTipo(tipo),
         desc: casa.obs ?? '',
         vasos: casa.vasos_10cm != null
@@ -170,6 +180,8 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
         data: item.data_inicio?.slice(0, 10) ?? '',
         dataFim: item.data_fim?.slice(0, 10) ?? '',
         quantidade: item.quantidade ?? 1,
+        unidade: item.unidade
+          ?? (chavePorId[item.casa_vegetacao_id] ? ESTUFAS[chavePorId[item.casa_vegetacao_id]].unidade : 'VASO'),
         projeto: item.projeto?.codigo ?? String(item.projeto_id ?? ''),
         projetoTitulo: item.projeto?.titulo ?? '',
         finalidade: item.finalidade ?? '',
@@ -236,11 +248,19 @@ export async function garantirEstadoFresco(janelaMs = 15_000): Promise<void> {
  */
 export function recalcularOcupacao(data = hojeISO()): void {
   for (const [chave, estufa] of Object.entries(ESTUFAS)) {
-    const ocupado = reservasDoEspaco(chave, data)
+    const doDia = reservasDoEspaco(chave, data);
+    const tomado = (unidade: UnidadeCapacidade): number => doDia
+      .filter((r) => r.unidade === unidade)
       .reduce((total, r) => total + (r.quantidade || 1), 0);
 
-    estufa.ocupado = ocupado;
-    estufa.disponivel = Math.max(0, estufa.capacidadeTotal - ocupado);
+    for (const unidade of estufa.unidades) {
+      estufa.livrePor[unidade] = Math.max(0, (estufa.capacidadePor[unidade] ?? 0) - tomado(unidade));
+    }
+
+    estufa.ocupado = tomado(estufa.unidade);
+    estufa.disponivel = estufa.livrePor[estufa.unidade] ?? 0;
+    // Bancada reservada também tira a estufa de "livre".
+    estufa.algoReservado = doDia.length > 0;
     estufa.status = situacaoVisivel(estufa);
   }
 }
@@ -257,13 +277,19 @@ function situacaoVisivel(estufa: Estufa): EstufaStatus {
   if (estufa.situacao === 'INATIVA') return 'inativa';
   if (estufa.situacao === 'RESERVADA') return 'reservada';
   if (estufa.situacao === 'OCUPADA') return 'ocupada';
-  if (estufa.ocupado <= 0) return 'livre';
-  return estufa.disponivel <= 0 ? 'ocupada' : 'parcial';
+  if (!estufa.algoReservado) return 'livre';
+  // Cheia só quando não sobra nada em nenhuma unidade (vasos e bancadas).
+  return unidadesComVaga(estufa).length === 0 ? 'ocupada' : 'parcial';
+}
+
+/** Unidades com alguma coisa livre hoje, a principal primeiro. */
+export function unidadesComVaga(estufa: Estufa): UnidadeCapacidade[] {
+  return estufa.unidades.filter((u) => (estufa.livrePor[u] ?? 0) > 0);
 }
 
 /** O espaço aceita nova reserva? Capacidade cheia ou fora de uso, não. */
 export function aceitaReserva(estufa: Estufa): boolean {
-  return estufa.situacao === 'ATIVA' && estufa.disponivel > 0;
+  return estufa.situacao === 'ATIVA' && unidadesComVaga(estufa).length > 0;
 }
 
 /* ===========================================================================
