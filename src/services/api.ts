@@ -262,7 +262,10 @@ export interface ReservaDoCalendario {
   quantidade: number;
   unidade: 'VASO' | 'BANCADA';
   status: 'ATIVA' | 'PENDENTE';
+  /** Título do projeto. */
   projeto?: string | null;
+  /** Código do projeto (P-2026-001). */
+  projeto_codigo?: string | null;
   responsavel?: string | null;
   finalidade?: string | null;
   /** A reserva é de quem está logado. */
@@ -275,6 +278,8 @@ export interface CasaDoCalendario {
   descricao?: string | null;
   localizacao?: string | null;
   status: string;
+  /** Por que está fora de uso, quando a administração informou. */
+  motivo?: string | null;
   aceita_reserva: boolean;
   unidade: 'VASO' | 'BANCADA';
   /** O que se reserva na estufa e quanto cabe de cada coisa. */
@@ -369,8 +374,15 @@ export interface DadosEspaco {
   unidade_capacidade: 'VASO' | 'BANCADA';
   /** Capacidade reservável: é esta que a reserva consome. */
   capacidade_total: number;
+  /** Vasos por tamanho; numa estufa de vasos, o back-end soma e grava a capacidade. */
+  vasos?: { tamanho_cm: number; quantidade: number }[] | null;
+  /** Faixa de temperatura (°C). null limpa. */
+  temperatura_min?: number | null;
+  temperatura_max?: number | null;
   obs?: string | null;
   status?: EstufaSituacao;
+  /** Por que está fora de uso. O back-end limpa quando a situação é ATIVA. */
+  motivo_situacao?: string | null;
 }
 
 /**
@@ -399,11 +411,11 @@ export function atualizarEspaco(casaId: number, dados: DadosEspaco): Promise<any
  * INATIVA. Só ATIVA aceita reserva nova; o back-end recusa as outras com o
  * motivo. Livre e parcial continuam sendo cálculo da ocupação, não escolha.
  */
-export function atualizarSituacaoEspaco(casaId: number, status: EstufaSituacao): Promise<any> {
+export function atualizarSituacaoEspaco(casaId: number, status: EstufaSituacao, motivo?: string | null): Promise<any> {
   return enviar(
     'PATCH',
     `/casas-vegetacao/${casaId}/situacao`,
-    { status },
+    { status, motivo: motivo ?? null },
     'Não foi possível alterar a situação do espaço.',
   );
 }
@@ -694,6 +706,91 @@ export interface ProjetoDetalhe {
 export function getProjetoDetalhe(id: number): Promise<ProjetoDetalhe> {
   return buscar(`/projetos/${id}`, 'a ficha do projeto');
 }
+/* ---------------------------------------------------------------------------
+   Documentos e anotações do projeto
+   --------------------------------------------------------------------------- */
+
+export type TipoDocumento = 'DOCUMENTO' | 'PROTOCOLO' | 'IMAGEM' | 'ANOTACAO';
+
+export interface DocumentoDoProjeto {
+  id: number;
+  tipo: TipoDocumento;
+  titulo: string;
+  texto: string | null;
+  autor: string | null;
+  meu: boolean;
+  criado_em: string | null;
+  arquivo: { nome: string; mime: string | null; tamanho: number } | null;
+  posso_excluir: boolean;
+}
+
+export function getDocumentosDoProjeto(projetoId: number): Promise<{ data: DocumentoDoProjeto[] }> {
+  return buscar(`/projetos/${projetoId}/documentos`, 'os documentos do projeto');
+}
+
+/**
+ * Envia um documento ou anotação. Vai como multipart (por causa do arquivo),
+ * então não passa pelo `enviar`, que só manda JSON: aqui o navegador é quem
+ * monta o Content-Type com o separador certo.
+ */
+export async function enviarDocumentoDoProjeto(
+  projetoId: number,
+  dados: { tipo: TipoDocumento; titulo: string; texto?: string; arquivo?: File | null },
+): Promise<DocumentoDoProjeto> {
+  const corpo = new FormData();
+  corpo.append('tipo', dados.tipo);
+  corpo.append('titulo', dados.titulo);
+  if (dados.texto) corpo.append('texto', dados.texto);
+  if (dados.arquivo) corpo.append('arquivo', dados.arquivo);
+
+  const resposta = await fetch(`${API_URL}/projetos/${projetoId}/documentos`, {
+    method: 'POST',
+    headers: cabecalhos(),
+    body: corpo,
+  });
+  const retorno = await resposta.json().catch(() => null);
+
+  if (!resposta.ok) {
+    conferirSessao(resposta.status);
+    // 413: o servidor recusou antes de chegar na API (arquivo grande demais).
+    if (resposta.status === 413) throw new ErroApi('O arquivo passa de 10 MB.', 413, retorno);
+    throw erroDaResposta(resposta.status, retorno, 'Não foi possível salvar o documento.');
+  }
+
+  return retorno as DocumentoDoProjeto;
+}
+
+export function excluirDocumentoDoProjeto(projetoId: number, documentoId: number): Promise<unknown> {
+  return enviar('DELETE', `/projetos/${projetoId}/documentos/${documentoId}`, undefined, 'Não foi possível excluir o documento.');
+}
+
+/**
+ * Baixa o arquivo de um documento. O download exige o token no cabeçalho, e um
+ * link comum não manda cabeçalho: por isso o arquivo é lido aqui e entregue ao
+ * navegador como um link temporário.
+ */
+export async function baixarDocumentoDoProjeto(projetoId: number, documentoId: number, nome: string): Promise<void> {
+  const resposta = await fetch(`${API_URL}/projetos/${projetoId}/documentos/${documentoId}/arquivo`, {
+    headers: cabecalhos(),
+  });
+
+  if (!resposta.ok) {
+    const dados = await resposta.json().catch(() => null);
+    conferirSessao(resposta.status);
+    throw erroDaResposta(resposta.status, dados, 'Não foi possível baixar o arquivo.');
+  }
+
+  const url = URL.createObjectURL(await resposta.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = nome || 'documento';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Dá tempo de o navegador começar o download antes de soltar o endereço.
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export function getProjetos(situacao?: SituacaoProjeto): Promise<any> {
   const filtro = situacao ? `&situacao=${situacao}` : '';
   return buscar(`/projetos?per_page=200${filtro}`, 'os projetos');

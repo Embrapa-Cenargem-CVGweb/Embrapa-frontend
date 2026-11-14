@@ -13,7 +13,7 @@ const STATUS: Record<StatusKey, StatusInfo> = {
   // Parte da capacidade tomada: ainda dá para reservar o que sobrou.
   parcial: { label: 'Parcial', tom: 'booked', icon: 'calendar-check' },
   ocupada: { label: 'Ocupada', tom: 'busy', icon: 'user' },
-  // Bloqueio manual da administração, não cálculo das reservas.
+  // Lotada com pedido ainda esperando aprovação (ou bloqueio da administração).
   reservada: { label: 'Reservada', tom: 'booked', icon: 'calendar-check' },
   manutencao: { label: 'Manutenção', tom: 'down', icon: 'wrench' },
   inativa: { label: 'Inativa', tom: 'neutral', icon: 'ban' },
@@ -95,6 +95,30 @@ export function hojeISO(): string {
   const mes = String(agora.getMonth() + 1).padStart(2, '0');
   const dia = String(agora.getDate()).padStart(2, '0');
   return `${agora.getFullYear()}-${mes}-${dia}`;
+}
+
+/** Número com vírgula e sem zero sobrando: 22.5 -> "22,5", 28 -> "28". */
+function numeroBR(n: number): string {
+  return String(Math.round(n * 10) / 10).replace('.', ',');
+}
+
+/**
+ * Temperatura da estufa em uma frase curta: "22 a 28 °C", "25 °C" (mínima e
+ * máxima iguais), "a partir de 22 °C", "até 28 °C" ou "—" quando ninguém
+ * informou.
+ */
+export function temperaturaTexto(min: number | null | undefined, max: number | null | undefined): string {
+  const temMin = typeof min === 'number';
+  const temMax = typeof max === 'number';
+  if (temMin && temMax) return min === max ? `${numeroBR(min)} °C` : `${numeroBR(min)} a ${numeroBR(max)} °C`;
+  if (temMin) return `a partir de ${numeroBR(min)} °C`;
+  if (temMax) return `até ${numeroBR(max)} °C`;
+  return '—';
+}
+
+/** "5 de 3 cm · 2 de 20 cm" — os vasos da estufa, por tamanho. Vazio sem lista. */
+export function vasosTexto(vasos: { tamanho_cm: number; quantidade: number }[] | undefined): string {
+  return (vasos ?? []).map((v) => `${v.quantidade} de ${numeroBR(v.tamanho_cm)} cm`).join(' · ');
 }
 
 /** Plural simples: 1 bancada / 4 bancadas. */

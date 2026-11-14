@@ -20,10 +20,10 @@
  * Os checkboxes não são escritos à mão: vêm de `/permissoes/catalogo`, então
  * uma permissão nova no back aparece aqui sem mexer no front.
  */
-import { el, qsa, setText, show } from '../lib/dom';
+import { el, qs, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
-import { dataBR } from '../lib/format';
-import { avatar, pintarStats } from '../lib/telas';
+import { dataBR, dataHoraBR, hojeISO } from '../lib/format';
+import { avatar } from '../lib/telas';
 import { abrirModal, confirmar, fecharModal } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import {
@@ -41,8 +41,14 @@ import {
   getStatusProjeto,
   recusarProjeto,
   removerMembro,
+  baixarDocumentoDoProjeto,
+  enviarDocumentoDoProjeto,
+  excluirDocumentoDoProjeto,
+  getDocumentosDoProjeto,
   type CatalogoPermissoes,
   type DadosProjeto,
+  type DocumentoDoProjeto,
+  type TipoDocumento,
   type MembroEquipe,
   type PapelEquipe,
   type PessoaOpcao,
@@ -460,6 +466,11 @@ function prepararFormulario(): void {
   // é o responsável e o status inicial vem do back-end.
   show(el('proj-status')?.closest('.field') ?? null, ehAdmin());
   show(el('proj-responsavel')?.closest('.field') ?? null, ehAdmin());
+
+  // Sem os dois campos a caixa "Responsabilidade" ficava vazia, e quem
+  // propunha não sabia quem ia responder pelo projeto. O resumo diz.
+  show(el('proj-resp-info'), !ehAdmin());
+  setText('proj-resp-nome', usuarioAtual()?.nome ?? 'Você');
 
   // Participantes só na criação; depois, a equipe é mexida em "Equipe".
   participantes = [];
@@ -1054,13 +1065,348 @@ function quantidadeTexto(q: { vasos: number; bancadas: number }): string {
   return partes.length ? partes.join(' e ') : 'nada';
 }
 
+/* ---------------------------------------------------------------------------
+   Documentos e anotações do projeto
+
+   A equipe guarda aqui o material da pesquisa: documentos, protocolos
+   experimentais, imagens e anotações. Só quem é do projeto (e a
+   administração) vê e inclui; excluir é de quem enviou, do líder ou da
+   administração — a API decide e manda `posso_excluir` em cada item.
+   --------------------------------------------------------------------------- */
+
+const TIPOS_DE_DOCUMENTO: { valor: TipoDocumento; rotulo: string; icone: string }[] = [
+  { valor: 'DOCUMENTO', rotulo: 'Documento', icone: 'book-open' },
+  { valor: 'PROTOCOLO', rotulo: 'Protocolo', icone: 'flask-conical' },
+  { valor: 'IMAGEM', rotulo: 'Imagem', icone: 'eye' },
+  { valor: 'ANOTACAO', rotulo: 'Anotação', icone: 'message-circle' },
+];
+
+const ACEITOS = '.pdf,.doc,.docx,.odt,.txt,.rtf,.xls,.xlsx,.ods,.csv,.ppt,.pptx,.odp,.png,.jpg,.jpeg,.webp,.gif';
+const LIMITE_BYTES = 10 * 1024 * 1024;
+
+let projetoDosDocumentos: number | null = null;
+let documentos: DocumentoDoProjeto[] = [];
+let tipoDoNovo: TipoDocumento = 'DOCUMENTO';
+let enviandoDocumento = false;
+
+function tamanhoLegivel(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function secaoDeDocumentos(): string {
+  return html`
+    <section class="ficha__secao" aria-labelledby="ficha-docs-titulo">
+      <div class="ficha-docs__topo">
+        <h3 class="ficha__titulo" id="ficha-docs-titulo">
+          ${icone('book-open', 'ic ic--sm')}Documentos e anotações <span class="count" id="ficha-docs-conta">0</span>
+        </h3>
+        <button type="button" class="btn btn--quiet btn--sm" data-action="doc-novo" aria-expanded="false" aria-controls="doc-form">
+          ${icone('plus', 'ic ic--sm')}Adicionar
+        </button>
+      </div>
+
+      <form class="doc-form" id="doc-form" novalidate hidden>
+        <div class="chips" role="radiogroup" aria-label="O que você vai guardar">
+          ${raw(juntar(TIPOS_DE_DOCUMENTO.map((t) => html`
+            <button type="button" class="chip" role="radio" aria-checked="${String(t.valor === tipoDoNovo)}"
+                    data-action="doc-tipo" data-tipo="${t.valor}">${icone(t.icone, 'ic ic--sm')}${t.rotulo}</button>`)))}
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="doc-titulo">Título</label>
+          <input class="input" type="text" id="doc-titulo" maxlength="150" placeholder="Protocolo de irrigação" required />
+        </div>
+
+        <div class="field" id="doc-arquivo-campo">
+          <label class="field__label" for="doc-arquivo">Arquivo</label>
+          <input class="input doc-form__arquivo" type="file" id="doc-arquivo" accept="${ACEITOS}" />
+          <p class="field__hint">PDF, documento, planilha, apresentação ou imagem, até 10 MB.</p>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="doc-texto">
+            <span id="doc-texto-rotulo">Observação</span> <span class="field__opcional" id="doc-texto-opcional">opcional</span>
+          </label>
+          <textarea class="input" id="doc-texto" rows="3" maxlength="20000"
+                    placeholder="O que é, de quando é, o que foi observado"></textarea>
+        </div>
+
+        <p class="field__error" id="doc-erro" role="alert" hidden>
+          ${icone('circle-x', 'ic ic--sm')}<span id="doc-erro-texto"></span>
+        </p>
+
+        <div class="doc-form__acoes">
+          <button type="button" class="btn btn--quiet btn--sm" data-action="doc-cancelar">Cancelar</button>
+          <button type="submit" class="btn btn--primary btn--sm" id="doc-enviar">${icone('save', 'ic ic--sm')}Guardar</button>
+        </div>
+      </form>
+
+      <ul class="docs" id="ficha-docs" aria-live="polite"></ul>
+    </section>`;
+}
+
+function prepararDocumentos(projetoId: number): void {
+  projetoDosDocumentos = projetoId;
+  documentos = [];
+  tipoDoNovo = 'DOCUMENTO';
+  el<HTMLFormElement>('doc-form')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    void enviarDocumento();
+  });
+
+  const lista = el('ficha-docs');
+  if (lista) lista.innerHTML = html`<li class="docs__vazio">Lendo os documentos…</li>`;
+}
+
+async function carregarDocumentos(): Promise<void> {
+  const projetoId = projetoDosDocumentos;
+  if (projetoId === null) return;
+
+  try {
+    const resposta = await getDocumentosDoProjeto(projetoId);
+    if (projetoId !== projetoDosDocumentos) return; // já abriram outro projeto
+    documentos = resposta.data ?? [];
+  } catch (erro) {
+    if (projetoId !== projetoDosDocumentos) return;
+    const lista = el('ficha-docs');
+    if (lista) lista.innerHTML = html`<li class="docs__vazio">${erroDe(erro, 'Não foi possível ler os documentos.')}</li>`;
+    return;
+  }
+
+  pintarDocumentos();
+}
+
+function pintarDocumentos(): void {
+  const lista = el('ficha-docs');
+  if (!lista) return;
+
+  setText('ficha-docs-conta', String(documentos.length));
+
+  if (!documentos.length) {
+    lista.innerHTML = html`
+      <li class="docs__vazio">
+        Nada guardado ainda. Use "Adicionar" para incluir protocolos, imagens, documentos ou anotações da pesquisa.
+      </li>`;
+    return;
+  }
+
+  lista.innerHTML = juntar(documentos.map((d) => {
+    const tipo = TIPOS_DE_DOCUMENTO.find((t) => t.valor === d.tipo) ?? TIPOS_DE_DOCUMENTO[0];
+    const meta = [
+      d.arquivo ? `${d.arquivo.nome} · ${tamanhoLegivel(d.arquivo.tamanho)}` : '',
+      d.autor ?? '',
+      d.criado_em ? dataHoraBR(d.criado_em) : '',
+    ].filter(Boolean).join(' · ');
+
+    return html`
+      <li class="doc" data-tipo="${d.tipo}">
+        <span class="doc__tile" aria-hidden="true">${icone(tipo.icone)}</span>
+        <div class="doc__texto">
+          <span class="doc__titulo">${d.titulo}<span class="pill pill--neutral">${tipo.rotulo}</span></span>
+          ${raw(d.texto ? html`<p class="doc__obs">${d.texto}</p>` : '')}
+          <span class="doc__meta">${meta}</span>
+        </div>
+        <div class="doc__acoes">
+          ${raw(d.arquivo
+            ? html`<button type="button" class="btn btn--quiet btn--sm" data-action="doc-baixar" data-id="${d.id}">
+                     ${icone('external-link', 'ic ic--sm')}Baixar</button>`
+            : '')}
+          ${raw(d.posso_excluir
+            ? html`<button type="button" class="btn btn--quiet btn--sm btn--icon" data-action="doc-excluir" data-id="${d.id}"
+                           aria-label="Excluir ${d.titulo}">${icone('trash-2', 'ic ic--sm')}</button>`
+            : '')}
+        </div>
+      </li>`;
+  }));
+}
+
+function mostrarErroDoDocumento(mensagem: string | null): void {
+  show(el('doc-erro'), Boolean(mensagem));
+  setText('doc-erro-texto', mensagem ?? '');
+}
+
+/** Ajusta o formulário ao tipo: anotação é só texto, os outros pedem arquivo. */
+function pintarTipoDoDocumento(): void {
+  for (const chip of qsa('[data-action="doc-tipo"]')) {
+    chip.setAttribute('aria-checked', String(chip.dataset.tipo === tipoDoNovo));
+  }
+  const anotacao = tipoDoNovo === 'ANOTACAO';
+  show(el('doc-arquivo-campo'), !anotacao);
+  setText('doc-texto-rotulo', anotacao ? 'Anotação' : 'Observação');
+  show(el('doc-texto-opcional'), !anotacao);
+
+  const arquivo = el<HTMLInputElement>('doc-arquivo');
+  if (arquivo) arquivo.accept = tipoDoNovo === 'IMAGEM' ? '.png,.jpg,.jpeg,.webp,.gif' : ACEITOS;
+}
+
+export function abrirNovoDocumento(aberto = true): void {
+  const form = el<HTMLFormElement>('doc-form');
+  if (!form) return;
+
+  if (aberto) {
+    form.reset();
+    mostrarErroDoDocumento(null);
+    pintarTipoDoDocumento();
+  }
+  show(form, aberto);
+  qs('[data-action="doc-novo"]')?.setAttribute('aria-expanded', String(aberto));
+  if (aberto) el<HTMLInputElement>('doc-titulo')?.focus();
+}
+
+export function escolherTipoDoDocumento(tipo: string | undefined): void {
+  tipoDoNovo = TIPOS_DE_DOCUMENTO.find((t) => t.valor === tipo)?.valor ?? 'DOCUMENTO';
+  pintarTipoDoDocumento();
+}
+
+async function enviarDocumento(): Promise<void> {
+  if (projetoDosDocumentos === null || enviandoDocumento) return;
+
+  const titulo = (el<HTMLInputElement>('doc-titulo')?.value ?? '').trim();
+  const texto = (el<HTMLTextAreaElement>('doc-texto')?.value ?? '').trim();
+  const arquivo = tipoDoNovo === 'ANOTACAO' ? null : el<HTMLInputElement>('doc-arquivo')?.files?.[0] ?? null;
+
+  if (!titulo) {
+    mostrarErroDoDocumento('Dê um título, para a equipe achar depois.');
+    el('doc-titulo')?.focus();
+    return;
+  }
+  if (tipoDoNovo === 'ANOTACAO' && !texto) {
+    mostrarErroDoDocumento('Escreva a anotação.');
+    el('doc-texto')?.focus();
+    return;
+  }
+  if (tipoDoNovo !== 'ANOTACAO' && !arquivo) {
+    mostrarErroDoDocumento('Escolha o arquivo — ou mude para "Anotação", se for só texto.');
+    return;
+  }
+  if (arquivo && arquivo.size > LIMITE_BYTES) {
+    mostrarErroDoDocumento(`O arquivo tem ${tamanhoLegivel(arquivo.size)}; o limite é 10 MB.`);
+    return;
+  }
+
+  const botao = el<HTMLButtonElement>('doc-enviar');
+  enviandoDocumento = true;
+  if (botao) botao.disabled = true;
+  mostrarErroDoDocumento(null);
+
+  try {
+    const novo = await enviarDocumentoDoProjeto(projetoDosDocumentos, { tipo: tipoDoNovo, titulo, texto, arquivo });
+    documentos = [novo, ...documentos];
+  } catch (erro) {
+    mostrarErroDoDocumento(erroDe(erro, 'Não foi possível salvar o documento.'));
+    return;
+  } finally {
+    enviandoDocumento = false;
+    if (botao) botao.disabled = false;
+  }
+
+  abrirNovoDocumento(false);
+  pintarDocumentos();
+  aviso(`"${titulo}" guardado no projeto.`, 'success');
+}
+
+export async function baixarDocumento(id: string): Promise<void> {
+  const d = documentos.find((x) => String(x.id) === id);
+  if (!d?.arquivo || projetoDosDocumentos === null) return;
+
+  try {
+    await baixarDocumentoDoProjeto(projetoDosDocumentos, d.id, d.arquivo.nome);
+  } catch (erro) {
+    aviso(erroDe(erro, 'Não foi possível baixar o arquivo.'), 'error');
+  }
+}
+
+export async function excluirDocumento(id: string): Promise<void> {
+  const d = documentos.find((x) => String(x.id) === id);
+  if (!d || projetoDosDocumentos === null) return;
+
+  const ok = await confirmar({
+    titulo: `Excluir "${d.titulo}"?`,
+    mensagem: html`${d.arquivo ? 'O arquivo sai do projeto e do servidor.' : 'A anotação sai do projeto.'} Não dá para desfazer.`,
+    confirmar: 'Excluir',
+    perigo: true,
+    icone: 'trash-2',
+  });
+  if (!ok) return;
+
+  try {
+    await excluirDocumentoDoProjeto(projetoDosDocumentos, d.id);
+  } catch (erro) {
+    aviso(erroDe(erro, 'Não foi possível excluir.'), 'error');
+    return;
+  }
+
+  documentos = documentos.filter((x) => x.id !== d.id);
+  pintarDocumentos();
+  aviso(`"${d.titulo}" excluído.`, 'info');
+}
+
+/** "13/11 a 25/11/2026": o ano só aparece uma vez quando não muda. */
+function periodoCurto(inicio: string, fim: string): string {
+  const mesmoAno = inicio.slice(0, 4) === fim.slice(0, 4);
+  return `${mesmoAno ? dataBR(inicio).slice(0, 5) : dataBR(inicio)} a ${dataBR(fim)}`;
+}
+
+/** Dias entre duas datas AAAA-MM-DD, sem tropeçar em horário de verão. */
+function diasEntre(de: string, ate: string): number {
+  const dia = (iso: string): number => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+  return Math.round((dia(ate) - dia(de)) / 86_400_000);
+}
+
+/**
+ * Linha do tempo do projeto no cabeçalho da ficha: início, fim e quanto do
+ * período já passou. Sem as duas datas não há barra para desenhar.
+ */
+function linhaDoTempo(inicio: string | null, fim: string | null, encerrado: boolean): string {
+  if (!inicio || !fim) {
+    const texto = inicio ? `Começou em ${dataBR(inicio)}, sem data de fim` : 'Sem período definido';
+    return html`<p class="ficha-tempo__legenda">${icone('calendar-range', 'ic ic--sm')}${texto}</p>`;
+  }
+
+  const hoje = hojeISO();
+  const total = Math.max(1, diasEntre(inicio, fim) + 1);
+  const passados = Math.min(total, Math.max(0, diasEntre(inicio, hoje) + 1));
+  const pct = encerrado ? 100 : Math.round((passados / total) * 100);
+
+  let legenda: string;
+  if (encerrado) {
+    legenda = 'Projeto encerrado';
+  } else if (hoje < inicio) {
+    const faltam = diasEntre(hoje, inicio);
+    legenda = `Começa em ${faltam} ${faltam === 1 ? 'dia' : 'dias'}`;
+  } else if (hoje > fim) {
+    legenda = 'O período terminou';
+  } else {
+    const faltam = diasEntre(hoje, fim);
+    legenda = `Dia ${passados} de ${total} · ${faltam === 0 ? 'termina hoje' : `faltam ${faltam} ${faltam === 1 ? 'dia' : 'dias'}`}`;
+  }
+
+  return html`
+    <div class="ficha-tempo">
+      <div class="ficha-tempo__datas">
+        <span>${dataBR(inicio)}</span>
+        <span>${dataBR(fim)}</span>
+      </div>
+      <div class="ficha-tempo__barra" role="progressbar" aria-label="Período do projeto"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="${String(pct)}">
+        <span style="width: ${String(pct)}%"></span>
+      </div>
+      <p class="ficha-tempo__legenda">${icone('clock', 'ic ic--sm')}${legenda}</p>
+    </div>`;
+}
+
 export async function abrirFichaDoProjeto(id: string): Promise<void> {
   const corpo = el('projeto-ver-corpo');
   if (!corpo) return;
 
   const resumo = projetos.find((p) => String(p.id) === id);
+  const selos = el('projeto-ver-selos');
+  const tempo = el('projeto-ver-tempo');
   setText('projeto-ver-titulo', resumo?.titulo ?? 'Projeto');
   setText('projeto-ver-sub', 'Lendo a ficha…');
+  if (selos) selos.innerHTML = resumo ? html`<span class="ficha-hero__codigo">${resumo.codigo}</span>` : '';
+  if (tempo) tempo.innerHTML = '';
   corpo.innerHTML = '';
   const acoes = el('projeto-ver-acoes');
   if (acoes) acoes.innerHTML = '';
@@ -1075,71 +1421,118 @@ export async function abrirFichaDoProjeto(id: string): Promise<void> {
     return;
   }
 
-  const periodo = ficha.data_inicio || ficha.data_fim
-    ? `${ficha.data_inicio ? dataBR(ficha.data_inicio) : '—'} a ${ficha.data_fim ? dataBR(ficha.data_fim) : 'sem fim'}`
-    : 'Sem período definido';
+  const encerrado = ficha.status?.encerrado === true;
   setText('projeto-ver-titulo', ficha.titulo);
-  setText(
-    'projeto-ver-sub',
-    [ficha.codigo, ficha.status?.descricao, `Líder: ${ficha.responsavel?.nome ?? '—'}`, periodo].filter(Boolean).join(' · '),
-  );
+
+  // Selos: código, andamento e, enquanto não aprovada, a situação da proposta.
+  if (selos) {
+    const situacao = ficha.situacao === 'PENDENTE'
+      ? html`<span class="pill pill--busy">${icone('clock', 'ic ic--sm')}Aguardando aprovação</span>`
+      : ficha.situacao === 'RECUSADO'
+        ? html`<span class="pill pill--down">${icone('ban', 'ic ic--sm')}Recusado</span>`
+        : '';
+    selos.innerHTML = juntar([
+      html`<span class="ficha-hero__codigo">${ficha.codigo}</span>`,
+      ficha.status
+        ? html`<span class="pill ${raw(encerrado ? 'pill--neutral' : 'pill--ok')}">${ficha.status.descricao}</span>`
+        : '',
+      situacao,
+    ]);
+  }
+
+  const sub = el('projeto-ver-sub');
+  if (sub) {
+    sub.innerHTML = ficha.responsavel
+      ? html`${avatar(ficha.responsavel.nome)}<span>Liderado por <strong>${ficha.responsavel.nome}</strong></span>`
+      : html`<span>Sem líder definido</span>`;
+  }
+  if (tempo) tempo.innerHTML = linhaDoTempo(ficha.data_inicio, ficha.data_fim, encerrado);
 
   const m = ficha.metricas;
+  const emUsoHoje = m.em_uso_hoje.vasos + m.em_uso_hoje.bancadas;
+  const numeros = [
+    { numero: m.pessoas, rotulo: m.pessoas === 1 ? 'pessoa na equipe' : 'pessoas na equipe', tom: '' },
+    { numero: m.estufas_em_uso, rotulo: m.estufas_em_uso === 1 ? 'estufa reservada' : 'estufas reservadas', tom: 'booked' },
+    { numero: emUsoHoje, rotulo: emUsoHoje ? `em uso hoje (${quantidadeTexto(m.em_uso_hoje)})` : 'em uso hoje', tom: emUsoHoje ? 'ok' : '' },
+    { numero: m.pendentes, rotulo: m.pendentes === 1 ? 'reserva aguardando' : 'reservas aguardando', tom: m.pendentes ? 'busy' : '' },
+  ];
+
+  // Líder primeiro; o resto em ordem alfabética.
+  const equipe = [...ficha.equipe]
+    .sort((a, b) => Number(b.lider) - Number(a.lider) || a.nome.localeCompare(b.nome, 'pt-BR'));
+
+  // As que ainda valem primeiro, pela data; terminadas e canceladas no fim.
+  const foraDeUso = (r: ProjetoDetalhe['reservas'][number]): boolean => r.encerrada || r.status === 'CANCELADA';
+  const plantio = [...ficha.reservas]
+    .sort((a, b) => Number(foraDeUso(a)) - Number(foraDeUso(b)) || a.data_inicio.localeCompare(b.data_inicio));
+
   corpo.innerHTML = html`
     ${raw(!ficha.participo
       ? html`<p class="field__aviso">${icone('eye', 'ic ic--sm')}Você não faz parte deste projeto: dá para ver, não para mexer.</p>`
       : '')}
-    <div class="stats" id="projeto-ver-stats"></div>
+
+    <dl class="ficha-numeros">
+      ${raw(juntar(numeros.map((n) => html`
+        <div class="ficha-numeros__item" data-tom="${n.tom}">
+          <dt>${n.rotulo}</dt>
+          <dd>${String(n.numero)}</dd>
+        </div>`)))}
+    </dl>
 
     <section class="ficha__secao" aria-labelledby="ficha-sobre">
-      <h3 class="ficha__titulo" id="ficha-sobre">O que o projeto faz</h3>
-      <p class="ficha__texto">${ficha.descricao || 'Sem descrição.'}</p>
+      <h3 class="ficha__titulo" id="ficha-sobre">${icone('book-open', 'ic ic--sm')}Sobre o projeto</h3>
+      ${raw(ficha.descricao?.trim()
+        ? html`<p class="ficha-sobre">${ficha.descricao}</p>`
+        : html`<p class="ficha-sobre ficha-sobre--vazio">O projeto ainda não tem descrição.</p>`)}
     </section>
 
     <section class="ficha__secao" aria-labelledby="ficha-equipe">
-      <h3 class="ficha__titulo" id="ficha-equipe">Equipe (${String(ficha.equipe.length)})</h3>
-      <ul class="ficha__equipe">
-        ${raw(juntar(ficha.equipe.map((pessoa) => html`
-          <li class="ficha__pessoa">
+      <h3 class="ficha__titulo" id="ficha-equipe">${icone('users', 'ic ic--sm')}Equipe <span class="count">${String(equipe.length)}</span></h3>
+      <ul class="ficha-equipe">
+        ${raw(juntar(equipe.map((pessoa) => html`
+          <li class="ficha-equipe__pessoa">
             ${avatar(pessoa.nome)}
-            <span class="table__stack">
-              <span class="table__name">${pessoa.nome}
-                ${raw(pessoa.lider ? html`<span class="pill pill--booked">líder</span>` : '')}</span>
-              <span class="table__sub">${pessoa.cargo ?? 'sem cargo'}${pessoa.email ? ` · ${pessoa.email}` : ''}</span>
+            <span class="ficha-equipe__texto">
+              <span class="ficha-equipe__nome">${pessoa.nome}
+                ${raw(pessoa.lider ? html`<span class="pill pill--booked">Líder</span>` : '')}</span>
+              <span class="ficha-equipe__cargo">${pessoa.cargo ?? 'Sem cargo'}</span>
+              ${raw(pessoa.email ? html`<a class="ficha-equipe__email" href="mailto:${pessoa.email}">${pessoa.email}</a>` : '')}
             </span>
           </li>`)))}
       </ul>
     </section>
 
     <section class="ficha__secao" aria-labelledby="ficha-estufas">
-      <h3 class="ficha__titulo" id="ficha-estufas">Onde está plantado</h3>
-      ${raw(ficha.reservas.length
-        ? html`<div class="table-wrap"><table class="table">
-            <thead><tr>
-              <th scope="col">Estufa</th><th scope="col">Quantidade</th><th scope="col">Período</th>
-              <th scope="col">Finalidade</th><th scope="col">Situação</th><th scope="col">Reservou</th>
-            </tr></thead>
-            <tbody>${raw(juntar(ficha.reservas.map((r) => {
-              const st = STATUS_RESERVA[r.status] ?? { rotulo: r.status, tom: 'pill--neutral' };
-              return html`<tr class="${raw(r.encerrada ? 'is-off' : '')}">
-                <td data-label="Estufa"><span class="code">${r.estufa?.codigo ?? '—'}</span></td>
-                <td data-label="Quantidade">${String(r.quantidade)} ${r.quantidade === 1 ? r.unidade.replace(/s$/, '') : r.unidade}</td>
-                <td data-label="Período">${dataBR(r.data_inicio)} a ${dataBR(r.data_fim)}</td>
-                <td data-label="Finalidade">${r.finalidade ?? '—'}</td>
-                <td data-label="Situação"><span class="pill ${raw(st.tom)}">${r.encerrada ? 'Terminada' : st.rotulo}</span></td>
-                <td data-label="Reservou">${r.quem ?? '—'}</td>
-              </tr>`;
-            })))}</tbody>
-          </table></div>`
-        : html`<p class="empty__text">Nenhuma estufa reservada ainda. As reservas são feitas pelo mapa.</p>`)}
-    </section>`;
+      <h3 class="ficha__titulo" id="ficha-estufas">${icone('sprout', 'ic ic--sm')}Onde está plantado <span class="count">${String(plantio.length)}</span></h3>
+      ${raw(plantio.length
+        ? html`<ul class="ficha-plantio">${raw(juntar(plantio.map((r) => {
+            const st = STATUS_RESERVA[r.status] ?? { rotulo: r.status, tom: 'pill--neutral' };
+            const unidade = r.quantidade === 1 ? r.unidade.replace(/s$/, '') : r.unidade;
+            return html`
+              <li class="ficha-plantio__item ${raw(foraDeUso(r) ? 'is-off' : '')}">
+                <span class="ficha-plantio__estufa">
+                  ${icone('leaf', 'ic ic--sm')}
+                  <span>${r.estufa?.codigo ?? '—'}</span>
+                </span>
+                <span class="ficha-plantio__texto">
+                  <span class="ficha-plantio__qtd">${String(r.quantidade)} ${unidade}${r.finalidade ? ` · ${r.finalidade}` : ''}</span>
+                  <span class="ficha-plantio__meta">${icone('calendar-days', 'ic ic--sm')}${periodoCurto(r.data_inicio, r.data_fim)}${r.quem ? ` · por ${r.quem}` : ''}</span>
+                </span>
+                <span class="pill ${raw(st.tom)}">${r.encerrada ? 'Terminada' : st.rotulo}</span>
+              </li>`;
+          })))}</ul>`
+        : html`<div class="ficha-vazio">
+            ${icone('map-pin', 'ic')}
+            <p>Nenhuma estufa reservada ainda. As reservas são feitas pelo mapa.</p>
+          </div>`)}
+    </section>
 
-  pintarStats('projeto-ver-stats', [
-    { icone: 'users', numero: m.pessoas, rotulo: m.pessoas === 1 ? 'Pessoa na equipe' : 'Pessoas na equipe' },
-    { icone: 'leaf', numero: m.estufas_em_uso, rotulo: m.estufas_em_uso === 1 ? 'Estufa reservada' : 'Estufas reservadas', tom: 'booked' },
-    { icone: 'calendar-check', numero: m.em_uso_hoje.vasos + m.em_uso_hoje.bancadas, rotulo: `Em uso hoje: ${quantidadeTexto(m.em_uso_hoje)}`, tom: 'ok' },
-    { icone: 'clock', numero: m.pendentes, rotulo: m.pendentes === 1 ? 'Reserva aguardando' : 'Reservas aguardando', tom: m.pendentes ? 'busy' : undefined },
-  ]);
+    ${raw(ficha.participo || ehAdmin() ? secaoDeDocumentos() : '')}`;
+
+  if (ficha.participo || ehAdmin()) {
+    prepararDocumentos(ficha.id);
+    void carregarDocumentos();
+  }
 
   if (acoes) {
     acoes.innerHTML = juntar([

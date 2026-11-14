@@ -9,7 +9,9 @@
  *   bloqueios manuais — a administração segura o espaço sem precisar criar uma
  *   reserva no sistema.
  * - `EstufaStatus` é **derivado** da ocupação do dia e ninguém define à mão:
- *   livre, parcial (parte da capacidade tomada) ou ocupada (capacidade cheia).
+ *   livre, parcial (sobra vaga), ocupada (lotada com reservas aprovadas) ou
+ *   reservada (lotada contando pedidos que aguardam aprovação). Lotada ainda
+ *   aceita pedido para outro período.
  *   Espaço com situação diferente de ATIVA mostra a própria situação.
  */
 
@@ -37,11 +39,10 @@ export type Tom = 'ok' | 'busy' | 'booked' | 'down' | 'neutral';
 /** Unidade em que a capacidade do espaço é contada. */
 export type UnidadeCapacidade = 'VASO' | 'BANCADA';
 
-/** Capacidade aproximada de vasos, por diâmetro. Informativo. */
-export interface VasosCapacidade {
-  c3: number;
-  c5: number;
-  c10: number;
+/** Vasos de um tamanho: "5 vasos de 3 cm". A estufa tem quantos tamanhos quiser. */
+export interface VasoDoTamanho {
+  tamanho_cm: number;
+  quantidade: number;
 }
 
 export interface Estufa {
@@ -79,7 +80,13 @@ export interface Estufa {
   /** Nome do símbolo no sprite, sem o prefixo `i-`. */
   icon: string;
   desc: string;
-  vasos?: VasosCapacidade;
+  /** Vasos por tamanho. Numa estufa de vasos, a soma é a capacidade reservável. */
+  vasos: VasoDoTamanho[];
+  /** Faixa de temperatura em que a estufa é mantida (°C). null = não informada. */
+  temperaturaMin: number | null;
+  temperaturaMax: number | null;
+  /** Por que está fora de uso (manutenção, inativa, bloqueada). Vazio se em uso. */
+  motivo: string;
 }
 
 /** Espaços indexados pela posição no mapa (E01, E02, ...). */
