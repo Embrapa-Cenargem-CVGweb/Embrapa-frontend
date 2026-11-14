@@ -9,11 +9,20 @@
  * Por cima do palco ficam a busca, os botões de camadas, filtro e tela cheia,
  * a legenda e o zoom.
  */
-import { ESTUFAS, aceitaReserva, proximasReservas, reservasDoEspaco } from '../data/estufas';
+import {
+  ESTUFAS,
+  aceitaReserva,
+  picoDeUso,
+  principalEsgotada,
+  proximaDataLivre,
+  proximasReservas,
+  reservaVisivel,
+  reservasDoEspaco,
+} from '../data/estufas';
 import { HOTSPOTS, pegada, type Pegada } from '../data/hotspots';
 import { el, qs, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
-import { capacidade, dataBR, statusInfo, statusPill } from '../lib/format';
+import { capacidade, dataBR, statusInfo, statusPill, temperaturaTexto, vasosTexto } from '../lib/format';
 import { modalAberto } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import type { Estufa, EstufaStatus, Reserva } from '../types';
@@ -75,6 +84,21 @@ function normalizar(texto: string): string {
 
 /** Grupos que o filtro deixa à vista. Começa com todos. */
 const filtro = new Set<Grupo>(GRUPOS);
+
+/**
+ * "Preciso de N vasos (ou bancadas)": com quantidade acima de zero, só ficam no
+ * mapa as estufas em uso normal que têm esse tanto livre hoje. É a pergunta de
+ * quem chega para reservar — "onde cabem 6 vasos?" — respondida sem abrir
+ * estufa por estufa.
+ */
+const precisa: { quantidade: number; unidade: 'VASO' | 'BANCADA' } = { quantidade: 0, unidade: 'VASO' };
+
+function cabeOQuePrecisa(id: string | undefined): boolean {
+  if (precisa.quantidade <= 0) return true;
+  const estufa = id ? ESTUFAS[id] : undefined;
+  if (!estufa || estufa.situacao !== 'ATIVA') return false;
+  return (estufa.livrePor[precisa.unidade] ?? 0) >= precisa.quantidade;
+}
 
 export function renderizarMarcadores(): void {
   const camada = el('map-marcadores');
@@ -154,11 +178,29 @@ function marcarSelecionado(id: string | null): void {
 function aplicarFiltro(): void {
   const contagem: Record<Grupo, number> = { livre: 0, ocupada: 0, reservada: 0, manutencao: 0 };
 
+  let cabem = 0;
   for (const botao of qsa<HTMLButtonElement>('.marker')) {
     const grupo = grupoDe((botao.dataset.status ?? 'indefinido') as EstufaStatus | 'indefinido');
     contagem[grupo] += 1;
-    botao.hidden = !filtro.has(grupo) && botao.dataset.id !== espacoAtivo;
+
+    const cabe = cabeOQuePrecisa(botao.dataset.id);
+    if (cabe && precisa.quantidade > 0) cabem += 1;
+    botao.hidden = (!filtro.has(grupo) || !cabe) && botao.dataset.id !== espacoAtivo;
   }
+
+  // Resultado do "preciso de N": quantas estufas servem.
+  const unidade = precisa.unidade === 'BANCADA'
+    ? (precisa.quantidade === 1 ? 'bancada livre' : 'bancadas livres')
+    : (precisa.quantidade === 1 ? 'vaso livre' : 'vasos livres');
+  setText(
+    'map-precisa-resultado',
+    precisa.quantidade <= 0
+      ? 'Diga de quanto você precisa para ver só as estufas onde cabe.'
+      : cabem === 0
+        ? `Nenhuma estufa tem ${precisa.quantidade} ${unidade} hoje.`
+        : `${cabem} ${cabem === 1 ? 'estufa tem' : 'estufas têm'} ${precisa.quantidade} ${unidade} hoje.`,
+  );
+  show(el('map-precisa-limpar'), precisa.quantidade > 0);
 
   for (const grupo of GRUPOS) {
     const alvo = document.getElementById(`map-conta-${grupo}`);
@@ -166,7 +208,7 @@ function aplicarFiltro(): void {
   }
 
   // O botão avisa que há algo escondido, para ninguém achar que faltam estufas.
-  el('map-btn-filtro')?.toggleAttribute('data-ativo', filtro.size < GRUPOS.length);
+  el('map-btn-filtro')?.toggleAttribute('data-ativo', filtro.size < GRUPOS.length || precisa.quantidade > 0);
 }
 
 /* ===========================================================================
@@ -456,7 +498,22 @@ function limparBusca(): void {
 export function escolherResultado(id: string): void {
   limparBusca();
   el<HTMLInputElement>('map-busca')?.blur();
+  recolherBuscaVazia();
   abrirPainel(id, true);
+}
+
+/**
+ * Volta a caixa ao quadrado da lupa quando ela está vazia e sem foco.
+ *
+ * O `blur` sozinho não bastava: clicando num resultado, o campo perde o foco
+ * ANTES de o clique limpar o texto — no blur ainda havia "estufa 5", a caixa
+ * ficava aberta, e nada conferia de novo depois. Com Enter a ordem é a
+ * inversa, por isso só o clique deixava a caixa esticada.
+ */
+function recolherBuscaVazia(): void {
+  const campo = el<HTMLInputElement>('map-busca');
+  if (!campo || campo.value.trim() || document.activeElement === campo) return;
+  el('map-busca-caixa')?.classList.remove('is-aberta');
 }
 
 function ligarBusca(): void {
@@ -531,7 +588,29 @@ export function alternarPopover(botao: HTMLElement): void {
   botao.setAttribute('aria-expanded', String(abrir));
 }
 
+/** Tira o "preciso de N" e volta a mostrar todas as estufas. */
+export function limparPrecisa(): void {
+  precisa.quantidade = 0;
+  const campo = el<HTMLInputElement>('map-precisa-qtd');
+  if (campo) {
+    campo.value = '';
+    campo.focus();
+  }
+  aplicarFiltro();
+}
+
 function ligarPopovers(): void {
+  // "Preciso de N": filtra enquanto a pessoa digita.
+  el<HTMLInputElement>('map-precisa-qtd')?.addEventListener('input', (ev) => {
+    const n = Number.parseInt((ev.target as HTMLInputElement).value, 10);
+    precisa.quantidade = Number.isNaN(n) || n < 0 ? 0 : n;
+    aplicarFiltro();
+  });
+  el<HTMLSelectElement>('map-precisa-unidade')?.addEventListener('change', (ev) => {
+    precisa.unidade = (ev.target as HTMLSelectElement).value === 'BANCADA' ? 'BANCADA' : 'VASO';
+    aplicarFiltro();
+  });
+
   document.addEventListener('change', (ev) => {
     const alvo = ev.target;
     if (!(alvo instanceof HTMLInputElement)) return;
@@ -591,9 +670,25 @@ function enquadrarFoto(id: string): void {
   quadro.style.backgroundPosition = `${posicao(area.cx, ampliacao)}% ${posicao(area.cy, ampliacaoY)}%`;
 }
 
-function preencherCapacidade(estufa: Estufa): void {
+function preencherCapacidade(estufa: Estufa, id: string): void {
   const unidade = estufa.unidade === 'VASO' ? 'vasos' : 'bancadas';
-  setText('painel-capacidade-titulo', `Capacidade (${unidade})`);
+  // "Hoje" no título: o número é a ocupação do dia, não a soma de tudo o que
+  // está reservado para as próximas semanas.
+  setText('painel-capacidade-titulo', `Capacidade hoje (${unidade})`);
+
+  // Reserva que ainda vai começar não entra no "em uso hoje". Sem dizer isso,
+  // quem reservou 10 vasos para a semana que vem via "1 em uso" e achava que o
+  // pedido não tinha sido contado. A linha avisa o dia mais cheio pela frente.
+  const pico = picoDeUso(id, estufa.unidade);
+  const sobeDepois = estufa.capacidadeTotal > 0 && pico.tomado > estufa.ocupado;
+  show(el('painel-pico-linha'), sobeDepois);
+  if (sobeDepois) {
+    const lotada = pico.tomado >= estufa.capacidadeTotal;
+    setText(
+      'painel-pico',
+      `${lotada ? 'Lotada' : `${Math.min(pico.tomado, estufa.capacidadeTotal)} de ${estufa.capacidadeTotal} em uso`} a partir de ${dataBR(pico.dia).slice(0, 5)}`,
+    );
+  }
 
   // As bancadas de uma estufa de vasos se reservam à parte: a linha extra
   // diz quantas sobram hoje.
@@ -633,20 +728,23 @@ function preencherProximas(id: string): void {
   const todas = proximasReservas(id);
   const visiveis = mostrarTodas ? todas : todas.slice(0, RESERVAS_VISIVEIS);
 
-  lista.innerHTML = juntar(visiveis.map((reserva) => html`
-    <li>
-      <button type="button" class="booking" data-action="ver-reserva" data-id="${reserva.id}">
+  // A lista mostra a ocupação inteira da estufa, de qualquer projeto: é o que
+  // explica por que ela está cheia. Só abre o detalhe quem pode ver a reserva.
+  lista.innerHTML = juntar(visiveis.map((reserva) => {
+    const conteudo = html`
         <span class="booking__tile">${icone('calendar-days')}</span>
         <span class="booking__text">
           <span class="booking__title">${reserva.id}${reserva.projeto ? ` — ${reserva.projeto}` : ''}</span>
-          <span class="booking__meta">${capacidade(reserva.quantidade, reserva.unidade)}</span>
+          <span class="booking__meta">${capacidade(reserva.quantidade, reserva.unidade)}${reserva.pesquisador ? ` · ${reserva.pesquisador}` : ''}</span>
         </span>
         <span class="booking__side">
           ${pillDaReserva(reserva)}
           <span class="booking__dates">${periodo(reserva.data, reserva.dataFim)}</span>
-        </span>
-      </button>
-    </li>`));
+        </span>`;
+    return reservaVisivel(reserva.id)
+      ? html`<li><button type="button" class="booking" data-action="ver-reserva" data-id="${reserva.id}">${raw(conteudo)}</button></li>`
+      : html`<li><div class="booking booking--so-ver">${raw(conteudo)}</div></li>`;
+  }));
 
   show(el('painel-proximas-vazio'), todas.length === 0);
 
@@ -674,12 +772,18 @@ function preencherPainel(id: string): void {
   setText('painel-nome', estufa.nome);
   setText('painel-tipo', estufa.tipo || '—');
   setText('painel-area', estufa.area);
+  setText('painel-temperatura', temperaturaTexto(estufa.temperaturaMin, estufa.temperaturaMax));
+
+  // Vasos por tamanho: só aparece quando a administração cadastrou a lista.
+  const vasos = vasosTexto(estufa.vasos);
+  show(el('painel-vasos-linha'), Boolean(vasos));
+  setText('painel-vasos', vasos);
 
   const status = el('painel-status');
   if (status) status.innerHTML = html`${statusPill(estufa.status)}`;
 
   enquadrarFoto(id);
-  preencherCapacidade(estufa);
+  preencherCapacidade(estufa, id);
 
   // Ocupação de hoje. Com a reserva parcial várias convivem no mesmo período:
   // a ficha mostra a maior e conta as outras; todas aparecem na lista abaixo.
@@ -712,6 +816,26 @@ function configurarAcao(estufa: Estufa, id: string, reservaId?: string): void {
   botao.disabled = false;
   botao.className = 'btn btn--primary btn--block panel__cta';
   delete botao.dataset.id;
+  delete botao.dataset.inicio;
+  delete botao.dataset.unidade;
+
+  // Cheia hoje pelas reservas, mas a estufa está em uso normal: dá para pedir
+  // um período em que ela vaga. O formulário abre já nesse dia; quem quiser
+  // as bancadas que sobraram hoje troca a data lá. Bloqueio da administração
+  // (situação RESERVADA, OCUPADA...) não entra aqui: esse não aceita pedido.
+  if (estufa.situacao === 'ATIVA' && principalEsgotada(estufa)) {
+    const impedimento = motivoParaNaoReservar();
+    const inicio = proximaDataLivre(id);
+
+    botao.dataset.action = impedimento ? 'sem-acao' : 'abrir-reservar';
+    botao.dataset.id = id;
+    botao.dataset.inicio = inicio;
+    botao.dataset.unidade = estufa.unidade;
+    botao.disabled = Boolean(impedimento);
+    botao.innerHTML = html`${icone('calendar-plus')}Reservar a partir de ${dataBR(inicio).slice(0, 5)}`;
+    mostrarImpedimento(impedimento);
+    return;
+  }
 
   if (aceitaReserva(estufa)) {
     // Reservar exige um projeto aprovado com permissão de criar reserva. Sem
@@ -727,9 +851,10 @@ function configurarAcao(estufa: Estufa, id: string, reservaId?: string): void {
     return;
   }
 
-  mostrarImpedimento(null);
+  // Fora de uso: o motivo que a administração deixou explica por que não dá.
+  mostrarImpedimento(estufa.situacao !== 'ATIVA' && estufa.motivo ? `Motivo: ${estufa.motivo}` : null);
 
-  if (reservaId) {
+  if (reservaId && reservaVisivel(reservaId)) {
     botao.dataset.action = 'ver-reserva';
     botao.dataset.id = reservaId;
     botao.className = 'btn btn--quiet btn--block panel__cta';
@@ -841,6 +966,7 @@ export function iniciarMapa(): void {
     if (!alvo.closest('#map-busca-caixa')) {
       show(document.getElementById('map-busca-lista'), false);
       document.getElementById('map-busca')?.setAttribute('aria-expanded', 'false');
+      recolherBuscaVazia();
     }
     if (!alvo.closest('.map-tools__item')) fecharPopovers();
 

@@ -498,6 +498,28 @@
                 Manutenção
                 <span class="map-pop__count" id="map-conta-manutencao">0</span>
               </label>
+
+              <!-- "Preciso de 6 vasos": só ficam no mapa as estufas com esse espaço livre hoje. -->
+              <div class="map-pop__precisa">
+                <h3 class="map-pop__title" id="map-precisa-titulo">Com espaço livre hoje</h3>
+                <div class="map-pop__precisa-linha" role="group" aria-labelledby="map-precisa-titulo">
+                  <label class="sr-only" for="map-precisa-qtd">Quantidade de que você precisa</label>
+                  <input class="input input--numero" type="number" id="map-precisa-qtd" min="0" step="1"
+                         inputmode="numeric" placeholder="6" />
+                  <label class="sr-only" for="map-precisa-unidade">Vasos ou bancadas</label>
+                  <select class="select" id="map-precisa-unidade">
+                    <option value="VASO">vasos</option>
+                    <option value="BANCADA">bancadas</option>
+                  </select>
+                  <button type="button" class="map-pop__limpar" id="map-precisa-limpar" data-action="mapa-limpar-precisa"
+                          aria-label="Limpar a quantidade" hidden>
+                    <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                  </button>
+                </div>
+                <p class="map-pop__precisa-resultado" id="map-precisa-resultado" role="status" aria-live="polite">
+                  Diga de quanto você precisa para ver só as estufas onde cabe.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -577,6 +599,20 @@
                     <dd class="facts__value" id="painel-area">&mdash;</dd>
                   </div>
                 </div>
+                <div class="facts__row">
+                  <svg class="ic facts__icon" aria-hidden="true"><use href="#i-thermometer" /></svg>
+                  <div>
+                    <dt class="facts__term">Temperatura</dt>
+                    <dd class="facts__value" id="painel-temperatura">&mdash;</dd>
+                  </div>
+                </div>
+                <div class="facts__row" id="painel-vasos-linha" hidden>
+                  <svg class="ic facts__icon" aria-hidden="true"><use href="#i-sprout" /></svg>
+                  <div>
+                    <dt class="facts__term">Vasos</dt>
+                    <dd class="facts__value facts__value--texto" id="painel-vasos">&mdash;</dd>
+                  </div>
+                </div>
               </dl>
 
               <div class="gauge">
@@ -593,6 +629,7 @@
                     <li><span class="gauge__dot gauge__dot--uso" aria-hidden="true"></span><span id="painel-em-uso">&mdash;</span></li>
                     <li><span class="gauge__dot" aria-hidden="true"></span><span id="painel-disponiveis">&mdash;</span></li>
                     <li id="painel-bancadas-linha" hidden><span class="gauge__dot" aria-hidden="true"></span><span id="painel-bancadas">&mdash;</span></li>
+                    <li id="painel-pico-linha" class="gauge__pico" hidden><span class="gauge__dot gauge__dot--pico" aria-hidden="true"></span><span id="painel-pico">&mdash;</span></li>
                   </ul>
                 </div>
               </div>
@@ -721,88 +758,105 @@
     <section class="view" id="view-calendario" aria-labelledby="titulo-calendario">
       <div class="pagina">
 
-        <div class="page-head">
-          <div>
-            <h1 class="page-head__title" id="titulo-calendario">Calendário</h1>
-            <p class="page-head__desc">Quando cada estufa está livre, dia a dia</p>
-          </div>
-          <div class="cal-mes" role="group" aria-label="Mês mostrado">
-            <button type="button" class="cal-mes__seta" data-action="cal-mes" data-passo="-1" aria-label="Mês anterior">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-left" /></svg>
-            </button>
-            <span class="cal-mes__nome" id="cal-mes" aria-live="polite">&mdash;</span>
-            <button type="button" class="cal-mes__seta" data-action="cal-mes" data-passo="1" aria-label="Próximo mês">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-right" /></svg>
-            </button>
-            <button type="button" class="btn btn--quiet btn--sm" data-action="cal-mes" data-passo="0">Hoje</button>
-          </div>
-        </div>
-
-        <div class="stats" id="stats-calendario" aria-label="Resumo da ocupação"></div>
+        <!-- Sem cabeçalho visível: o espaço vai para o calendário. O título
+             fica para leitor de tela e para o rótulo da seção. -->
+        <h1 class="sr-only" id="titulo-calendario">Calendário</h1>
 
         <p class="field__aviso" id="cal-conflitos" data-tom="erro" role="status" hidden>
           <svg class="ic ic--sm" aria-hidden="true"><use href="#i-info" /></svg>
           <span id="cal-conflitos-texto"></span>
         </p>
 
-        <div class="section" id="sec-calendario">
-          <div class="section__head">
-            <h2 class="section__title">
-              Estufas
-              <span class="count" id="conta-calendario" aria-live="polite">0</span>
-            </h2>
-            <div class="section__tools">
-              <div class="cal-unidade" role="radiogroup" aria-label="O que mostrar">
-                <button type="button" role="radio" aria-checked="true"
-                        data-action="cal-unidade" data-unidade="VASO">Vasos</button>
-                <button type="button" role="radio" aria-checked="false"
-                        data-action="cal-unidade" data-unidade="BANCADA">Bancadas</button>
-              </div>
-              <div class="chips" role="radiogroup" aria-label="Filtrar estufas">
-                <button type="button" class="chip" role="radio" aria-checked="true"
-                        data-action="cal-filtro" data-filtro="todas">Todas</button>
-                <button type="button" class="chip" role="radio" aria-checked="false"
-                        data-action="cal-filtro" data-filtro="vaga">Com vaga</button>
-                <button type="button" class="chip" role="radio" aria-checked="false"
-                        data-action="cal-filtro" data-filtro="lotadas">Lotadas</button>
-                <button type="button" class="chip" role="radio" aria-checked="false"
-                        data-action="cal-filtro" data-filtro="fora">Fora de uso</button>
-              </div>
-              <div class="cal-periodo">
-                <label class="cal-periodo__rotulo" for="cal-de">Período</label>
-                <input class="input" type="date" id="cal-de" aria-label="Início do período" />
-                <span aria-hidden="true">a</span>
-                <input class="input" type="date" id="cal-ate" aria-label="Fim do período" />
-                <button type="button" class="search__clear cal-periodo__limpar" id="cal-limpar-periodo"
-                        data-action="cal-limpar-periodo" aria-label="Limpar período" hidden>
+        <!-- Cabeçalho no padrão das outras telas (page-head + chips): à esquerda
+             a navegação e o período, à direita o que contar, o modo e a ajuda. -->
+        <div class="page-head cal-cab">
+          <div class="cal-cab__nav">
+            <button type="button" class="btn btn--quiet btn--sm" data-action="cal-hoje">Hoje</button>
+            <div class="cal-cab__setas">
+              <button type="button" class="cal-cab__seta" data-action="cal-andar" data-passo="-1" aria-label="Anterior">
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-left" /></svg>
+              </button>
+              <button type="button" class="cal-cab__seta" data-action="cal-andar" data-passo="1" aria-label="Próximo">
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+              </button>
+            </div>
+            <h2 class="page-head__title cal-cab__titulo" id="cal-titulo" aria-live="polite">&mdash;</h2>
+            <!-- No mês de uma estufa: o selo dela, com o X que desmarca, e o voltar. -->
+            <div class="cal-cab__estufa" id="cal-estufa-btn" hidden>
+              <button type="button" class="btn btn--quiet btn--sm" data-action="cal-voltar">
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-left" /></svg>
+                Todas as estufas
+              </button>
+              <span class="cal-barra__estufa">
+                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-warehouse" /></svg>
+                <span id="cal-estufa-nome">&mdash;</span>
+                <button type="button" class="cal-barra__estufa-x" data-action="cal-voltar" aria-label="Desmarcar a estufa e voltar para todas">
                   <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
                 </button>
+              </span>
+            </div>
+          </div>
+
+          <div class="page-head__actions">
+            <div class="chips" role="radiogroup" aria-label="O que contar">
+              <button type="button" class="chip" role="radio" aria-checked="true" data-action="cal-unidade" data-unidade="VASO">Vasos</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-action="cal-unidade" data-unidade="BANCADA">Bancadas</button>
+            </div>
+            <div class="chips" role="radiogroup" aria-label="Modo de exibição">
+              <button type="button" class="chip" role="radio" aria-checked="false" data-action="cal-modo" data-modo="semana">Semana</button>
+              <button type="button" class="chip" role="radio" aria-checked="true" data-action="cal-modo" data-modo="duas">2 semanas</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-action="cal-modo" data-modo="mes">Mês</button>
+            </div>
+            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir" data-modal="modal-cal-legenda">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-question-mark" /></svg>
+              Como ler
+            </button>
+          </div>
+        </div>
+
+        <div class="cal-layout">
+          <aside class="cal-lado" aria-label="Opções do calendário">
+            <section class="cal-caixa" aria-labelledby="cal-mini-titulo">
+              <div class="cal-mini__topo">
+                <h3 class="cal-caixa__titulo" id="cal-mini-titulo">&mdash;</h3>
+                <span class="cal-mini__setas">
+                  <button type="button" class="cal-barra__seta" data-action="cal-mini-mes" data-passo="-1" aria-label="Mês anterior">
+                    <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-left" /></svg>
+                  </button>
+                  <button type="button" class="cal-barra__seta" data-action="cal-mini-mes" data-passo="1" aria-label="Próximo mês">
+                    <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                  </button>
+                </span>
               </div>
-              <div class="search">
+              <div class="cal-mini" id="cal-mini"></div>
+            </section>
+
+            <section class="cal-caixa" aria-labelledby="cal-filtro-titulo" id="cal-caixa-filtros">
+              <h3 class="cal-caixa__titulo" id="cal-filtro-titulo">Mostrar</h3>
+              <div class="search cal-busca">
                 <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
                 <input class="input" type="search" id="busca-calendario"
                        placeholder="Buscar estufa" aria-label="Buscar estufa" />
               </div>
-            </div>
-          </div>
+              <div class="cal-filtros" id="cal-filtros" role="radiogroup" aria-label="Filtrar estufas"></div>
+            </section>
 
-          <div class="table-wrap cal-wrap" id="cal-wrap">
-            <table class="cal" id="cal-grade">
-              <caption class="sr-only">Ocupação das estufas em cada dia do mês</caption>
-            </table>
-          </div>
+            <section class="cal-caixa" aria-labelledby="cal-estufas-titulo" id="cal-caixa-estufas" hidden>
+              <h3 class="cal-caixa__titulo" id="cal-estufas-titulo">Estufas · livres hoje</h3>
+              <div class="cal-estufas" id="cal-estufas"></div>
+            </section>
 
-          <ul class="cal-legenda" aria-label="Legenda">
-            <li><span class="cal-legenda__cor" data-estado="livre"></span>Livre</li>
-            <li><span class="cal-legenda__cor" data-estado="parcial" data-nivel="2">5</span>Parcial: o número é o que sobra</li>
-            <li><span class="cal-legenda__cor" data-estado="cheia"></span>Lotada</li>
-            <li><span class="cal-legenda__cor" data-estado="fora"></span>Fora de uso</li>
-            <li><span class="cal-legenda__cor" data-estado="livre" data-minha></span>Você tem reserva</li>
-            <li class="cal-legenda__dica">Clique num quadrinho para ver quem está na estufa; clique em dois dias do cabeçalho para marcar um período.</li>
-          </ul>
+          </aside>
+
+          <section class="cal-quadro" id="cal-wrap" aria-label="Ocupação das estufas">
+            <div id="cal-corpo"></div>
+          </section>
         </div>
 
       </div>
+
+      <!-- Cartão de uma reserva, aberto ao clicar na barra (como o de evento do Teams). -->
+      <div class="cal-card" id="cal-card" role="dialog" aria-modal="false" aria-labelledby="cal-card-titulo" hidden></div>
     </section>
 
     <section class="view" id="view-reservas" aria-labelledby="titulo-reservas">
@@ -1309,6 +1363,19 @@
         <fieldset class="fieldset">
           <legend class="fieldset__legend">Responsabilidade</legend>
 
+          <!-- Na proposta de quem não é da administração os dois campos abaixo
+               somem; este resumo diz o que vale no lugar deles. -->
+          <div class="proj-resp" id="proj-resp-info" hidden>
+            <p class="proj-resp__linha">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-user" /></svg>
+              <span><strong id="proj-resp-nome">Você</strong> fica como responsável e entra na equipe como líder.</span>
+            </p>
+            <p class="proj-resp__linha">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-clock" /></svg>
+              <span>A proposta fica <strong>aguardando aprovação</strong>. Quem aprova e define a situação é a administração.</span>
+            </p>
+          </div>
+
           <div class="field">
             <label class="field__label" for="proj-responsavel">Pesquisador responsavel</label>
             <select class="select" id="proj-responsavel" name="funcionario_id" required></select>
@@ -1361,18 +1428,20 @@
 <!-- Ficha do projeto: abre ao clicar no cartao. Equipe, estufas em uso e
      quanto esta reservado — os numeros vem das reservas feitas no mapa. -->
 <div class="scrim" id="modal-projeto-ver" hidden>
-  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="projeto-ver-titulo">
-    <div class="dialog__head">
-      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg></span>
-      <div class="dialog__heading">
-        <h2 class="dialog__title" id="projeto-ver-titulo">&mdash;</h2>
-        <p class="dialog__desc" id="projeto-ver-sub">&mdash;</p>
+  <div class="dialog dialog--ficha" role="dialog" aria-modal="true" aria-labelledby="projeto-ver-titulo">
+    <header class="ficha-hero">
+      <div class="ficha-hero__topo">
+        <span class="ficha-hero__marca"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap" /></svg></span>
+        <div class="ficha-hero__selos" id="projeto-ver-selos"></div>
+        <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar ficha do projeto">
+          <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+        </button>
       </div>
-      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar ficha do projeto">
-        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
-      </button>
-    </div>
-    <div class="dialog__body" id="projeto-ver-corpo"></div>
+      <h2 class="ficha-hero__titulo" id="projeto-ver-titulo">&mdash;</h2>
+      <p class="ficha-hero__sub" id="projeto-ver-sub">&mdash;</p>
+      <div id="projeto-ver-tempo"></div>
+    </header>
+    <div class="dialog__body ficha" id="projeto-ver-corpo"></div>
     <div class="dialog__foot" id="projeto-ver-acoes"></div>
   </div>
 </div>
@@ -1455,7 +1524,7 @@
 <!-- Permissoes de uma pessoa: de sistema e por projeto. So o adm concede;
      o cargo e so informacao. Aberto pelo cabecalho da tela de usuarios. -->
 <div class="scrim" id="modal-permissoes" hidden>
-  <div class="dialog dialog--full" role="dialog" aria-modal="true" aria-labelledby="perm-titulo">
+  <div class="dialog dialog--perm" role="dialog" aria-modal="true" aria-labelledby="perm-titulo">
     <div class="dialog__head">
       <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-shield-user" /></svg></span>
       <div class="dialog__heading">
@@ -1469,16 +1538,27 @@
       </button>
     </div>
 
-    <div class="dialog__body">
-      <div class="field">
-        <label class="field__label" for="perm-pessoa">Pessoa</label>
+    <!-- Quem: as iniciais, o seletor e o cargo da pessoa escolhida. -->
+    <div class="pm-pessoa">
+      <span class="pm-pessoa__av" id="perm-av" aria-hidden="true" data-vazio>?</span>
+      <div class="pm-pessoa__campo">
+        <label class="pm-pessoa__rotulo" for="perm-pessoa">Permissões de</label>
         <select class="select" id="perm-pessoa"></select>
       </div>
-      <div id="perm-conteudo" class="perm-conteudo"></div>
+      <div class="pm-pessoa__selos" id="perm-selos"></div>
     </div>
 
-    <div class="dialog__foot">
+    <div class="dialog__body pm-corpo">
+      <div id="perm-conteudo" class="pm-conteudo"></div>
+    </div>
+
+    <div class="dialog__foot pm-pe">
+      <p class="pm-pe__estado" id="perm-estado" role="status" aria-live="polite"></p>
       <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
+      <button type="button" class="btn btn--primary" id="perm-salvar" data-action="salvar-permissoes" disabled>
+        <svg class="ic ic--sm" aria-hidden="true"><use href="#i-save" /></svg>
+        Salvar alterações
+      </button>
     </div>
   </div>
 </div>
@@ -1877,7 +1957,7 @@
   da estufa escolhida — que era a informação que faltava para decidir.
 -->
 <div class="scrim" id="modal-espaco" hidden>
-  <div class="dialog dialog--form" role="dialog" aria-modal="true" aria-labelledby="espaco-titulo">
+  <div class="dialog dialog--form dialog--espaco" role="dialog" aria-modal="true" aria-labelledby="espaco-titulo">
     <div class="dialog__head">
       <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg></span>
       <div class="dialog__heading">
@@ -1911,9 +1991,7 @@
             <ul class="combo__lista combo__lista--larga" id="espaco-sugestoes" role="listbox"
                 aria-label="Estufas que casam com o código digitado" hidden></ul>
           </div>
-          <p class="field__hint" id="espaco-codigo-ajuda">
-            Digite <strong>CVG0</strong> e escolha na lista. O número define a posição no mapa.
-          </p>
+          <p class="field__hint" id="espaco-codigo-ajuda">Digite <strong>CVG0</strong> e escolha na lista.</p>
         </div>
         <div class="field">
           <label class="field__label" for="espaco-descricao-campo">Nome da estufa</label>
@@ -1944,48 +2022,21 @@
         </div>
       </div>
 
-      <div class="form-cols">
-        <fieldset class="fieldset">
-          <legend class="fieldset__legend">Identificação</legend>
-
-          <div class="field">
-            <label class="field__label" for="espaco-tipo">
-              Tipo <span class="field__opcional">opcional</span>
-            </label>
-            <!--
-              Texto livre de propósito: a administração escreve o tipo que o
-              espaço tem, não o que uma lista nossa previu. O datalist sugere o
-              que já existe no cadastro e não limita a digitação.
-            -->
-            <input class="input" type="text" id="espaco-tipo" name="tipo" maxlength="60"
-                   list="lista-tipos-espaco" autocomplete="off"
-                   placeholder="Casa de vegetação" aria-describedby="espaco-tipo-ajuda" />
-            <datalist id="lista-tipos-espaco"></datalist>
-            <p class="field__hint" id="espaco-tipo-ajuda">Em branco até ser conferido em campo. Texto livre; a lista só sugere.</p>
+      <!--
+        Três blocos, um assunto cada: quanto cabe, como é o lugar e se está em
+        uso. Antes eram duas colunas altas de campos com uma explicação embaixo
+        de cada um; o que é regra geral foi para o "?" do cabeçalho.
+      -->
+      <section class="esp-secao" aria-labelledby="esp-capacidade-titulo">
+        <header class="esp-secao__topo">
+          <span class="esp-secao__icone" aria-hidden="true"><svg class="ic ic--sm"><use href="#i-sprout" /></svg></span>
+          <div>
+            <h3 class="esp-secao__titulo" id="esp-capacidade-titulo">Capacidade</h3>
+            <p class="esp-secao__desc" id="espaco-capacidade-ajuda">É o que as reservas consomem. Reduzir abaixo do que já está reservado é recusado.</p>
           </div>
+        </header>
 
-          <div class="field">
-            <label class="field__label" for="espaco-localizacao">
-              Setor <span class="field__opcional">opcional</span>
-            </label>
-            <input class="input" type="text" id="espaco-localizacao" name="localizacao"
-                   maxlength="60" list="lista-setores-espaco" autocomplete="off"
-                   placeholder="Setor Norte" />
-            <datalist id="lista-setores-espaco"></datalist>
-          </div>
-
-          <div class="field">
-            <label class="field__label" for="espaco-area">
-              Área em m² <span class="field__opcional">opcional</span>
-            </label>
-            <input class="input input--numero" type="number" id="espaco-area" name="area_m2"
-                   min="0" step="1" placeholder="204" />
-          </div>
-        </fieldset>
-
-        <fieldset class="fieldset">
-          <legend class="fieldset__legend">Capacidade e situação</legend>
-
+        <div class="esp-grade">
           <div class="field">
             <label class="field__label" for="espaco-capacidade-total">Capacidade reservável</label>
             <div class="field__inline">
@@ -1998,24 +2049,100 @@
                 <option value="BANCADA">bancadas</option>
               </select>
             </div>
-            <p class="field__hint" id="espaco-capacidade-ajuda">
-              É o que as reservas consomem. Reduzir abaixo do que já está reservado é recusado.
-            </p>
           </div>
 
           <div class="field">
             <label class="field__label" for="espaco-bancadas">
               Bancadas <span class="field__opcional">opcional</span>
             </label>
-            <input class="input input--numero" type="number" id="espaco-bancadas" name="capacidade"
-                   min="0" step="1" placeholder="4" aria-describedby="espaco-bancadas-ajuda" />
-            <p class="field__hint" id="espaco-bancadas-ajuda">
-              Informativo, quando a capacidade é contada em vasos.
-            </p>
+            <div class="field__inline">
+              <input class="input input--numero" type="number" id="espaco-bancadas" name="capacidade"
+                     min="0" step="1" placeholder="4" aria-describedby="espaco-bancadas-ajuda" />
+              <span class="esp-sufixo" id="espaco-bancadas-ajuda">reservadas à parte dos vasos</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field esp-vasos" id="espaco-vasos-campo">
+          <div class="esp-vasos__topo">
+            <span class="field__label" id="espaco-vasos-rotulo">
+              Vasos por tamanho <span class="field__opcional">opcional</span>
+            </span>
+            <button type="button" class="btn btn--quiet btn--sm" data-action="espaco-adicionar-vaso">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-plus" /></svg>
+              Adicionar tamanho
+            </button>
+          </div>
+          <div class="vasos-ed" id="espaco-vasos" role="group" aria-labelledby="espaco-vasos-rotulo"></div>
+          <p class="field__hint">Uma linha por tamanho, como "5 vasos de 3 cm". A soma vira a capacidade reservável.</p>
+        </div>
+      </section>
+
+      <section class="esp-secao" aria-labelledby="esp-lugar-titulo">
+        <header class="esp-secao__topo">
+          <span class="esp-secao__icone" aria-hidden="true"><svg class="ic ic--sm"><use href="#i-thermometer" /></svg></span>
+          <div>
+            <h3 class="esp-secao__titulo" id="esp-lugar-titulo">O lugar</h3>
+            <p class="esp-secao__desc">Tudo opcional: preencha o que já foi conferido em campo.</p>
+          </div>
+        </header>
+
+        <div class="esp-grade">
+          <div class="field">
+            <label class="field__label" for="espaco-tipo">Tipo</label>
+            <!--
+              Texto livre de propósito: a administração escreve o tipo que o
+              espaço tem, não o que uma lista nossa previu. O datalist sugere o
+              que já existe no cadastro e não limita a digitação.
+            -->
+            <input class="input" type="text" id="espaco-tipo" name="tipo" maxlength="60"
+                   list="lista-tipos-espaco" autocomplete="off" placeholder="Casa de vegetação" />
+            <datalist id="lista-tipos-espaco"></datalist>
           </div>
 
           <div class="field">
-            <label class="field__label" for="espaco-situacao">Situação</label>
+            <label class="field__label" for="espaco-localizacao">Setor</label>
+            <input class="input" type="text" id="espaco-localizacao" name="localizacao"
+                   maxlength="60" list="lista-setores-espaco" autocomplete="off"
+                   placeholder="Setor Norte" />
+            <datalist id="lista-setores-espaco"></datalist>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="espaco-area">Área</label>
+            <div class="field__inline">
+              <input class="input input--numero" type="number" id="espaco-area" name="area_m2"
+                     min="0" step="1" placeholder="204" />
+              <span class="esp-sufixo" aria-hidden="true">m²</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field__label" id="espaco-temp-rotulo">Temperatura</span>
+            <div class="field__inline" role="group" aria-labelledby="espaco-temp-rotulo">
+              <input class="input input--numero" type="number" id="espaco-temp-min" name="temperatura_min"
+                     min="-10" max="60" step="0.5" placeholder="22" aria-label="Temperatura mínima em graus Celsius" />
+              <span class="esp-sufixo" aria-hidden="true">a</span>
+              <input class="input input--numero" type="number" id="espaco-temp-max" name="temperatura_max"
+                     min="-10" max="60" step="0.5" placeholder="28" aria-label="Temperatura máxima em graus Celsius" />
+              <span class="esp-sufixo" aria-hidden="true">°C</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="esp-secao" aria-labelledby="esp-situacao-titulo">
+        <header class="esp-secao__topo">
+          <span class="esp-secao__icone" aria-hidden="true"><svg class="ic ic--sm"><use href="#i-wrench" /></svg></span>
+          <div>
+            <h3 class="esp-secao__titulo" id="esp-situacao-titulo">Situação</h3>
+            <p class="esp-secao__desc" id="espaco-situacao-ajuda">Só "Disponível para reserva" aceita pedido novo. As outras seguram a estufa sem criar reserva.</p>
+          </div>
+        </header>
+
+        <div class="esp-grade esp-grade--situacao">
+          <div class="field">
+            <label class="field__label" for="espaco-situacao">Como está</label>
             <select class="select" id="espaco-situacao" name="status"
                     aria-describedby="espaco-situacao-ajuda">
               <option value="ATIVA">Disponível para reserva</option>
@@ -2024,20 +2151,26 @@
               <option value="MANUTENCAO">Em manutenção</option>
               <option value="INATIVA">Inativa</option>
             </select>
-            <p class="field__hint" id="espaco-situacao-ajuda">
-              Reservada e ocupada seguram a estufa sem criar reserva. Só a primeira aceita pedido novo.
-            </p>
           </div>
-        </fieldset>
-      </div>
 
-      <div class="field">
-        <label class="field__label" for="espaco-obs">
-          Observações <span class="field__opcional">opcional</span>
-        </label>
-        <input class="input" type="text" id="espaco-obs" name="obs"
-               placeholder="Estrutura, irrigação, controle de temperatura" />
-      </div>
+          <div class="field" id="espaco-motivo-campo" hidden>
+            <label class="field__label" for="espaco-motivo">
+              Motivo <span class="field__opcional">opcional</span>
+            </label>
+            <input class="input" type="text" id="espaco-motivo" name="motivo_situacao" maxlength="255"
+                   placeholder="Troca da cobertura, irrigação parada..." aria-describedby="espaco-motivo-ajuda" />
+            <p class="field__hint" id="espaco-motivo-ajuda">Aparece para quem abrir a estufa no mapa e no calendário.</p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="espaco-obs">
+            Observações <span class="field__opcional">opcional</span>
+          </label>
+          <input class="input" type="text" id="espaco-obs" name="obs"
+                 placeholder="Estrutura, irrigação, controle de temperatura" />
+        </div>
+      </section>
 
       <p class="field__error" id="espaco-erro" role="alert" hidden>
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-x" /></svg>
@@ -2210,6 +2343,78 @@
   </div>
 </div>
 
+<!-- Como ler o calendário: aberto pelo botão do cabeçalho. -->
+<div class="scrim" id="modal-cal-legenda" hidden>
+  <div class="dialog dialog--wide" role="dialog" aria-modal="true" aria-labelledby="cal-legenda-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-circle-question-mark" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="cal-legenda-titulo">Como ler o calendário</h2>
+        <p class="dialog__desc">Cada linha é uma estufa; cada barra, uma reserva do dia em que começa até o dia em que termina.</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body cal-ajuda">
+      <section class="cal-ajuda__bloco" aria-labelledby="cal-ajuda-barras">
+        <h3 class="cal-ajuda__titulo" id="cal-ajuda-barras">As barras são as reservas</h3>
+        <ul class="cal-ajuda__lista">
+          <li>
+            <span class="cal-ajuda__exemplo"><span class="cal-barra-ev" data-status="ATIVA"><span class="cal-barra-ev__titulo">Projeto Soja</span><span class="cal-barra-ev__det">· 4 vasos</span></span></span>
+            <span><strong>Aprovada.</strong> A administração já aprovou: o espaço é do projeto nesse período.</span>
+          </li>
+          <li>
+            <span class="cal-ajuda__exemplo"><span class="cal-barra-ev" data-status="PENDENTE"><span class="cal-barra-ev__titulo">Projeto Soja</span><span class="cal-barra-ev__det">· aguardando</span></span></span>
+            <span><strong>Aguardando aprovação.</strong> Contorno tracejado. O pedido ainda não foi aprovado, mas já segura o espaço.</span>
+          </li>
+          <li>
+            <span class="cal-ajuda__exemplo"><span class="cal-barra-ev" data-status="fora"><span class="cal-barra-ev__titulo">Manutenção</span></span></span>
+            <span><strong>Fora de uso.</strong> Estufa em manutenção, inativa ou bloqueada: não aceita reserva.</span>
+          </li>
+          <li>
+            <span class="cal-ajuda__exemplo"><span class="cal-barra-ev" data-status="ATIVA" data-sua><span class="cal-barra-ev__titulo">Sua reserva</span></span></span>
+            <span><strong>Ponto verde</strong> no começo da barra: a reserva é sua.</span>
+          </li>
+          <li>
+            <span class="cal-ajuda__exemplo"><span class="cal-barra-ev" data-status="ATIVA"><span class="cal-barra-ev__titulo">‹ Projeto</span><span class="cal-barra-ev__ate">até 25/11 ›</span></span></span>
+            <span>As setas <strong>‹ ›</strong> dizem que a reserva começa antes ou termina depois do que aparece na tela.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="cal-ajuda__bloco" aria-labelledby="cal-ajuda-numeros">
+        <h3 class="cal-ajuda__titulo" id="cal-ajuda-numeros">O número embaixo de cada dia</h3>
+        <p class="cal-ajuda__texto">É quanto sobra naquele dia, em vasos ou bancadas (o que estiver escolhido no cabeçalho).</p>
+        <ul class="cal-ajuda__lista cal-ajuda__lista--numeros">
+          <li><span class="cal-ajuda__exemplo"><span class="cal-num">12</span></span><span>Estufa toda livre.</span></li>
+          <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-parcial>8</span></span><span>Parte reservada: sobram 8.</span></li>
+          <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-lotada="ATIVA">0</span></span><span>Lotada com reservas aprovadas.</span></li>
+          <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-lotada="PENDENTE">0</span></span><span>Lotada contando pedidos ainda não aprovados.</span></li>
+          <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-conflito>!</span></span><span>Mais reservado do que cabe: clique no dia para ver quais reservas se cruzam.</span></li>
+        </ul>
+      </section>
+
+      <section class="cal-ajuda__bloco" aria-labelledby="cal-ajuda-cliques">
+        <h3 class="cal-ajuda__titulo" id="cal-ajuda-cliques">O que dá para clicar</h3>
+        <ul class="cal-ajuda__passos">
+          <li><strong>Numa barra:</strong> abre o cartão da reserva, com período, quantidade, quem reservou e o botão para reservar quando a estufa vagar.</li>
+          <li><strong>Num dia:</strong> mostra a estufa naquele dia — quem está lá, quanto sobra — e deixa reservar a partir dele.</li>
+          <li><strong>No nome da estufa:</strong> abre o mês inteiro dela.</li>
+          <li><strong>No mini calendário:</strong> leva até o dia escolhido.</li>
+          <li><strong>Semana, 2 semanas e Mês:</strong> trocam o tanto de dias na tela. No Mês aparece uma estufa por vez; troque pela lista ao lado.</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--primary" data-action="fechar">Entendi</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="scrim" id="modal-ver-reserva" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ver-reserva-titulo">
     <div class="dialog__head">
@@ -2380,6 +2585,28 @@
 
 </div>
 
+
+<!-- Ajuda rápida: abre POR CIMA do modal em uso (por isso é o último scrim).
+     Título e itens vêm de src/lib/ajuda.ts. -->
+<div class="scrim scrim--ajuda" id="modal-ajuda" hidden>
+  <div class="dialog dialog--ajuda" role="dialog" aria-modal="true" aria-labelledby="ajuda-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-circle-question-mark" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="ajuda-titulo">Como funciona</h2>
+      </div>
+      <button type="button" class="close-btn" id="ajuda-fechar" aria-label="Fechar a explicação">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+    <div class="dialog__body">
+      <ul class="ajuda-itens" id="ajuda-itens"></ul>
+    </div>
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--primary" id="ajuda-entendi">Entendi</button>
+    </div>
+  </div>
+</div>
 
 <!-- Avisos. Região viva: o leitor de tela anuncia sem roubar o foco. -->
 <div class="toasts" id="toasts" role="status" aria-live="polite"></div>

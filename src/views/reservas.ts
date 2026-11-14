@@ -23,7 +23,7 @@ import type { Estufa, UnidadeCapacidade } from '../types';
 import { dadosMudaram } from '../lib/bus';
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
-import { capacidade, dataBR, hojeISO, ocupacaoResumo, plural, statusPill } from '../lib/format';
+import { capacidade, dataBR, hojeISO, ocupacaoResumo, plural, statusPill, temperaturaTexto } from '../lib/format';
 import { abrirModal, confirmar, fecharModal, fecharTodosModais, trocarModal } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import {
@@ -65,6 +65,15 @@ interface ProjetoDoCampo {
 
 let projetosDoCampo: ProjetoDoCampo[] | null = null;
 let carregandoProjetos = false;
+
+/**
+ * Esquece a lista de projetos do formulário: a próxima abertura monta de novo
+ * a partir do contexto. A casca chama quando as permissões mudam — projeto
+ * criado, aprovado ou com a equipe mexida.
+ */
+export function esquecerProjetosDaReserva(): void {
+  projetosDoCampo = null;
+}
 
 async function garantirProjetos(): Promise<ProjetoDoCampo[]> {
   if (projetosDoCampo) return projetosDoCampo;
@@ -553,7 +562,10 @@ export function abrirModalReservar(
   espacoDaReserva = estufaId;
 
   setText('reservar-titulo', `Reservar ${estufa.nome}`);
-  setText('reservar-descricao', [estufa.codigo, estufa.desc || estufa.tipo].filter(Boolean).join(' · '));
+  const temperatura = estufa.temperaturaMin !== null || estufa.temperaturaMax !== null
+    ? temperaturaTexto(estufa.temperaturaMin, estufa.temperaturaMax)
+    : '';
+  setText('reservar-descricao', [estufa.codigo, estufa.desc || estufa.tipo, temperatura].filter(Boolean).join(' · '));
   setText('reservar-area', estufa.area);
   setText('reservar-bancadas', plural(estufa.cap, 'bancada', 'bancadas'));
   setText('reservar-capacidade', livresDaEstufa(estufa));

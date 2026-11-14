@@ -28,7 +28,7 @@ export const ARQUIVO_SESSAO = 'tests/e2e/.auth/sessao.json';
 
 export const CREDENCIAIS = {
   email: process.env.CVG_EMAIL ?? 'admin@cvgweb.local',
-  senha: process.env.CVG_SENHA ?? 'super123',
+  senha: process.env.CVG_SENHA ?? 'supersu',
 };
 
 export const API = process.env.CVG_API ?? 'http://localhost:8000/api';

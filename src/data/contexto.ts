@@ -13,7 +13,29 @@ import { getContexto, type Contexto, type ProjetoDoContexto } from '../services/
 
 let contexto: Contexto | null = null;
 
-/** Lida uma vez por sessão, logo depois do login. */
+/**
+ * Quem depende das permissões (menu, botão de reservar da ficha, lista de
+ * projetos do formulário) se inscreve aqui. Antes o contexto era relido
+ * depois de criar ou aprovar um projeto, mas ninguém ficava sabendo: o
+ * formulário de reserva seguia com a lista antiga até recarregar a página.
+ */
+const ouvintes = new Set<() => void>();
+
+export function aoMudarContexto(ouvinte: () => void): void {
+  ouvintes.add(ouvinte);
+}
+
+function avisarMudanca(): void {
+  for (const ouvinte of ouvintes) {
+    try {
+      ouvinte();
+    } catch (erro) {
+      console.error('[CVGWeb] falha ao reagir a mudança de permissões:', erro);
+    }
+  }
+}
+
+/** Lida logo depois do login e relida sempre que algo pode ter mudado. */
 export async function carregarContexto(): Promise<Contexto | null> {
   try {
     contexto = await getContexto();
@@ -22,6 +44,7 @@ export async function carregarContexto(): Promise<Contexto | null> {
     // de qualquer jeito o que a pessoa não pode, então não vale travar a tela.
     contexto = null;
   }
+  avisarMudanca();
   return contexto;
 }
 
@@ -33,10 +56,20 @@ export function limparContexto(): void {
   contexto = null;
 }
 
-/** Relê depois de algo que muda permissões (projeto aprovado, equipe mexida). */
+/**
+ * Relê depois de algo que muda permissões (projeto aprovado, equipe mexida).
+ * O contexto antigo continua valendo até a resposta chegar: zerá-lo antes
+ * fazia a ficha dizer "não consegui carregar suas permissões" por um instante.
+ * Se a leitura falhar, também fica o antigo — melhor do que tirar tudo.
+ */
 export async function recarregarContexto(): Promise<Contexto | null> {
-  contexto = null;
-  return carregarContexto();
+  try {
+    contexto = await getContexto();
+  } catch {
+    return contexto;
+  }
+  avisarMudanca();
+  return contexto;
 }
 
 export function ehAdm(): boolean {

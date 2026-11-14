@@ -626,6 +626,57 @@
   color: var(--fg-muted);
 }
 
+/* "Preciso de N vasos": quantidade + unidade, e quantas estufas servem. */
+.map-pop__precisa {
+  margin-top: var(--s-2);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+
+.map-pop__precisa-linha {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  padding: 0 var(--s-2);
+}
+
+.map-pop__precisa-linha .input {
+  width: 4.5rem;
+}
+
+.map-pop__precisa-linha .select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.map-pop__limpar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  color: var(--fg-muted);
+  border-radius: var(--r-md);
+}
+
+.map-pop__limpar:hover {
+  color: var(--fg);
+  background: var(--surface-3);
+}
+
+.map-pop__limpar[hidden] {
+  display: none;
+}
+
+.map-pop__precisa-resultado {
+  max-width: 15rem;
+  margin: var(--s-2) 0 0;
+  padding: 0 var(--s-2);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+
 /* --- Zoom e recentralizar ------------------------------------------------ */
 
 /* Fica acima do botão do assistente, que mora no mesmo canto. */
@@ -879,6 +930,12 @@
   overflow-wrap: anywhere;
 }
 
+/* Lista mais longa (vasos por tamanho): peso normal para não gritar. */
+.facts__value--texto {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+}
+
 .gauge {
   padding: var(--s-4);
   border-left: 1px solid var(--line);
@@ -967,6 +1024,16 @@
 
 .gauge__dot--uso {
   background: var(--marker-livre);
+}
+
+/* O dia mais cheio pela frente: reserva que ainda vai começar. */
+.gauge__dot--pico {
+  background: var(--marker-ocupada);
+}
+
+.gauge__pico {
+  font-weight: var(--fw-medium);
+  color: var(--busy-soft-fg);
 }
 
 /* --- Projeto, responsável e período -------------------------------------- */
@@ -1084,6 +1151,14 @@
 .booking:hover {
   background: var(--surface-2);
   border-color: var(--line-strong);
+}
+
+/* Reserva de outro projeto: aparece para explicar a ocupação, sem abrir. */
+.booking--so-ver,
+.booking--so-ver:hover {
+  cursor: default;
+  background: var(--surface);
+  border-color: var(--line);
 }
 
 .booking__tile {

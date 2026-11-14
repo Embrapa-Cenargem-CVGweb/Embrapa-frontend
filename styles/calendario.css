@@ -1,463 +1,959 @@
 /* ===========================================================================
-   Calendário de ocupação
+   Calendário de ocupação, no jeito do Teams
 
-   Estufas nas linhas, dias nas colunas. As cores são as mesmas do mapa:
-   verde para livre, âmbar para ocupada. Nenhum estado depende só da cor —
-   parcial traz o número do que sobra, lotada é o bloco cheio, fora de uso é
-   listrado, e todo quadrinho tem a frase completa no rótulo.
+   Linha do tempo (semana, 2 semanas): uma faixa por estufa, cada reserva uma
+   barra do início ao fim. Mês: o mês inteiro de uma estufa. Cores iguais às
+   do mapa: laranja = aprovada, azul = aguardando aprovação, listrado
+   vermelho = fora de uso. Pendente também tem contorno tracejado, para não
+   depender só da cor.
    =========================================================================== */
 
-/* --- Troca de mês, no cabeçalho da página -------------------------------- */
+/* As cores das barras valem na tela e no modal "Como ler", que mostra exemplos. */
+#view-calendario,
+#modal-cal-legenda {
+  --cal-aprovada: #f08c00;
+  --cal-aprovada-fundo: #fff3e0;
+  --cal-aprovada-texto: #7a4300;
+  --cal-aprovada-zero: #fde3bd;
+  --cal-pendente: #2f6fed;
+  --cal-pendente-fundo: #eaf1ff;
+  --cal-pendente-texto: #1a3d8f;
+  --cal-pendente-zero: #d6e3fd;
+  --cal-fora: #e5a3a3;
+  --cal-fora-texto: #94201f;
+  --cal-hoje: #eef7f1;
+  --cal-fds: #f7faf6;
+  --cal-col-estufa: 11rem;
+  --cal-trilha: 2.125rem;
+  --cal-livres: 1.625rem;
+}
 
-.cal-mes {
+/* --- A tela inteira cabe na janela -----------------------------------------
+   Nada de rolar a página: só a grade (e, se precisar, o painel ao lado) rola
+   por dentro. O mesmo vale no mês. */
+
+#view-calendario .pagina {
+  gap: var(--s-4);
+  padding-top: var(--s-4);
+  padding-bottom: var(--s-4);
+  overflow: hidden;
+}
+
+/* --- Cabeçalho (page-head do sistema) ------------------------------------ */
+
+.cal-cab {
+  padding-bottom: var(--s-4);
+}
+
+.cal-cab__nav {
   display: flex;
-  gap: var(--s-1);
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-3);
   align-items: center;
+  min-width: 0;
 }
 
-.cal-mes__nome {
-  min-width: 11rem;
-  font-size: var(--text-lg);
-  font-weight: var(--fw-semibold);
-  color: var(--fg);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
+.cal-cab__setas,
+.cal-mini__setas {
+  display: flex;
+  gap: 2px;
 }
 
-.cal-mes__seta {
+.cal-cab__seta,
+.cal-barra__seta {
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
   color: var(--fg-2);
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
   border-radius: var(--r-md);
-  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
-}
-
-.cal-mes__seta:hover {
-  background: var(--surface-3);
-  border-color: var(--accent-line);
-}
-
-.cal-mes .btn {
-  margin-left: var(--s-2);
-}
-
-/* --- Ferramentas ---------------------------------------------------------- */
-
-/* Vasos | Bancadas: dois botões colados, o escolhido preenchido. */
-.cal-unidade {
-  display: inline-flex;
-  padding: 2px;
-  background: var(--surface-3);
-  border-radius: var(--r-md);
-}
-
-.cal-unidade button {
-  min-height: 1.875rem;
-  padding: 0 var(--s-3);
-  font-size: var(--text-sm);
-  font-weight: var(--fw-medium);
-  color: var(--fg-muted);
-  border-radius: var(--r-sm);
   transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
 
-.cal-unidade button:hover {
+.cal-cab__seta:hover,
+.cal-barra__seta:hover {
   color: var(--fg);
-}
-
-.cal-unidade button[aria-checked="true"] {
-  font-weight: var(--fw-semibold);
-  color: var(--accent-soft-fg);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-
-.cal-periodo {
-  display: flex;
-  gap: var(--s-2);
-  align-items: center;
-  font-size: var(--text-sm);
-  color: var(--fg-muted);
-}
-
-.cal-periodo__rotulo {
-  font-weight: var(--fw-medium);
-  color: var(--fg-2);
-}
-
-.cal-periodo .input {
-  width: 9.25rem;
-}
-
-.cal-periodo__limpar {
-  position: static;
-}
-
-/* --- Grade ---------------------------------------------------------------- */
-
-/*
- * Nas outras telas a página inteira rola. Aqui quem rola é a grade, por
- * dentro: com 51 estufas, os dias do cabeçalho, os filtros e a legenda
- * precisam continuar à vista. A altura mínima garante uma grade usável em
- * tela baixa — aí a página volta a rolar.
- */
-#sec-calendario {
-  flex: 1 1 0;
-  min-height: 24rem;
-}
-
-.cal-wrap {
-  position: relative;
-  flex: 1 1 0;
-  min-height: 0;
-  transition: opacity var(--dur-2) var(--ease);
-}
-
-/* Trocando de mês: a grade antiga fica esmaecida até a nova chegar. */
-.cal-wrap[aria-busy="true"] {
-  opacity: 0.55;
-}
-
-.cal {
-  width: 100%;
-  /* 10rem da estufa + 31 dias de no mínimo 1.625rem + 6.5rem do resumo. */
-  min-width: calc(10rem + 31 * 1.625rem + 7rem);
-  table-layout: fixed;
-  border-spacing: 0;
-  border-collapse: separate;
-  font-variant-numeric: tabular-nums;
-}
-
-.cal__col-estufa { width: 10rem; }
-.cal__col-resumo { width: 7rem; }
-
-.cal th,
-.cal td {
-  padding: 0;
-  font-weight: var(--fw-regular);
-  text-align: center;
-}
-
-/* Cabeçalho preso no topo; primeira e última colunas presas dos lados. */
-.cal thead th {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  height: 3rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-}
-
-.cal__canto {
-  left: 0;
-  z-index: 4 !important;
-  padding: 0 var(--s-4) !important;
-  font-size: var(--text-xs);
-  font-weight: var(--fw-semibold) !important;
-  color: var(--fg-muted);
-  text-align: left !important;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.cal__canto--fim {
-  right: 0;
-  left: auto;
-  text-align: right !important;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-/* Dia do cabeçalho: letra da semana em cima, número embaixo. */
-.cal__dia button {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 3rem;
-  color: var(--fg-2);
-  border-radius: var(--r-sm);
-}
-
-.cal__dia button:hover {
   background: var(--surface-3);
 }
 
-.cal__sem {
-  font-size: var(--text-2xs);
-  color: var(--fg-muted);
-}
-
-.cal__num {
-  display: grid;
-  place-items: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  font-size: var(--text-xs);
-  font-weight: var(--fw-semibold);
-  border-radius: var(--r-pill);
-}
-
-.cal__dia[data-fds] .cal__sem,
-.cal__dia[data-fds] .cal__num {
-  color: var(--fg-muted);
-  font-weight: var(--fw-medium);
-}
-
-.cal__dia[data-hoje] .cal__sem {
-  font-weight: var(--fw-semibold);
-  color: var(--accent);
-}
-
-.cal__dia[data-hoje] .cal__num {
-  color: var(--accent-fg);
-  background: var(--accent);
-}
-
-/* Linha fina separando as semanas (toda segunda-feira). */
-.cal [data-seg] {
-  border-left: 1px solid var(--line);
-}
-
-/* Faixas verticais: hoje e o período marcado. */
-.cal td[data-hoje] {
-  background: var(--accent-soft);
-}
-
-.cal th[data-periodo],
-.cal td[data-periodo] {
-  background: var(--booked-soft);
-}
-
-.cal th[data-periodo] .cal__num {
-  color: var(--booked-soft-fg);
-}
-
-/* Traço azul sob os dias do período, para a faixa não depender só do fundo. */
-.cal thead th[data-periodo] {
-  box-shadow: inset 0 -2px 0 var(--booked);
-}
-
-/* Estufa: nome e, embaixo, código e capacidade. */
-.cal__estufa {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  padding: 0 var(--s-4) !important;
-  text-align: left !important;
-  background: var(--surface);
-}
-
-.cal__nome,
-.cal__sub {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.cal-cab__titulo {
+  margin: 0;
   white-space: nowrap;
 }
 
-.cal__nome {
+.cal-barra__estufa {
+  display: inline-flex;
+  gap: var(--s-2);
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--s-3);
+  font-size: var(--text-sm);
+  color: var(--accent-soft-fg);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-md);
+}
+
+.cal-cab__estufa {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.cal-cab__estufa[hidden] {
+  display: none;
+}
+
+.cal-barra__estufa {
+  padding-right: 2px;
+}
+
+.cal-barra__estufa-x {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--accent-soft-fg);
+  border-radius: var(--r-sm);
+}
+
+.cal-barra__estufa-x:hover {
+  color: var(--fg);
+  background: rgb(0 112 58 / 12%);
+}
+
+.cal-barra__estufa strong {
+  font-weight: var(--fw-semibold);
+}
+
+.cal-barra__estufa-sub {
+  margin-left: var(--s-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* --- Disposição: painel à esquerda, calendário à direita ------------------ */
+
+.cal-layout {
+  display: flex;
+  flex: 1 1 0;
+  gap: var(--s-4);
+  align-items: stretch;
+  min-height: 0;
+}
+
+.cal-lado {
+  display: flex;
+  flex: 0 0 14rem;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* No mês a lista de estufas estica até o pé e rola por dentro. */
+#cal-caixa-estufas {
+  flex: 1 1 0;
+  min-height: 8rem;
+}
+
+.cal-caixa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.cal-caixa[hidden] {
+  display: none;
+}
+
+.cal-caixa__titulo {
+  margin: 0;
   font-size: var(--text-sm);
   font-weight: var(--fw-semibold);
   color: var(--fg);
 }
 
-.cal__sub {
-  font-size: var(--text-2xs);
-  color: var(--fg-muted);
+/* Mini calendário */
+.cal-mini__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.cal tbody tr[data-fora] .cal__nome {
-  color: var(--fg-muted);
-}
-
-.cal tbody td,
-.cal tbody th {
-  height: 2.375rem;
-  border-bottom: 1px solid var(--surface-3);
-}
-
-.cal tbody tr:hover .cal__estufa,
-.cal tbody tr:hover .cal__resumo {
-  background: var(--surface-2);
-}
-
-/* --- Quadrinho de um dia -------------------------------------------------- */
-
-.cal__cel,
-.cal-legenda__cor {
+.cal-mini {
   display: grid;
-  place-items: center;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  text-align: center;
+}
+
+.cal-mini__letra {
+  padding: var(--s-1) 0;
   font-size: var(--text-2xs);
   font-weight: var(--fw-semibold);
-  line-height: 1;
-  color: var(--busy-soft-fg);
-  /* Livre: um verde um pouco mais firme que --ok-soft, para a grade não sumir no branco. */
-  background: color-mix(in srgb, var(--ok) 13%, var(--surface));
+  color: var(--fg-muted);
+  text-decoration: none;
+}
+
+.cal-mini__dia {
+  display: grid;
+  place-items: center;
+  height: 1.75rem;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
   border-radius: var(--r-sm);
 }
 
-.cal__cel {
+.cal-mini__dia:hover {
+  background: var(--surface-3);
+}
+
+.cal-mini__dia[data-fora] {
+  color: var(--fg-muted);
+  opacity: 0.6;
+}
+
+.cal-mini__dia[data-mostrado] {
+  font-weight: var(--fw-semibold);
+  background: var(--accent-soft);
+}
+
+.cal-mini__dia[data-hoje] {
+  font-weight: var(--fw-semibold);
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+/* Filtros */
+.cal-busca .input {
+  width: 100%;
+}
+
+.cal-filtros,
+.cal-estufas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-estufas {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cal-filtro,
+.cal-estufa {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--s-2);
+  font-size: var(--text-sm);
+  color: var(--fg);
+  text-align: left;
+  border-radius: var(--r-md);
+}
+
+.cal-filtro:hover,
+.cal-estufa:hover {
+  background: var(--surface-2);
+}
+
+.cal-filtro__marca {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+}
+
+.cal-filtro[aria-checked="true"] .cal-filtro__marca {
+  border: 5px solid var(--accent);
+}
+
+.cal-filtro[aria-checked="true"] {
+  font-weight: var(--fw-medium);
+}
+
+.cal-filtro__nome,
+.cal-estufa__nome {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cal-estufa[aria-current="true"] {
+  font-weight: var(--fw-semibold);
+  background: var(--accent-soft);
+}
+
+.cal-estufa__ponto,
+.tl__ponto {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--marker-livre);
+  border-radius: 50%;
+}
+
+.cal-estufa__livre {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--ok-soft-fg);
+}
+
+/* --- Barras (reservas) — mesmas na linha do tempo, no mês e no "Como ler" ----- */
+
+.cal-barra-ev {
+  background: var(--cal-aprovada-fundo);
+  border: 1px solid var(--cal-aprovada);
+  border-left-width: 3px;
+}
+
+.cal-barra-ev[data-status="PENDENTE"] {
+  background: var(--cal-pendente-fundo);
+  border-color: var(--cal-pendente);
+  border-style: dashed;
+  border-left-style: solid;
+}
+
+.cal-barra-ev[data-status="fora"] {
+  background: repeating-linear-gradient(135deg, var(--down-soft) 0 6px, var(--surface) 6px 12px);
+  border-color: var(--cal-fora);
+  border-left-width: 1px;
+}
+
+.cal-barra-ev {
   position: relative;
-  width: calc(100% - 3px);
-  height: 1.75rem;
-  margin: 0 auto;
-  transition: transform var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+  z-index: 1;
+  display: flex;
+  gap: var(--s-1);
+  align-items: center;
+  min-width: 0;
+  margin: 3px;
+  padding: 0 var(--s-2);
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  color: var(--cal-aprovada-texto);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: box-shadow var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
 
-.cal__cel:hover {
-  z-index: 1;
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--fg-2);
-  transform: scale(1.08);
+.cal-barra-ev[data-status="PENDENTE"] {
+  color: var(--cal-pendente-texto);
 }
 
-.cal__cel:focus-visible {
-  z-index: 1;
-  outline: 2px solid var(--focus);
+.cal-barra-ev[data-status="fora"] {
+  color: var(--cal-fora-texto);
+  cursor: default;
+}
+
+button.cal-barra-ev:hover {
+  box-shadow: var(--shadow-2);
+}
+
+button.cal-barra-ev:focus-visible {
+  outline: 2px solid var(--fg);
   outline-offset: 1px;
 }
 
-/* Parcial: três tons de âmbar, do menos ao mais tomado. */
-[data-estado="parcial"][data-nivel="1"] { background: color-mix(in srgb, var(--busy) 10%, var(--surface)); }
-[data-estado="parcial"][data-nivel="2"] { background: color-mix(in srgb, var(--busy) 20%, var(--surface)); }
-[data-estado="parcial"][data-nivel="3"] { background: color-mix(in srgb, var(--busy) 30%, var(--surface)); }
-
-[data-estado="cheia"] {
-  color: var(--busy-fg);
-  background: var(--busy);
-}
-
-[data-estado="conflito"] {
-  color: var(--down-fg);
-  background: var(--down);
-}
-
-/* Fora de uso e "não tem esta unidade": listrado neutro. */
-[data-estado="fora"] {
-  background: repeating-linear-gradient(
-    135deg,
-    var(--surface-3) 0 4px,
-    var(--line) 4px 6px
-  );
-}
-
-[data-estado="sem"] {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--surface-3);
-}
-
-/* O que já passou fica mais apagado: é histórico. */
-.cal__cel[data-passado] {
-  opacity: 0.55;
-}
-
-/* Ponto embaixo: quem está logado tem reserva nesse dia. */
-[data-minha]::after {
-  position: absolute;
-  bottom: 3px;
-  left: 50%;
-  width: 4px;
-  height: 4px;
+/* Reserva de quem está logado: um ponto verde no começo da barra. */
+.cal-barra-ev[data-sua]::before {
+  flex: none;
+  width: 6px;
+  height: 6px;
   content: "";
-  background: var(--booked);
+  background: var(--accent);
   border-radius: 50%;
-  transform: translateX(-50%);
 }
 
-[data-minha][data-estado="cheia"]::after,
-[data-minha][data-estado="conflito"]::after {
-  background: var(--busy-fg);
+.cal-barra-ev__titulo {
+  overflow: hidden;
+  font-weight: var(--fw-semibold);
+  text-overflow: ellipsis;
 }
 
-/* --- Coluna de resumo ----------------------------------------------------- */
+.cal-barra-ev__det {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-.cal__resumo {
-  position: sticky;
-  right: 0;
-  z-index: 2;
-  padding: 0 var(--s-4) !important;
-  font-size: var(--text-xs);
+.cal-barra-ev__ate {
+  flex: none;
+  padding-left: var(--s-2);
+  margin-left: auto;
+  font-weight: var(--fw-semibold);
+}
+
+/* --- Número de livres embaixo de cada dia ------------------------------- */
+
+.cal-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-num {
+  position: relative;
+  display: inline-block;
+  min-width: 1.375rem;
+  padding: 1px 6px;
+  font-size: var(--text-2xs);
   color: var(--fg-muted);
-  text-align: right !important;
-  white-space: nowrap;
-  background: var(--surface);
-  border-left: 1px solid var(--line);
+  text-align: center;
+  border-radius: var(--r-pill);
 }
 
-.cal__canto--fim {
-  border-left: 1px solid var(--line);
-}
-
-.cal__livre strong {
-  font-size: var(--text-md);
+.cal-num[data-parcial] {
   font-weight: var(--fw-semibold);
   color: var(--ok-soft-fg);
 }
 
-.cal__resumo[data-classe="lotada"] .cal__livre strong {
-  color: var(--busy-soft-fg);
+.cal-num[data-lotada] {
+  font-weight: 700;
+  color: var(--cal-aprovada-texto);
+  background: var(--cal-aprovada-zero);
 }
 
-.cal__reservar {
-  display: block;
-  margin-left: auto;
-  font-size: var(--text-2xs);
-  font-weight: var(--fw-semibold);
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.cal-num[data-lotada="PENDENTE"] {
+  color: var(--cal-pendente-texto);
+  background: var(--cal-pendente-zero);
 }
 
-.cal__reservar:hover {
-  color: var(--accent-hover);
+.cal-num[data-conflito] {
+  font-weight: 700;
+  color: var(--down-fg);
+  background: var(--down);
 }
 
-.cal__estado {
-  padding: var(--s-8) var(--s-4) !important;
+.cal-num[data-sua]::after {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  content: "";
+  background: var(--accent);
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+/* --- Quadro do calendário ----------------------------------------------- */
+
+.cal-quadro {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.cal-quadro[aria-busy="true"] #cal-corpo {
+  opacity: 0.55;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.cal-estado {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-7) var(--s-4);
   font-size: var(--text-sm);
   color: var(--fg-muted);
 }
 
-.cal__estado .btn {
-  margin-left: var(--s-2);
+/* --- Linha do tempo ------------------------------------------------------ */
+
+.tl {
+  --cols: var(--cal-col-estufa) repeat(var(--dias), minmax(3rem, 1fr));
+  min-width: calc(var(--cal-col-estufa) + var(--dias) * 3rem);
 }
 
-/* --- Legenda -------------------------------------------------------------- */
+.tl[data-modo="semana"] {
+  --cols: var(--cal-col-estufa) repeat(var(--dias), minmax(6.5rem, 1fr));
+  min-width: calc(var(--cal-col-estufa) + var(--dias) * 6.5rem);
+}
 
-.cal-legenda {
+.tl__cab {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: var(--cols);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.tl__canto {
+  position: sticky;
+  left: 0;
+  z-index: 1;
   display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  gap: var(--s-2) var(--s-5);
-  align-items: center;
-  padding: var(--s-3) 0 0;
-  margin: 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--s-2) var(--s-3);
   font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--fg-2);
-  list-style: none;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
 }
 
-.cal-legenda li {
+.tl__canto-sub {
+  font-size: var(--text-2xs);
+  font-weight: var(--fw-regular);
+  color: var(--fg-muted);
+}
+
+.tl__dia-cab {
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  padding: var(--s-2) 0;
+  border-left: 1px solid var(--surface-3);
+}
+
+.tl__dia-cab[data-fds] {
+  background: var(--cal-fds);
+}
+
+.tl__dia-cab[data-hoje] {
+  background: var(--cal-hoje);
+}
+
+.tl__sigla {
+  font-size: var(--text-2xs);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+}
+
+.tl__num {
+  display: grid;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  font-size: var(--text-md);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  border-radius: 50%;
+}
+
+.tl__dia-cab[data-hoje] .tl__sigla {
+  color: var(--accent);
+}
+
+.tl__dia-cab[data-hoje] .tl__num {
+  color: var(--accent-fg);
+  background: var(--accent);
+}
+
+/* Uma faixa: trilhas de barras em cima, a linha dos números embaixo. */
+.tl__linha {
+  display: grid;
+  grid-template-columns: var(--cols);
+  grid-template-rows: repeat(var(--trilhas), var(--cal-trilha)) var(--cal-livres);
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.tl__estufa {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  grid-row: 1 / -1;
+  grid-column: 1;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: center;
+  min-width: 0;
+  padding: var(--s-2) var(--s-3);
+  text-align: left;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+.tl__estufa:hover .tl__nome {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tl__estufa-topo {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.tl__nome {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl__codigo {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--fg-muted);
+}
+
+.tl__resumo,
+.cal-estufa__livre {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  color: var(--ok-soft-fg);
+}
+
+.tl__resumo[data-tom="ATIVA"],
+.cal-estufa__livre[data-tom="ATIVA"] { color: var(--cal-aprovada-texto); }
+.tl__resumo[data-tom="PENDENTE"],
+.cal-estufa__livre[data-tom="PENDENTE"] { color: var(--cal-pendente-texto); }
+.tl__resumo[data-tom="fora"],
+.cal-estufa__livre[data-tom="fora"] { color: var(--cal-fora-texto); }
+.tl__resumo[data-tom="sem"] { color: var(--fg-muted); }
+
+.tl__ponto[data-tom="ATIVA"],
+.cal-estufa__ponto[data-tom="ATIVA"] { background: var(--marker-ocupada); }
+.tl__ponto[data-tom="PENDENTE"],
+.cal-estufa__ponto[data-tom="PENDENTE"] { background: var(--marker-reservada); }
+.tl__ponto[data-tom="fora"],
+.cal-estufa__ponto[data-tom="fora"] { background: var(--marker-manutencao); }
+.tl__ponto[data-tom="sem"] { background: var(--marker-indefinido); }
+
+.tl__medidor {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
+}
+
+.tl__medidor > span {
+  display: block;
+  height: 100%;
+  background: #1f9a57;
+  border-radius: inherit;
+}
+
+/* O dia inteiro (todas as trilhas) é um botão; o número fica no pé dele. */
+.tl__dia {
+  display: flex;
+  grid-row: 1 / -1;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+  background: var(--surface);
+  border-left: 1px solid var(--surface-3);
+  transition: background var(--dur-1) var(--ease);
+}
+
+.tl__dia[data-fds] { background: var(--cal-fds); }
+.tl__dia[data-hoje] { background: var(--cal-hoje); }
+.tl__dia[data-passado] .cal-num { opacity: 0.55; }
+
+.tl__dia:hover {
+  background: var(--surface-3);
+}
+
+.tl__dia:focus-visible,
+.mesg__dia:focus-visible {
+  position: relative;
+  z-index: 2;
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.tl__linha[data-fora] .tl__dia:not([data-passado]) {
+  background: var(--surface-2);
+}
+
+/* --- Mês ----------------------------------------------------------------- */
+
+.mesg {
+  min-width: 46rem;
+}
+
+.mesg__cab {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.mesg__cab span {
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-muted);
+}
+
+.mesg__semana {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: 2.25rem repeat(var(--trilhas), 1.875rem) 0.75rem;
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.mesg__dia {
+  display: flex;
+  grid-row: 1 / -1;
+  gap: var(--s-1);
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 6px var(--s-2) 0;
+  background: var(--surface);
+  border-left: 1px solid var(--surface-3);
+  transition: background var(--dur-1) var(--ease);
+}
+
+.mesg__dia[style*="grid-column: 1"] {
+  border-left: 0;
+}
+
+.mesg__dia:hover {
+  background: var(--surface-2);
+}
+
+.mesg__dia[data-hoje] {
+  background: var(--cal-hoje);
+}
+
+.mesg__dia[data-fora-mes] {
+  background: var(--cal-fds);
+}
+
+.mesg__num {
+  display: grid;
+  place-items: center;
+  min-width: 1.625rem;
+  height: 1.625rem;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  border-radius: var(--r-pill);
+}
+
+.mesg__dia[data-passado] .mesg__num,
+.mesg__dia[data-fora-mes] .mesg__num {
+  color: var(--fg-muted);
+  font-weight: var(--fw-medium);
+}
+
+.mesg__dia[data-hoje] .mesg__num {
+  color: var(--accent-fg);
+  background: var(--accent);
+}
+
+.mesg__dia .cal-num {
+  margin-top: 4px;
+}
+
+.mesg__dia .cal-num[data-parcial] {
+  background: var(--accent-soft);
+}
+
+/* --- Cartão da reserva --------------------------------------------------- */
+
+.cal-card {
+  position: fixed;
+  z-index: 60;
+  width: min(22rem, calc(100vw - 1.5rem));
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: 0 12px 36px rgb(10 32 20 / 18%), 0 2px 8px rgb(10 32 20 / 8%);
+  animation: cal-card-entra var(--dur-2) var(--ease-out);
+}
+
+@keyframes cal-card-entra {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+.cal-card__faixa {
+  height: 6px;
+  background: var(--cal-aprovada);
+}
+
+.cal-card[data-status="PENDENTE"] .cal-card__faixa {
+  background: var(--cal-pendente);
+}
+
+.cal-card__corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4) var(--s-4);
+}
+
+.cal-card__topo {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+}
+
+.cal-card__titulos {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cal-card__topo .close-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: calc(var(--s-1) * -1) calc(var(--s-2) * -1) 0 0;
+}
+
+.cal-card__selos {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--s-2);
   align-items: center;
 }
 
-.cal-legenda__cor {
-  position: relative;
-  width: 1.375rem;
-  height: 1.375rem;
+.cal-card__codigo {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
 }
 
-.cal-legenda__dica {
-  margin-left: auto;
-  color: var(--fg-muted);
+.cal-card[data-status="ATIVA"] .pill--busy {
+  color: var(--cal-aprovada-texto);
+  background: var(--cal-aprovada-fundo);
+}
+
+.cal-card__titulo {
+  margin: var(--s-1) 0 0;
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.cal-card__sub {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+}
+
+.cal-card__dados {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: 0;
+  margin: 0;
+  font-size: var(--text-sm);
+  list-style: none;
+}
+
+.cal-card__dados li {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+}
+
+.cal-card__dados .ic {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.cal-card__dados strong {
+  font-weight: var(--fw-semibold);
+}
+
+.cal-card__contexto {
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--fg-2);
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--r-md);
+}
+
+.cal-card__contexto [data-tom="lotada"] { color: var(--cal-aprovada-texto); }
+.cal-card__contexto [data-tom="livre"] { color: var(--ok-soft-fg); }
+
+.cal-card__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.cal-card__acoes .btn {
+  flex: 1 1 auto;
+}
+
+.cal-card__acoes:empty {
+  display: none;
+}
+
+/* --- Telas estreitas ----------------------------------------------------- */
+
+@media (width <= 60rem) {
+  .cal-layout {
+    flex-direction: column;
+  }
+
+  .cal-lado {
+    flex: none;
+    flex-direction: row;
+    max-height: 13rem;
+    overflow: auto hidden;
+  }
+
+  .cal-lado > .cal-caixa {
+    flex: 0 0 15rem;
+    overflow-y: auto;
+  }
+}
+
+@media (width <= 48rem) {
+  #view-calendario {
+    --cal-col-estufa: 8.5rem;
+  }
+
+  .cal-barra__titulo {
+    flex-basis: 100%;
+    order: 3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-card,
+  .cal-barra-ev,
+  .tl__dia,
+  .mesg__dia {
+    animation: none;
+    transition: none;
+  }
 }
 
 /* --- Detalhe do dia (modal) ----------------------------------------------- */
@@ -643,100 +1139,98 @@
   color: var(--fg-muted);
 }
 
-/* --- Telas estreitas ------------------------------------------------------ */
+/* --- Como ler (modal) ------------------------------------------------------ */
 
-@media (max-width: 60rem) {
-  .cal__col-estufa { width: 8.5rem; }
-  .cal__col-resumo { width: 5.5rem; }
-
-  .cal {
-    min-width: calc(8.5rem + 31 * 1.625rem + 5.5rem);
-  }
-
-  .cal__estufa,
-  .cal__canto,
-  .cal__resumo {
-    padding: 0 var(--s-3) !important;
-  }
-
-  .cal-legenda__dica {
-    flex-basis: 100%;
-    margin-left: 0;
-  }
-
-  .cal-mes__nome {
-    min-width: 9rem;
-    font-size: var(--text-base);
-  }
+.cal-ajuda {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
 }
 
-/*
- * Celular: a página rola (os números do topo empilham) e a grade ganha uma
- * altura própria, rolando por dentro nos dois sentidos. A regra geral de
- * tabela no celular tira o overflow do .table-wrap — aqui ele volta.
- */
-@media (width <= 48rem) {
-  #sec-calendario {
-    flex: none;
-    min-height: 0;
-  }
-
-  #cal-wrap {
-    flex: none;
-    height: 70vh;
-    overflow: auto;
-    background: var(--surface);
-  }
-
-  /* Duas colunas presas não deixam espaço para os dias: só a da estufa fica. */
-  .cal__col-estufa { width: 7rem; }
-
-  .cal {
-    min-width: calc(7rem + 31 * 1.875rem + 5.5rem);
-  }
-
-  .cal__resumo {
-    position: static;
-  }
-
-  .cal__canto--fim {
-    right: auto;
-  }
-
-  .cal__estufa,
-  .cal__canto {
-    padding: 0 var(--s-2) 0 var(--s-3) !important;
-    box-shadow: 1px 0 0 var(--line);
-  }
-
-  .cal-mes {
-    width: 100%;
-  }
-
-  .cal-mes__nome {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .cal-periodo {
-    flex-wrap: wrap;
-    width: 100%;
-  }
-
-  .cal-periodo .input {
-    flex: 1 1 7.5rem;
-    width: auto;
-    min-width: 0;
-  }
+.cal-ajuda__bloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cal__cel,
-  .cal-wrap {
-    transition: none;
+.cal-ajuda__titulo {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cal-ajuda__texto {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+}
+
+.cal-ajuda__lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.cal-ajuda__lista li {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: center;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--fg-2);
+}
+
+.cal-ajuda__lista--numeros li {
+  grid-template-columns: 3rem minmax(0, 1fr);
+}
+
+.cal-ajuda__lista strong,
+.cal-ajuda__passos strong {
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+
+.cal-ajuda__exemplo {
+  display: flex;
+  justify-content: center;
+}
+
+.cal-ajuda__exemplo .cal-barra-ev {
+  width: 100%;
+  height: 1.75rem;
+  margin: 0;
+  cursor: default;
+}
+
+.cal-ajuda__passos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-left: var(--s-5);
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+@media (width <= 40rem) {
+  .cal-ajuda__lista li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-1);
   }
 
-  .cal__cel:hover {
-    transform: none;
+  .cal-ajuda__exemplo {
+    justify-content: flex-start;
+  }
+
+  .cal-ajuda__exemplo .cal-barra-ev {
+    width: 12rem;
   }
 }

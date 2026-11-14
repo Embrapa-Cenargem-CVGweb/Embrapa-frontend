@@ -34,7 +34,7 @@ import {
 import { dadosMudaram } from '../lib/bus';
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
-import { capacidade, dataBR, dataHoraBR, ocupacaoResumo, statusPill } from '../lib/format';
+import { capacidade, dataBR, dataHoraBR, ocupacaoResumo, statusPill, temperaturaTexto, vasosTexto } from '../lib/format';
 import { abrirModal, confirmar, fecharModal, fecharTodosModais } from '../lib/modal';
 import { irParaSecao } from '../lib/navegacao';
 import { avatar, pintarStats } from '../lib/telas';
@@ -139,7 +139,7 @@ function renderizarMetricas(): void {
   const espacos = Object.values(ESTUFAS);
   const total = espacos.length;
   const livres = espacos.filter((e) => e.status === 'livre').length;
-  const ocupados = espacos.filter((e) => e.status === 'ocupada' || e.status === 'parcial').length;
+  const ocupados = espacos.filter((e) => e.status === 'ocupada' || e.status === 'reservada' || e.status === 'parcial').length;
   const manutencao = espacos.filter((e) => e.status === 'manutencao').length;
   const emAberto = reservas.filter((r) => r.status === 'ativa' || r.status === 'pendente').length;
   const pendentes = reservas.filter((r) => r.status === 'pendente').length;
@@ -292,10 +292,18 @@ function renderizarEspacos(): void {
             ? html`<span class="table__type">${icone(e.icon, 'ic ic--sm')}${e.tipo}</span>`
             : html`<span class="table__muted">&mdash;</span>`)}
         </td>
-        <td data-label="Área">${e.area}</td>
+        <td data-label="Área">
+          <div class="table__stack">
+            <span>${e.area}</span>
+            ${raw(e.temperaturaMin !== null || e.temperaturaMax !== null
+              ? html`<span class="table__sub">${icone('thermometer', 'ic ic--sm')}${temperaturaTexto(e.temperaturaMin, e.temperaturaMax)}</span>`
+              : '')}
+          </div>
+        </td>
         <td data-label="Capacidade">
           <div class="table__stack">
             <span class="table__name">${ocupacaoResumo(e.disponivel, e.capacidadeTotal, e.unidade)}</span>
+            ${raw(e.unidade === 'VASO' && e.vasos.length ? html`<span class="table__sub">${vasosTexto(e.vasos)}</span>` : '')}
             ${raw(e.capacidadePor.BANCADA && e.unidade === 'VASO'
               ? html`<span class="table__sub">${ocupacaoResumo(e.livrePor.BANCADA ?? 0, e.cap, 'BANCADA')} de ${e.cap}</span>`
               : e.cap > 0
@@ -312,6 +320,7 @@ function renderizarEspacos(): void {
                     aria-label="Alterar a situação de ${e.nome}">
               ${raw(opcoesSituacao(e.situacao))}
             </select>
+            ${raw(e.situacao !== 'ATIVA' && e.motivo ? html`<span class="table__sub" title="${e.motivo}">${e.motivo}</span>` : '')}
           </div>
         </td>
         <td data-label="Editar">
@@ -394,11 +403,24 @@ export async function alterarSituacaoEspaco(id: string, situacao: string): Promi
   const anterior = estufa.situacao;
   if (nova === anterior) return;
 
+  // Tirar a estufa de uso: a administração pode dizer por quê. O motivo é
+  // opcional, mas é o que o pesquisador lê em vez de só "manutenção".
+  let motivo: string | null = null;
+  if (nova !== 'ATIVA') {
+    const resposta = await perguntarMotivo(estufa.nome, SITUACOES.find((s) => s.valor === nova)!.label, estufa.motivo);
+    if (resposta === null) {
+      // Desistiu: o seletor volta para o que estava.
+      dadosMudaram();
+      return;
+    }
+    motivo = resposta;
+  }
+
   try {
     const casaId = ID_REAL_ESPACO[id];
     if (!casaId) throw new Error('Espaço sem vínculo com o cadastro; recarregue a página.');
 
-    await atualizarSituacaoEspaco(casaId, nova);
+    await atualizarSituacaoEspaco(casaId, nova, motivo);
     invalidarEstado();
     await carregarEstado('manter');
   } catch (erro) {
@@ -413,6 +435,37 @@ export async function alterarSituacaoEspaco(id: string, situacao: string): Promi
     `${estufa.nome}: ${SITUACOES.find((s) => s.valor === nova)!.label.toLowerCase()}.`,
     'success',
   );
+}
+
+/**
+ * Pergunta por que a estufa vai sair de uso. Devolve o texto (pode ser vazio:
+ * o motivo é opcional) ou null se a pessoa cancelou.
+ */
+async function perguntarMotivo(nome: string, situacao: string, atual: string): Promise<string | null> {
+  // O diálogo é montado na hora por `confirmar`, então o campo só existe
+  // depois; a delegação guarda o que foi digitado enquanto ele está aberto.
+  let motivo = atual;
+  const capturar = (ev: Event): void => {
+    const alvo = ev.target as HTMLInputElement | null;
+    if (alvo?.id === 'situacao-motivo') motivo = alvo.value;
+  };
+  document.addEventListener('input', capturar);
+
+  const ok = await confirmar({
+    titulo: `${nome}: ${situacao.toLowerCase()}?`,
+    mensagem: html`
+      Enquanto estiver assim a estufa não aceita novas reservas. Se quiser, diga o motivo:
+      ele aparece para quem abrir a estufa no mapa e no calendário.
+      <br /><br />
+      <input class="input" id="situacao-motivo" type="text" maxlength="255" value="${atual}"
+             placeholder="Motivo (opcional): troca da cobertura, irrigação parada..."
+             aria-label="Motivo de a estufa sair de uso" />`,
+    confirmar: 'Confirmar',
+    icone: 'wrench',
+  });
+
+  document.removeEventListener('input', capturar);
+  return ok ? motivo.trim() : null;
 }
 
 export function buscarEspacos(termo: string): void {
@@ -445,6 +498,117 @@ function numeroDoCampo(id: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/** Como `numeroDoCampo`, mas aceita casa decimal (temperatura, tamanho do vaso). */
+function decimalDoCampo(id: string): number | null {
+  const bruto = valorDoCampo(id).replace(',', '.');
+  if (bruto === '') return null;
+  const n = Number.parseFloat(bruto);
+  return Number.isNaN(n) ? null : n;
+}
+
+/* ---------------------------------------------------------------------------
+   Vasos por tamanho
+
+   Uma linha por tamanho: "5 vasos de 3 cm". A lista mora no próprio DOM do
+   formulário (não há cópia em variável para sair de sincronia). Numa estufa de
+   vasos com a lista preenchida, a capacidade reservável é a soma — o campo
+   fica só de leitura e acompanha o que se digita.
+   ------------------------------------------------------------------------ */
+
+function linhaDeVaso(quantidade: number | string = '', tamanho: number | string = ''): string {
+  return html`
+    <div class="vasos-ed__linha">
+      <input class="input input--numero" type="number" min="1" step="1" value="${String(quantidade)}"
+             data-vaso="quantidade" placeholder="5" aria-label="Quantidade de vasos" />
+      <span>vasos de</span>
+      <input class="input input--numero" type="number" min="0.5" step="0.5" value="${String(tamanho)}"
+             data-vaso="tamanho" placeholder="3" aria-label="Tamanho do vaso em centímetros" />
+      <span>cm</span>
+      <button type="button" class="btn btn--quiet btn--sm btn--icon" data-action="espaco-remover-vaso"
+              aria-label="Remover este tamanho">
+        ${icone('x', 'ic ic--sm')}
+      </button>
+    </div>`;
+}
+
+function pintarVasos(vasos: { tamanho_cm: number; quantidade: number }[]): void {
+  const lista = el('espaco-vasos');
+  if (lista) lista.innerHTML = juntar(vasos.map((v) => linhaDeVaso(v.quantidade, v.tamanho_cm)));
+  sincronizarVasos();
+}
+
+/** Linhas completas do formulário; `incompleta` avisa se sobrou linha pela metade. */
+function lerVasos(): { vasos: { tamanho_cm: number; quantidade: number }[]; incompleta: boolean } {
+  const vasos: { tamanho_cm: number; quantidade: number }[] = [];
+  let incompleta = false;
+
+  for (const linha of qsa('#espaco-vasos .vasos-ed__linha')) {
+    const q = (linha.querySelector<HTMLInputElement>('[data-vaso="quantidade"]')?.value ?? '').trim();
+    const t = (linha.querySelector<HTMLInputElement>('[data-vaso="tamanho"]')?.value ?? '').trim().replace(',', '.');
+    if (!q && !t) continue;
+
+    const quantidade = Number.parseInt(q, 10);
+    const tamanho = Number.parseFloat(t);
+    if (!(quantidade > 0) || !(tamanho > 0)) {
+      incompleta = true;
+      continue;
+    }
+    vasos.push({ tamanho_cm: tamanho, quantidade });
+  }
+
+  return { vasos, incompleta };
+}
+
+/**
+ * Mantém o formulário coerente: a lista de vasos só existe em estufa contada
+ * em vasos; com linhas preenchidas, a capacidade vira a soma; e o campo de
+ * motivo só aparece quando a situação tira a estufa de uso.
+ */
+function sincronizarVasos(): void {
+  const emVasos = (valorDoCampo('espaco-unidade') || 'VASO') === 'VASO';
+  show(el('espaco-vasos-campo'), emVasos);
+
+  const total = campo<HTMLInputElement>('espaco-capacidade-total');
+  const { vasos } = lerVasos();
+  const somar = emVasos && vasos.length > 0;
+  if (total) {
+    total.readOnly = somar;
+    if (somar) total.value = String(vasos.reduce((n, v) => n + v.quantidade, 0));
+  }
+  setText(
+    'espaco-capacidade-ajuda',
+    somar
+      ? 'A capacidade é a soma dos vasos por tamanho, abaixo. Reduzir para menos do que já está reservado é recusado.'
+      : 'É o que as reservas consomem. Reduzir abaixo do que já está reservado é recusado.',
+  );
+
+  show(el('espaco-motivo-campo'), (valorDoCampo('espaco-situacao') || 'ATIVA') !== 'ATIVA');
+}
+
+export function adicionarVasoNoFormulario(): void {
+  const lista = el('espaco-vasos');
+  if (!lista) return;
+  lista.insertAdjacentHTML('beforeend', linhaDeVaso());
+  lista.querySelector<HTMLInputElement>('.vasos-ed__linha:last-child [data-vaso="quantidade"]')?.focus();
+  sincronizarVasos();
+}
+
+export function removerVasoDoFormulario(botao: HTMLElement): void {
+  botao.closest('.vasos-ed__linha')?.remove();
+  sincronizarVasos();
+}
+
+let formularioDoEspacoLigado = false;
+
+function ligarFormularioDoEspaco(): void {
+  if (formularioDoEspacoLigado) return;
+  formularioDoEspacoLigado = true;
+
+  el('espaco-vasos')?.addEventListener('input', sincronizarVasos);
+  el('espaco-unidade')?.addEventListener('change', sincronizarVasos);
+  el('espaco-situacao')?.addEventListener('change', sincronizarVasos);
+}
+
 function mostrarErroEspaco(mensagem: string | null): void {
   show(el('espaco-erro'), Boolean(mensagem));
   if (mensagem) setText('espaco-erro-texto', mensagem);
@@ -472,6 +636,8 @@ export function abrirEspaco(id?: string): void {
 
   el<HTMLFormElement>('form-espaco')?.reset();
   definirValor('espaco-capacidade-total', 0);
+  ligarFormularioDoEspaco();
+  pintarVasos([]);
   mostrarErroEspaco(null);
   fecharSugestoes();
   preencherListasDeTexto();
@@ -517,12 +683,18 @@ function carregarEspacoNoFormulario(id: string): void {
   definirValor('espaco-area', estufa.area.replace(/\D/g, ''));
   definirValor('espaco-bancadas', estufa.cap || '');
   definirValor('espaco-obs', estufa.desc);
+  definirValor('espaco-temp-min', estufa.temperaturaMin);
+  definirValor('espaco-temp-max', estufa.temperaturaMax);
+  definirValor('espaco-motivo', estufa.motivo);
 
   const unidade = el<HTMLSelectElement>('espaco-unidade');
   if (unidade) unidade.value = estufa.unidade;
 
   const situacao = el<HTMLSelectElement>('espaco-situacao');
   if (situacao) situacao.value = estufa.situacao;
+
+  // Depois da unidade e da situação: é delas que depende o que aparece.
+  pintarVasos(estufa.vasos);
 
   mostrarErroEspaco(null);
   marcarAlvo(id);
@@ -835,6 +1007,23 @@ export async function confirmarEspaco(): Promise<void> {
     return;
   }
 
+  const unidadeEscolhida = (valorDoCampo('espaco-unidade') || 'VASO') as UnidadeCapacidade;
+  const { vasos, incompleta } = lerVasos();
+  if (unidadeEscolhida === 'VASO' && incompleta) {
+    mostrarErroEspaco('Em "Vasos por tamanho", preencha a quantidade e o tamanho de cada linha, ou remova a linha.');
+    return;
+  }
+
+  const temperaturaMin = decimalDoCampo('espaco-temp-min');
+  const temperaturaMax = decimalDoCampo('espaco-temp-max');
+  if (temperaturaMin !== null && temperaturaMax !== null && temperaturaMin > temperaturaMax) {
+    mostrarErroEspaco('A temperatura máxima não pode ser menor do que a mínima.');
+    campo<HTMLInputElement>('espaco-temp-max')?.focus();
+    return;
+  }
+
+  const situacaoEscolhida = (valorDoCampo('espaco-situacao') || 'ATIVA') as EstufaSituacao;
+
   const dados: DadosEspaco = {
     codigo,
     descricao,
@@ -845,10 +1034,15 @@ export async function confirmarEspaco(): Promise<void> {
     area_m2: numeroDoCampo('espaco-area'),
     // Bancadas em branco é "não mexe", não "zero": a coluna é NOT NULL.
     capacidade: numeroDoCampo('espaco-bancadas') ?? undefined,
-    unidade_capacidade: (valorDoCampo('espaco-unidade') || 'VASO') as UnidadeCapacidade,
+    unidade_capacidade: unidadeEscolhida,
     capacidade_total: capacidadeTotal,
+    // Estufa contada em bancadas não tem lista de vasos.
+    vasos: unidadeEscolhida === 'VASO' ? vasos : [],
+    temperatura_min: temperaturaMin,
+    temperatura_max: temperaturaMax,
     obs: valorDoCampo('espaco-obs') || null,
-    status: (valorDoCampo('espaco-situacao') || 'ATIVA') as EstufaSituacao,
+    status: situacaoEscolhida,
+    motivo_situacao: situacaoEscolhida === 'ATIVA' ? null : valorDoCampo('espaco-motivo') || null,
   };
 
   const botao = el<HTMLButtonElement>('espaco-enviar');
