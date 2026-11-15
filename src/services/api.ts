@@ -203,10 +203,6 @@ export function getReservas(): Promise<any> {
   return buscar('/reservas?status=TODAS&per_page=500', 'as reservas');
 }
 
-/** Métricas do painel da administração, calculadas no back-end. */
-export function getPainel(): Promise<any> {
-  return buscar('/painel', 'as métricas do painel');
-}
 
 export interface CargoApi {
   id: number;

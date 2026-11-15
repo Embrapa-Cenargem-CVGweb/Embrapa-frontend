@@ -136,13 +136,6 @@ const AJUDAS: Record<string, Ajuda> = {
       'O botão reserva a partir deste dia, se houver vaga e você tiver um projeto aprovado.',
     ],
   },
-  'modal-metricas': {
-    titulo: 'O que os números contam',
-    itens: [
-      'A ocupação é pela capacidade (vasos e bancadas), não pelo número de estufas.',
-      'Reservas pendentes já seguram espaço, por isso entram na conta.',
-    ],
-  },
 };
 
 function fecharAjuda(): void {

@@ -167,8 +167,10 @@
   min-width: 0;
 }
 
-/* Nome de pessoa não quebra no meio; quem cede largura são as outras colunas. */
+/* Nome de pessoa não quebra no meio: corta com reticências se faltar espaço. */
 .who .table__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

@@ -325,7 +325,7 @@ function linha(r: RegistroAuditoria): string {
                    <div class="table__stack">
                      <span class="table__name">${quem}</span>
                      ${raw(r.funcionario?.email
-                       ? html`<span class="table__sub">${r.funcionario.email}</span>`
+                       ? html`<span class="table__sub" title="${r.funcionario.email}">${r.funcionario.email}</span>`
                        : r.funcionario ? '' : html`<span class="table__sub">sem cadastro</span>`)}
                    </div>
                  </div>`

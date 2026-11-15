@@ -16,10 +16,16 @@
     - connect-src 'self' %API_ORIGIN%: a propria origem + a origem da API
       (VITE_API_URL). O vite.config.ts troca o %API_ORIGIN% no build e no dev.
     - font-src 'self': fontes locais.
-    - frame-ancestors 'none': ninguem embute esta pagina em iframe.
+
+    Nao entra aqui: `frame-ancestors`. O navegador IGNORA essa diretiva quando
+    ela vem por <meta> (so vale em cabecalho HTTP) e ainda registra um erro no
+    console a cada carga. Quem precisa impedir que a pagina seja embutida em
+    iframe e o servidor web da implantacao, com
+    `Content-Security-Policy: frame-ancestors 'none'` ou `X-Frame-Options: DENY`
+    no cabecalho — a API ja manda os dois nas respostas dela.
   -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' %API_ORIGIN%; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" />
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' %API_ORIGIN%; font-src 'self'; base-uri 'self'; form-action 'self';" />
   <meta name="theme-color" content="#f1f5f0" />
 
   <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png" />
@@ -693,10 +699,6 @@
           </div>
 
           <div class="page-head__actions">
-            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir-painel-metricas">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chart-pie" /></svg>
-              Painel
-            </button>
           </div>
         </div>
 
@@ -1223,85 +1225,6 @@
 <!-- ===========================================================================
      Modais
      =========================================================================== -->
-
-<!-- Painel de metricas -->
-<div class="scrim" id="modal-metricas" hidden>
-  <div class="dialog dialog--wide" role="dialog" aria-modal="true" aria-labelledby="metricas-titulo">
-    <div class="dialog__head">
-      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-chart-pie" /></svg></span>
-      <div class="dialog__heading">
-        <h2 class="dialog__title" id="metricas-titulo">Painel</h2>
-        <p class="dialog__desc">Situação dos espaços agora</p>
-      </div>
-      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar painel">
-        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
-      </button>
-    </div>
-    <div class="dialog__body">
-<div class="metrics">
-        <button type="button" class="metric" data-action="ir-para" data-target="espacos">
-          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-warehouse" /></svg></span>
-          <span class="metric__body">
-            <span class="metric__value" id="m-total">&mdash;</span>
-            <span class="metric__label">Espaços no total</span>
-          </span>
-          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
-        </button>
-
-        <button type="button" class="metric" data-tone="ok" data-action="ir-para" data-target="espacos">
-          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-circle-check" /></svg></span>
-          <span class="metric__body">
-            <span class="metric__value" id="m-livres">&mdash;</span>
-            <span class="metric__label">Livres</span>
-          </span>
-          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
-        </button>
-
-        <button type="button" class="metric" data-tone="booked" data-action="ir-para" data-target="reservas-ativa">
-          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-calendar-check" /></svg></span>
-          <span class="metric__body">
-            <span class="metric__value" id="m-reservas">&mdash;</span>
-            <span class="metric__label">Reservas em aberto</span>
-          </span>
-          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
-        </button>
-
-        <button type="button" class="metric" data-tone="busy" data-action="ir-para" data-target="reservas-pendente">
-          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-clock" /></svg></span>
-          <span class="metric__body">
-            <span class="metric__value" id="m-pendentes">&mdash;</span>
-            <span class="metric__label">Aguardando aprovação</span>
-          </span>
-          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
-        </button>
-
-        <button type="button" class="metric" data-tone="down" data-action="ir-para" data-target="espacos">
-          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-wrench" /></svg></span>
-          <span class="metric__body">
-            <span class="metric__value" id="m-manutencao">&mdash;</span>
-            <span class="metric__label">Em manutenção</span>
-          </span>
-          <svg class="ic ic--sm metric__go" aria-hidden="true"><use href="#i-arrow-right" /></svg>
-        </button>
-
-        <div class="metric" data-tone="busy">
-          <span class="metric__icon"><svg class="ic" aria-hidden="true"><use href="#i-grid-3x3" /></svg></span>
-          <span class="metric__body">
-            <span class="metric__value" id="m-taxa">&mdash;</span>
-            <span class="metric__label">Ocupação</span>
-            <div class="meter" id="m-taxa-barra-wrap" role="progressbar"
-                 aria-valuemin="0" aria-valuemax="100" aria-label="Taxa de ocupação dos espaços">
-              <div class="meter__fill" id="m-taxa-barra"></div>
-            </div>
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
 
 <!-- Cadastro do projeto -->
 <div class="scrim" id="modal-projeto" hidden>

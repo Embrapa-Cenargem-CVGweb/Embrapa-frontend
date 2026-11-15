@@ -319,19 +319,36 @@
 }
 
 .vasos-ed__linha {
-  display: grid;
-  grid-template-columns: 5.5rem auto 5.5rem auto 2.25rem;
-  gap: var(--s-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-2);
   align-items: center;
-  justify-content: start;
   font-size: var(--text-sm);
   color: var(--fg-2);
+}
+
+/*
+ * `.input.input--numero` fixa 7rem e vem depois no arquivo: numa grade de
+ * trilhas estreitas o campo estourava a própria coluna e o "vasos de" caía
+ * por cima dele. Aqui a largura é menor e a linha quebra quando falta espaço,
+ * em vez de empurrar o que vem ao lado.
+ */
+.vasos-ed__linha .input.input--numero {
+  flex: 0 1 4.5rem;
+  width: auto;
+  min-width: 3.5rem;
+  background: var(--surface);
+}
+
+.vasos-ed__linha > span {
+  flex: none;
   white-space: nowrap;
 }
 
-.vasos-ed__linha .input {
-  width: 100%;
-  background: var(--surface);
+/* O X fica sempre no fim da linha, mesmo depois de uma quebra. */
+.vasos-ed__linha > .btn {
+  flex: none;
+  margin-left: auto;
 }
 
 @media (width <= 40rem) {
@@ -822,11 +839,16 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* Sem isto a pilha não encolhe dentro da célula: um e-mail longo saía da
+     coluna e ia parar colado no texto da coluna seguinte. */
+  min-width: 0;
 }
 
 .table__sub {
+  overflow: hidden;
   font-size: var(--text-xs);
   color: var(--fg-muted);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -882,97 +904,6 @@
 .status-select[data-status="ocupada"] { border-left-color: var(--busy); }
 .status-select[data-status="manutencao"] { border-left-color: var(--down); }
 .status-select[data-status="inativa"] { border-left-color: var(--line-strong); }
-
-/* ===========================================================================
-   Card de métrica
-   =========================================================================== */
-
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: var(--s-3);
-}
-
-.metric {
-  display: flex;
-  gap: var(--s-3);
-  align-items: flex-start;
-  width: 100%;
-  padding: var(--s-4);
-  text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  transition: border-color var(--dur-1) var(--ease);
-}
-
-.metric__icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 2.25rem;
-  height: 2.25rem;
-  color: var(--metric-fg, var(--fg-muted));
-  background: var(--metric-bg, var(--surface-3));
-  border-radius: var(--r-md);
-}
-
-.metric__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.metric__value {
-  display: block;
-  font-size: var(--text-xl);
-  font-weight: var(--fw-semibold);
-  line-height: var(--lh-tight);
-  letter-spacing: -0.02em;
-}
-
-.metric__label {
-  display: block;
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
-
-.metric__go {
-  flex: none;
-  align-self: center;
-  color: var(--fg-muted);
-  opacity: 0;
-  transition: opacity var(--dur-1) var(--ease);
-}
-
-button.metric:hover {
-  border-color: var(--line-strong);
-}
-
-button.metric:hover .metric__go,
-button.metric:focus-visible .metric__go {
-  opacity: 1;
-}
-
-.metric[data-tone="ok"] { --metric-fg: var(--ok-soft-fg); --metric-bg: var(--ok-soft); }
-.metric[data-tone="busy"] { --metric-fg: var(--busy-soft-fg); --metric-bg: var(--busy-soft); }
-.metric[data-tone="booked"] { --metric-fg: var(--booked-soft-fg); --metric-bg: var(--booked-soft); }
-.metric[data-tone="down"] { --metric-fg: var(--down-soft-fg); --metric-bg: var(--down-soft); }
-
-/* Barra de ocupacao. */
-.meter {
-  height: 4px;
-  margin-top: var(--s-2);
-  overflow: hidden;
-  background: var(--surface-3);
-  border-radius: var(--r-pill);
-}
-
-.meter__fill {
-  height: 100%;
-  background: var(--busy);
-  border-radius: inherit;
-  transition: width var(--dur-3) var(--ease);
-}
 
 /* ===========================================================================
    Modal
@@ -1105,6 +1036,9 @@ button.metric:focus-visible .metric__go {
 
 .dialog__foot {
   display: flex;
+  /* Sem a quebra, um rodapé de três botões estourava a largura do diálogo no
+     celular: eles não encolhem abaixo do próprio texto e sobravam para fora. */
+  flex-wrap: wrap;
   flex: none;
   gap: var(--s-2);
   justify-content: flex-end;
@@ -1114,7 +1048,7 @@ button.metric:focus-visible .metric__go {
 }
 
 .dialog__foot .btn {
-  flex: 1;
+  flex: 1 1 8rem;
 }
 
 .dialog--wide .dialog__foot .btn,

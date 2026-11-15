@@ -36,7 +36,6 @@ import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
 import { capacidade, dataBR, dataHoraBR, ocupacaoResumo, statusPill, temperaturaTexto, vasosTexto } from '../lib/format';
 import { abrirModal, confirmar, fecharModal, fecharTodosModais } from '../lib/modal';
-import { irParaSecao } from '../lib/navegacao';
 import { avatar, pintarStats } from '../lib/telas';
 import { aviso } from '../lib/toast';
 import {
@@ -49,7 +48,6 @@ import {
   getPessoasOpcoes,
   type PessoaOpcao,
   type ProjetoLiderado,
-  getPainel,
   getSituacaoDoEmail,
   getTiposEspaco,
   type CargoApi,
@@ -113,88 +111,12 @@ function ehAdmin(): boolean {
 
 export function renderizarAdmin(): void {
   if (!ehAdmin()) return;
-  renderizarMetricas();
   renderizarEspacos();
   renderizarReservas();
   renderizarUsuarios();
 
-  // Números do painel e lista de usuários vêm do back-end.
-  void atualizarDoServidor();
-}
-
-/** Relê do banco o que a tela de administração mostra. */
-async function atualizarDoServidor(): Promise<void> {
-  await Promise.allSettled([atualizarMetricasDaApi(), atualizarUsuariosDaApi()]);
-}
-
-/* ===========================================================================
-   Métricas
-   =========================================================================== */
-
-/**
- * Calcula as métricas com o que está na memória: é o que aparece no primeiro
- * instante, antes da resposta do /painel.
- */
-function renderizarMetricas(): void {
-  const espacos = Object.values(ESTUFAS);
-  const total = espacos.length;
-  const livres = espacos.filter((e) => e.status === 'livre').length;
-  const ocupados = espacos.filter((e) => e.status === 'ocupada' || e.status === 'reservada' || e.status === 'parcial').length;
-  const manutencao = espacos.filter((e) => e.status === 'manutencao').length;
-  const emAberto = reservas.filter((r) => r.status === 'ativa' || r.status === 'pendente').length;
-  const pendentes = reservas.filter((r) => r.status === 'pendente').length;
-
-  // Taxa pela capacidade, não pelo número de estufas: é o que de fato está
-  // tomado dentro delas. Uma estufa com 1 de 20 vasos não está "ocupada".
-  const capacidadeTotal = espacos.reduce((soma, e) => soma + e.capacidadeTotal, 0);
-  const capacidadeOcupada = espacos.reduce((soma, e) => soma + Math.min(e.ocupado, e.capacidadeTotal), 0);
-  const taxa = capacidadeTotal ? Math.round((capacidadeOcupada / capacidadeTotal) * 100) : 0;
-
-  pintarMetricas({ total, livres, ocupados, manutencao, emAberto, pendentes, taxa });
-}
-
-/** As mesmas métricas, calculadas no back-end sobre o banco inteiro. */
-async function atualizarMetricasDaApi(): Promise<void> {
-  try {
-    const painel = await getPainel();
-    const m = painel?.metricas;
-    if (!m) return;
-
-    pintarMetricas({
-      total: m.total_espacos ?? 0,
-      livres: m.livres ?? 0,
-      ocupados: m.ocupados ?? 0,
-      manutencao: m.manutencao ?? 0,
-      emAberto: m.reservas_em_aberto ?? 0,
-      pendentes: m.pendentes ?? 0,
-      taxa: m.taxa_ocupacao ?? 0,
-    });
-  } catch (erro) {
-    console.warn('[CVGWeb] não foi possível ler o painel da API:', erro);
-  }
-}
-
-interface Metricas {
-  total: number;
-  livres: number;
-  ocupados: number;
-  manutencao: number;
-  emAberto: number;
-  pendentes: number;
-  taxa: number;
-}
-
-function pintarMetricas(m: Metricas): void {
-  setText('m-total', String(m.total));
-  setText('m-livres', String(m.livres));
-  setText('m-reservas', String(m.emAberto));
-  setText('m-pendentes', String(m.pendentes));
-  setText('m-manutencao', String(m.manutencao));
-  setText('m-taxa', `${m.taxa}%`);
-
-  const barra = el('m-taxa-barra');
-  if (barra) barra.style.width = `${m.taxa}%`;
-  el('m-taxa-barra-wrap')?.setAttribute('aria-valuenow', String(m.taxa));
+  // A lista de usuários vem do back-end.
+  void atualizarUsuariosDaApi();
 }
 
 /* ===========================================================================
@@ -1857,35 +1779,6 @@ export async function confirmarPassagemDeLideranca(): Promise<void> {
   fecharModal(el('modal-lideranca'));
   renderizarUsuarios();
   aviso(`Liderança passada adiante e acesso de ${nome} desativado.`, 'info');
-}
-
-/* ===========================================================================
-   Navegação interna
-   =========================================================================== */
-
-export function irPara(destino: string): void {
-  fecharTodosModais();
-
-  if (destino.startsWith('reservas')) {
-    const status = destino.split('-')[1] as FiltroReserva | undefined;
-    filtrarReservas(status ?? 'todas');
-    irParaSecao('reservas');
-    return;
-  }
-
-  irParaSecao('admin');
-
-  const secao = el('sec-espacos');
-  if (!secao) return;
-  secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  secao.classList.add('is-flash');
-  window.setTimeout(() => secao.classList.remove('is-flash'), 900);
-}
-
-export function abrirPainelMetricas(): void {
-  renderizarMetricas();
-  void atualizarMetricasDaApi();
-  abrirModal('modal-metricas');
 }
 
 /** Entrada da seção de reservas: a casca chama ao mostrar a tela. */

@@ -30,7 +30,6 @@ import {
   escolherEstufa,
   navegarSugestoesDeEspaco,
   abrirNovoUsuario,
-  abrirPainelMetricas,
   alterarSituacaoEspaco,
   alternarAcesso,
   aprovarReserva,
@@ -44,7 +43,6 @@ import {
   confirmarPassagemDeLideranca,
   filtrarReservas,
   filtrarUsuarios,
-  irPara,
   limparBusca,
   mostrarReservas,
   mostrarUsuarios,
@@ -506,7 +504,6 @@ function registrarTodasAsAcoes(): void {
     'chat-sugerir': (elemento) => sugerir(elemento.dataset.texto ?? ''),
 
     // administração
-    'abrir-painel-metricas': () => abrirPainelMetricas(),
     'abrir-novo-usuario': () => abrirNovoUsuario(),
     'editar-espaco': (elemento) => {
       const id = elemento.dataset.id;
@@ -516,7 +513,6 @@ function registrarTodasAsAcoes(): void {
       const id = elemento.dataset.id;
       if (id) escolherEstufa(id);
     },
-    'ir-para': (elemento) => irPara(elemento.dataset.target ?? 'espacos'),
     'filtrar-reservas': (elemento) => {
       const status = elemento.dataset.status as 'todas' | 'pendente' | 'ativa';
       filtrarReservas(status ?? 'todas', elemento);
