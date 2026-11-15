@@ -83,9 +83,14 @@ import {
   statusDoErro,
 } from './views/falha';
 import {
+  abrirEventoAuditoria,
+  alternarMaisFiltros,
   definirFiltroAuditoria,
+  escolherAtalhoAuditoria,
+  escolherPeriodoAuditoria,
   limparFiltrosAuditoria,
   paginarAuditoria,
+  tirarFiltroAuditoria,
 } from './views/auditoria';
 import {
   abrirEditarProjeto,
@@ -614,6 +619,14 @@ function registrarTodasAsAcoes(): void {
     // histórico de alterações
     'limpar-auditoria': () => limparFiltrosAuditoria(),
     'paginar-auditoria': (elemento) => paginarAuditoria(elemento.dataset.direcao ?? 'proxima'),
+    'auditoria-periodo': (elemento) => escolherPeriodoAuditoria(elemento.dataset.periodo),
+    'auditoria-atalho': (elemento) => escolherAtalhoAuditoria(elemento.dataset.atalho),
+    'auditoria-mais-filtros': () => alternarMaisFiltros(),
+    'auditoria-tirar': (elemento) => tirarFiltroAuditoria(elemento.dataset.campo),
+    'auditoria-abrir': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirEventoAuditoria(id);
+    },
 
     // editar usuário e reserva
     'editar-usuario': (elemento) => {

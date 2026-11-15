@@ -1024,10 +1024,18 @@ export interface FiltrosAuditoria {
   entidades: string[];
   funcionarios: { id: number; nome: string; email?: string }[];
   projetos: { id: number; codigo: string; titulo: string }[];
+  /** Quantos eventos de cada tipo no período pedido: alimenta os atalhos. */
+  resumo?: { total: number; negados: number; recusados: number; mudancas: number };
 }
 
-export function getFiltrosAuditoria(): Promise<FiltrosAuditoria> {
-  return buscar('/auditorias/filtros', 'os filtros do histórico');
+/** `de`/`ate` recortam só o resumo; as listas de opções vêm sempre inteiras. */
+export function getFiltrosAuditoria(periodo: { de?: string; ate?: string } = {}): Promise<FiltrosAuditoria> {
+  const busca = new URLSearchParams();
+  if (periodo.de) busca.set('de', periodo.de);
+  if (periodo.ate) busca.set('ate', periodo.ate);
+  const query = busca.toString();
+
+  return buscar(`/auditorias/filtros${query ? `?${query}` : ''}`, 'os filtros do histórico');
 }
 
 /** Trilha de alterações: quem mexeu no que e quando. */

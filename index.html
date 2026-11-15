@@ -1089,25 +1089,33 @@
             <h1 class="page-head__title" id="titulo-historico">Logs</h1>
             <p class="page-head__desc">Tudo o que foi feito no sistema: quem, o quê e quando</p>
           </div>
-          <div class="page-head__actions">
-            <button type="button" class="btn btn--quiet btn--sm" id="auditoria-limpar"
-                    data-action="limpar-auditoria" hidden>
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
-              Limpar filtros
-            </button>
-          </div>
         </div>
 
-        <div class="section audit-section" id="sec-auditoria">
-          <div class="audit-filters" aria-label="Filtros principais do log">
-            <div class="field audit-search">
-              <label class="field__label" for="auditoria-busca">Buscar</label>
-              <div class="search">
-                <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
-                <input class="input" type="search" id="auditoria-busca"
-                       placeholder="Buscar por pessoa, registro ou tipo (ex.: Ana, R012, Reserva)" />
-              </div>
+        <!-- Uma linha de filtros. O resto fica atrás de "Mais filtros". -->
+        <div class="log-barra">
+          <div class="log-barra__linha">
+            <div class="search log-busca">
+              <svg class="ic ic--sm search__icon" aria-hidden="true"><use href="#i-search" /></svg>
+              <label class="sr-only" for="auditoria-busca">Buscar nos logs</label>
+              <input class="input" type="search" id="auditoria-busca"
+                     placeholder="Buscar por pessoa, registro ou tipo" />
             </div>
+
+            <div class="log-periodo" role="group" aria-label="Período">
+              <button type="button" class="chip" aria-pressed="false" data-action="auditoria-periodo" data-periodo="hoje">Hoje</button>
+              <button type="button" class="chip" aria-pressed="false" data-action="auditoria-periodo" data-periodo="7">7 dias</button>
+              <button type="button" class="chip" aria-pressed="false" data-action="auditoria-periodo" data-periodo="30">30 dias</button>
+              <button type="button" class="chip" aria-pressed="true" data-action="auditoria-periodo" data-periodo="tudo">Tudo</button>
+            </div>
+
+            <button type="button" class="btn btn--quiet btn--sm log-barra__mais" id="auditoria-mais"
+                    data-action="auditoria-mais-filtros" aria-expanded="false" aria-controls="auditoria-avancado">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-funnel" /></svg>
+              Mais filtros
+            </button>
+          </div>
+
+          <div class="log-avancado" id="auditoria-avancado" hidden>
             <div class="field">
               <label class="field__label" for="auditoria-acao">Ação</label>
               <select class="select" id="auditoria-acao" data-change="filtro-auditoria" data-campo="acao"></select>
@@ -1115,6 +1123,14 @@
             <div class="field">
               <label class="field__label" for="auditoria-pessoa">Pessoa</label>
               <select class="select" id="auditoria-pessoa" data-change="filtro-auditoria" data-campo="funcionario_id"></select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-entidade">Tipo de registro</label>
+              <select class="select" id="auditoria-entidade" data-change="filtro-auditoria" data-campo="entidade"></select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="auditoria-projeto">Projeto</label>
+              <select class="select" id="auditoria-projeto" data-change="filtro-auditoria" data-campo="projeto_id"></select>
             </div>
             <div class="field">
               <label class="field__label" for="auditoria-de">De</label>
@@ -1126,40 +1142,20 @@
             </div>
           </div>
 
-          <details class="audit-filters__advanced">
-            <summary>Filtros avançados</summary>
-            <div class="audit-filters__extra">
-              <div class="field">
-                <label class="field__label" for="auditoria-entidade">Registro</label>
-                <select class="select" id="auditoria-entidade" data-change="filtro-auditoria" data-campo="entidade"></select>
-              </div>
-              <div class="field">
-                <label class="field__label" for="auditoria-projeto">Projeto</label>
-                <select class="select" id="auditoria-projeto" data-change="filtro-auditoria" data-campo="projeto_id"></select>
-              </div>
-            </div>
-          </details>
+          <!-- O que está filtrando agora, cada um com o seu X. -->
+          <div class="log-marcas" id="auditoria-marcas" hidden></div>
+        </div>
 
-          <div class="audit-log__head">
-            <h2 class="audit-log__title">Eventos</h2>
-            <span class="audit-log__count"><strong id="conta-auditoria">0</strong> eventos</span>
+        <!-- Atalhos: cada um é um filtro pronto, com o número do período. -->
+        <div class="log-atalhos" id="auditoria-atalhos" role="group" aria-label="Atalhos de filtro"></div>
+
+        <div class="section audit-section" id="sec-auditoria">
+          <div class="log-lista__topo">
+            <h2 class="log-lista__titulo"><strong id="conta-auditoria">0</strong> <span id="conta-auditoria-rotulo">eventos</span></h2>
+            <span class="log-lista__ordem">do mais novo para o mais antigo</span>
           </div>
 
-          <div class="table-wrap audit-log__wrap">
-            <table class="table audit-log">
-              <caption class="sr-only">Log de atividade com data, ação, pessoa, registro e detalhes</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Quando</th>
-                  <th scope="col">Ação</th>
-                  <th scope="col">Pessoa</th>
-                  <th scope="col">Evento</th>
-                  <th scope="col">Detalhe</th>
-                </tr>
-              </thead>
-              <tbody id="tbody-auditoria"></tbody>
-            </table>
-          </div>
+          <div class="log-lista" id="auditoria-lista"></div>
         </div>
 
         <div class="paginacao-barra audit-pagination">
@@ -1176,7 +1172,6 @@
         </div>
       </div>
     </section>
-
 
   </main>
 </div>
@@ -2449,7 +2444,7 @@
 
     <div class="dialog__foot">
       <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
-      <a class="btn btn--primary" href="https://github.com/Embrapa-Cenargem-Dashboard-Interativo"
+      <a class="btn btn--primary" href="https://github.com/Embrapa-Cenargem-CVGweb/Documentacao"
          target="_blank" rel="noopener noreferrer" aria-label="Repositórios (abre em nova aba)">
         Repositórios
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-external-link" /></svg>
