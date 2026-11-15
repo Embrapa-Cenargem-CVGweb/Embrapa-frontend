@@ -128,6 +128,15 @@ const AJUDAS: Record<string, Ajuda> = {
       'Só "Disponível para reserva" aceita pedido novo. Nas outras situações, o motivo que você escrever aparece para quem tentar reservar.',
     ],
   },
+  'modal-historico': {
+    titulo: 'O histórico da estufa',
+    itens: [
+      'Uma linha por projeto que já reservou esta estufa, do mais recente para o mais antigo.',
+      '"Até 9 vasos de uma vez" é o maior que o projeto chegou a ocupar aqui — duas reservas que não se cruzam não somam.',
+      'Reserva cancelada não conta como passagem, mas aparece ao lado: houve um pedido e ele foi desfeito.',
+      'Todo mundo vê: a ocupação das estufas já é aberta no calendário, e é assim que se sabe a quem pedir para dividir um espaço.',
+    ],
+  },
   'modal-cal-dia': {
     titulo: 'A estufa neste dia',
     itens: [

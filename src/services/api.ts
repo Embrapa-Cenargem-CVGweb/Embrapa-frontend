@@ -381,6 +381,38 @@ export interface DadosEspaco {
   motivo_situacao?: string | null;
 }
 
+/* ---------------------------------------------------------------------------
+   Histórico da estufa
+   --------------------------------------------------------------------------- */
+
+export interface PassagemPorEstufa {
+  projeto_id: number | null;
+  codigo: string | null;
+  titulo: string;
+  responsavel: string | null;
+  situacao: string | null;
+  encerrado: boolean;
+  reservas: number;
+  canceladas: number;
+  /** Maior ocupação de uma vez, por unidade: duas reservas que não se cruzam não somam. */
+  pico: Partial<Record<'VASO' | 'BANCADA', number>>;
+  /** Dias diferentes que o projeto ocupou a estufa. */
+  dias: number;
+  primeiro: string | null;
+  ultimo: string | null;
+  estado: 'agora' | 'futura' | 'passada' | 'cancelada';
+}
+
+export interface HistoricoDaEstufa {
+  casa: { id: number; codigo: string; descricao: string | null; unidade: 'VASO' | 'BANCADA'; capacidade_total: number };
+  resumo: { projetos: number; reservas: number; canceladas: number; primeiro: string | null; ultimo: string | null };
+  projetos: PassagemPorEstufa[];
+}
+
+export function getHistoricoDaEstufa(casaId: number): Promise<HistoricoDaEstufa> {
+  return buscar(`/casas-vegetacao/${casaId}/historico`, 'o histórico da estufa');
+}
+
 /**
  * Sugestões para os campos de texto livre do cadastro: tipos e setores que já
  * existem, mais os tipos previstos em config/cvgweb.php. A lista vive no

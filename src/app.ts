@@ -154,6 +154,7 @@ import {
   verReserva,
 } from './views/reservas';
 import { acoesDoCalendario, mostrarCalendario } from './views/calendario';
+import { abrirHistoricoDaEstufa } from './views/historico-estufa';
 import { aoNavegar, type Secao } from './lib/navegacao';
 import { abrirAjuda, iniciarAjuda } from './lib/ajuda';
 import { aoMudarContexto, carregarContexto, limparContexto, pode, recarregarContexto } from './data/contexto';
@@ -482,6 +483,7 @@ function registrarTodasAsAcoes(): void {
     'mapa-limpar-precisa': () => limparPrecisa(),
     'espaco-adicionar-vaso': () => adicionarVasoNoFormulario(),
     'espaco-remover-vaso': (elemento) => removerVasoDoFormulario(elemento),
+    'abrir-historico': (elemento) => void abrirHistoricoDaEstufa(elemento.dataset.id),
     'abrir-reservar': (elemento) => {
       const id = elemento.dataset.id;
       if (!id) return;

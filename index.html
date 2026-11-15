@@ -677,6 +677,12 @@
           </div>
 
           <div class="panel__foot">
+            <!-- Quem já passou por aqui: a estufa tem história, não só a reserva de hoje. -->
+            <button type="button" class="btn btn--quiet btn--block panel__historico" id="painel-historico"
+                    data-action="abrir-historico">
+              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-book-open" /></svg>
+              Histórico da estufa
+            </button>
             <button type="button" class="btn btn--primary btn--block panel__cta" id="painel-acao"></button>
             <!-- Por que o botão acima está desligado (sem projeto aprovado, por exemplo). -->
             <p class="panel__impedimento" id="painel-impedimento" role="status" hidden>
@@ -2503,6 +2509,31 @@
 
 </div>
 
+
+<!-- Histórico da estufa: os projetos que já passaram por ela. -->
+<div class="scrim" id="modal-historico" hidden>
+  <div class="dialog dialog--hist" role="dialog" aria-modal="true" aria-labelledby="hist-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-book-open" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="hist-titulo">Histórico da estufa</h2>
+        <p class="dialog__desc" id="hist-desc">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar o histórico">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+
+    <div class="dialog__body hist">
+      <dl class="hist-resumo" id="hist-resumo"></dl>
+      <div id="hist-conteudo"></div>
+    </div>
+
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--primary" data-action="fechar">Fechar</button>
+    </div>
+  </div>
+</div>
 
 <!-- Ajuda rápida: abre POR CIMA do modal em uso (por isso é o último scrim).
      Título e itens vêm de src/lib/ajuda.ts. -->
