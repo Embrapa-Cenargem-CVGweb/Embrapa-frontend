@@ -1035,9 +1035,7 @@
   border-radius: 50%;
 }
 
-.hist-item[data-estado="agora"] .hist-item__marca::after { background: var(--ok); }
-.hist-item[data-estado="futura"] .hist-item__marca::after { background: var(--booked); }
-.hist-item[data-estado="cancelada"] .hist-item__marca::after { background: var(--down); }
+.hist-item[data-atual] .hist-item__marca::after { background: var(--ok); }
 
 .hist-item__corpo {
   display: flex;
@@ -1085,20 +1083,13 @@
   color: var(--accent);
 }
 
-.hist-item__detalhes {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
-
-.hist-item__detalhes:empty {
-  display: none;
-}
-
-/* Quem já saiu fica mais quieto: o agora é o que importa primeiro. */
-.hist-item[data-estado="passada"] .hist-item__titulo,
-.hist-item[data-estado="cancelada"] .hist-item__titulo {
+/* Quem está aqui hoje vem em destaque; o resto é história. */
+.hist-item__titulo {
   color: var(--fg-2);
+}
+
+.hist-item[data-atual] .hist-item__titulo {
+  color: var(--fg);
 }
 
 .hist-vazio {

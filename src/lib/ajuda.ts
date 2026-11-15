@@ -131,9 +131,9 @@ const AJUDAS: Record<string, Ajuda> = {
   'modal-historico': {
     titulo: 'O histórico da estufa',
     itens: [
-      'Uma linha por projeto que já reservou esta estufa, do mais recente para o mais antigo.',
-      '"Até 9 vasos de uma vez" é o maior que o projeto chegou a ocupar aqui — duas reservas que não se cruzam não somam.',
-      'Reserva cancelada não conta como passagem, mas aparece ao lado: houve um pedido e ele foi desfeito.',
+      'Uma linha por projeto que ocupou esta estufa, do mais recente para o mais antigo: o projeto e de quando até quando ele esteve aqui.',
+      'Um projeto que reservou várias vezes aparece uma vez só, do primeiro dia ao último.',
+      'Quem está aqui hoje vem marcado no topo. Reserva cancelada não entra: o projeto não chegou a ocupar a estufa.',
       'Todo mundo vê: a ocupação das estufas já é aberta no calendário, e é assim que se sabe a quem pedir para dividir um espaço.',
     ],
   },

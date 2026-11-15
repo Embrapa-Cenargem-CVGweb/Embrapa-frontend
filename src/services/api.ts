@@ -385,27 +385,23 @@ export interface DadosEspaco {
    Histórico da estufa
    --------------------------------------------------------------------------- */
 
+/** Um projeto que ocupou a estufa: quem foi, e de quando até quando. */
 export interface PassagemPorEstufa {
   projeto_id: number | null;
   codigo: string | null;
   titulo: string;
   responsavel: string | null;
-  situacao: string | null;
-  encerrado: boolean;
-  reservas: number;
-  canceladas: number;
-  /** Maior ocupação de uma vez, por unidade: duas reservas que não se cruzam não somam. */
-  pico: Partial<Record<'VASO' | 'BANCADA', number>>;
-  /** Dias diferentes que o projeto ocupou a estufa. */
-  dias: number;
-  primeiro: string | null;
-  ultimo: string | null;
-  estado: 'agora' | 'futura' | 'passada' | 'cancelada';
+  /** Primeiro dia em que o projeto entrou aqui. */
+  entrou: string | null;
+  /** Último dia em que ele sai (ou saiu). */
+  saiu: string | null;
+  /** Está na estufa hoje. */
+  atual: boolean;
 }
 
 export interface HistoricoDaEstufa {
-  casa: { id: number; codigo: string; descricao: string | null; unidade: 'VASO' | 'BANCADA'; capacidade_total: number };
-  resumo: { projetos: number; reservas: number; canceladas: number; primeiro: string | null; ultimo: string | null };
+  casa: { id: number; codigo: string; descricao: string | null };
+  resumo: { projetos: number; primeiro: string | null; ultimo: string | null };
   projetos: PassagemPorEstufa[];
 }
 

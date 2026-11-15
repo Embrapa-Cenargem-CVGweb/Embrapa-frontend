@@ -1,15 +1,14 @@
 /**
- * Histórico da estufa: todos os projetos que já passaram por ela.
+ * Histórico da estufa: os projetos que já passaram por ela.
  *
  * A ficha do mapa conta o hoje — quem está lá, quanto sobra, o que vem pela
- * frente. Mas a estufa tem história: quem plantou ali no ano passado, quantas
- * vezes um projeto voltou, quanto ele chegou a ocupar. Isso não cabia em lugar
- * nenhum, e era o que faltava para decidir ("esta estufa vive cheia" ou "só é
- * usada em março").
+ * frente. Mas a estufa tem história: quem plantou ali no ano passado, quem
+ * usou em março. Isso não cabia em lugar nenhum, e era o que faltava para
+ * decidir ("esta estufa vive cheia" ou "só é usada em março").
  *
- * Uma linha por projeto, do mais recente para o mais antigo: a API agrupa as
- * reservas e já devolve o pico, os dias ocupados e se a passagem é de agora,
- * do passado ou ainda por vir.
+ * Uma linha por projeto, do mais recente para o mais antigo: o projeto e o
+ * período em que ele esteve aqui. Nada de contagem de reservas nem de pedido
+ * desfeito — isso é trilha, e a trilha tem a própria tela.
  */
 import { ESTUFAS, ID_REAL_ESPACO } from '../data/estufas';
 import { el, setText } from '../lib/dom';
@@ -18,14 +17,6 @@ import { html, icone, juntar, raw } from '../lib/html';
 import { abrirModal } from '../lib/modal';
 import { aviso } from '../lib/toast';
 import { getHistoricoDaEstufa, type HistoricoDaEstufa, type PassagemPorEstufa } from '../services/api';
-
-/** Como cada passagem se anuncia. */
-const ESTADOS: Record<PassagemPorEstufa['estado'], { rotulo: string; pill: string }> = {
-  agora: { rotulo: 'Está lá agora', pill: 'pill--ok' },
-  futura: { rotulo: 'Ainda vai usar', pill: 'pill--booked' },
-  passada: { rotulo: 'Já saiu', pill: 'pill--neutral' },
-  cancelada: { rotulo: 'Desistiu', pill: 'pill--down' },
-};
 
 /** Qual estufa está aberta: a chave vem do botão ou do espaço na ficha. */
 let lendo = 0;
@@ -41,7 +32,7 @@ export async function abrirHistoricoDaEstufa(chave: string | undefined): Promise
   }
 
   setText('hist-titulo', `Histórico da ${estufa.nome}`);
-  setText('hist-desc', `${estufa.codigo} · tudo o que já foi plantado aqui`);
+  setText('hist-desc', `${estufa.codigo} · os projetos que já passaram por aqui`);
   pintarResumo(null);
   pintarConteudo(html`
     <div class="hist-vazio">
@@ -87,16 +78,16 @@ function pintarResumo(dados: HistoricoDaEstufa | null): void {
     ? `${dataBR(r.primeiro)} a ${dataBR(r.ultimo)}`
     : '—';
 
-  // Reserva cancelada não conta como passagem, mas o número fica à vista:
-  // sem ele, uma estufa com tudo cancelado mostraria "0 reservas" e nada mais.
-  const reservas = r.canceladas
-    ? `${r.reservas === 1 ? 'reserva' : 'reservas'} · ${r.canceladas} ${r.canceladas === 1 ? 'cancelada' : 'canceladas'}`
-    : (r.reservas === 1 ? 'reserva' : 'reservas');
-
   const itens = [
-    { rotulo: r.projetos === 1 ? 'projeto passou por aqui' : 'projetos passaram por aqui', valor: String(r.projetos) },
-    { rotulo: reservas, valor: String(r.reservas) },
-    { rotulo: r.reservas ? 'do começo ao fim' : 'nenhuma reserva chegou a valer', valor: periodo, largo: true },
+    {
+      rotulo: r.projetos === 1 ? 'projeto passou por aqui' : 'projetos passaram por aqui',
+      valor: String(r.projetos),
+    },
+    {
+      rotulo: r.projetos ? 'do primeiro ao último dia de uso' : 'nenhum projeto usou esta estufa',
+      valor: periodo,
+      largo: true,
+    },
   ];
 
   alvo.innerHTML = juntar(itens.map((i) => html`
@@ -111,20 +102,11 @@ function pintarConteudo(conteudo: string): void {
   if (alvo) alvo.innerHTML = conteudo;
 }
 
-/** "9 vasos" ou "9 vasos e 2 bancadas": o pico, por unidade. */
-function picoTexto(pico: PassagemPorEstufa['pico']): string {
-  const partes: string[] = [];
-  const vasos = pico.VASO ?? 0;
-  const bancadas = pico.BANCADA ?? 0;
-  if (vasos) partes.push(`${vasos} ${vasos === 1 ? 'vaso' : 'vasos'}`);
-  if (bancadas) partes.push(`${bancadas} ${bancadas === 1 ? 'bancada' : 'bancadas'}`);
-  return partes.join(' e ');
-}
-
+/** "de 01/03/2025 a 10/03/2025", ou um dia só quando entrou e saiu no mesmo. */
 function periodoTexto(p: PassagemPorEstufa): string {
-  if (!p.primeiro || !p.ultimo) return '—';
-  if (p.primeiro === p.ultimo) return dataBR(p.primeiro);
-  return `${dataBR(p.primeiro)} a ${dataBR(p.ultimo)}`;
+  if (!p.entrou || !p.saiu) return '—';
+  if (p.entrou === p.saiu) return `em ${dataBR(p.entrou)}`;
+  return `de ${dataBR(p.entrou)} a ${dataBR(p.saiu)}`;
 }
 
 function pintar(dados: HistoricoDaEstufa): void {
@@ -141,34 +123,20 @@ function pintar(dados: HistoricoDaEstufa): void {
 
   pintarConteudo(html`
     <ol class="hist-lista">
-      ${raw(juntar(dados.projetos.map((p) => {
-        const estado = ESTADOS[p.estado] ?? ESTADOS.passada;
-        const pico = picoTexto(p.pico);
-
-        const detalhes = [
-          p.reservas ? `${p.reservas} ${p.reservas === 1 ? 'reserva' : 'reservas'}` : '',
-          pico ? `até ${pico} de uma vez` : '',
-          p.dias ? `${p.dias} ${p.dias === 1 ? 'dia' : 'dias'} de uso` : '',
-          p.canceladas ? `${p.canceladas} ${p.canceladas === 1 ? 'cancelada' : 'canceladas'}` : '',
-        ].filter(Boolean).join(' · ');
-
-        return html`
-          <li class="hist-item" data-estado="${p.estado}">
-            <span class="hist-item__marca" aria-hidden="true"></span>
-            <div class="hist-item__corpo">
-              <div class="hist-item__topo">
-                <h3 class="hist-item__titulo">${p.titulo}</h3>
-                ${raw(p.codigo ? html`<span class="hist-item__codigo">${p.codigo}</span>` : '')}
-                <span class="pill ${raw(estado.pill)}">${estado.rotulo}</span>
-                ${raw(p.encerrado ? html`<span class="pill pill--neutral">Projeto encerrado</span>` : '')}
-              </div>
-              <p class="hist-item__periodo">${icone('calendar-days', 'ic ic--sm')}${periodoTexto(p)}</p>
-              <p class="hist-item__detalhes">${detalhes}</p>
-              ${raw(p.responsavel
-                ? html`<p class="hist-item__quem">${icone('user', 'ic ic--sm')}${p.responsavel}${p.situacao ? ` · ${p.situacao}` : ''}</p>`
-                : '')}
+      ${raw(juntar(dados.projetos.map((p) => html`
+        <li class="hist-item" ${raw(p.atual ? 'data-atual="1"' : '')}>
+          <span class="hist-item__marca" aria-hidden="true"></span>
+          <div class="hist-item__corpo">
+            <div class="hist-item__topo">
+              <h3 class="hist-item__titulo">${p.titulo}</h3>
+              ${raw(p.codigo ? html`<span class="hist-item__codigo">${p.codigo}</span>` : '')}
+              ${raw(p.atual ? html`<span class="pill pill--ok">Está aqui agora</span>` : '')}
             </div>
-          </li>`;
-      })))}
+            <p class="hist-item__periodo">${icone('calendar-days', 'ic ic--sm')}${periodoTexto(p)}</p>
+            ${raw(p.responsavel
+              ? html`<p class="hist-item__quem">${icone('user', 'ic ic--sm')}${p.responsavel}</p>`
+              : '')}
+          </div>
+        </li>`)))}
     </ol>`);
 }
