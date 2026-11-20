@@ -70,8 +70,6 @@ npm run dev         # desenvolvimento
 npm run build       # checagem de tipos + pacote de produção em dist/
 npm run preview     # serve o dist/ para conferir o pacote
 npm run typecheck   # só a checagem de tipos
-npm run icons       # regenera o sprite de ícones dentro do index.html
-npm run test:e2e    # testes Playwright (exigem a API no ar)
 ```
 
 ---
