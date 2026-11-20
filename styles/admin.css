@@ -147,46 +147,139 @@
   align-items: stretch;
 }
 
+/* Coluna "Reservado por": os nomes são links que abrem o detalhe. */
+.reservado-por {
+  align-items: flex-start;
+}
+
+.reservado-por__nome,
+.reservado-por__mais {
+  max-width: 100%;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  overflow-wrap: anywhere;
+}
+
+.reservado-por__nome {
+  font-weight: var(--fw-medium);
+}
+
+.reservado-por__mais {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.reservado-por__nome:hover,
+.reservado-por__mais:hover {
+  text-decoration-color: currentColor;
+}
+
+/* ===========================================================================
+   Tabela de usuários
+
+   Mesma ideia da de espaços: larguras fixas, e-mail cortado com "…" (o
+   completo fica no title) e as ações só em ícones, para caber sem rolagem.
+   =========================================================================== */
+
+.table--usuarios {
+  table-layout: fixed;
+}
+
+.table--usuarios .col-nome { width: 21%; }
+
+.table--usuarios .col-email { width: 21%; }
+
+.table--usuarios .col-matricula { width: 7.5rem; }
+
+.table--usuarios .col-cargo { width: 13%; }
+
+.table--usuarios .col-situacao { width: 15%; }
+
+.table--usuarios .col-acesso { width: 11%; }
+
+.table--usuarios .col-acoes { width: 8.5rem; }
+
+.view .table--usuarios th,
+.view .table--usuarios td {
+  padding-inline: var(--s-3);
+}
+
+.table--usuarios th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table--usuarios td {
+  overflow-wrap: break-word;
+}
+
+/* Matrícula é um código: inteira numa linha só. */
+.table--usuarios td[data-label="Identificador interno"] {
+  white-space: nowrap;
+}
+
+/* Data e hora quebram só entre uma e outra, nunca no meio do número. */
+.table--usuarios td[data-label="Último acesso"] {
+  overflow-wrap: normal;
+}
+
+.table--usuarios .table__truncate {
+  max-width: none;
+}
+
+.table--usuarios .pill {
+  max-width: 100%;
+  white-space: normal;
+}
+
 /* ===========================================================================
    Responsivo
    =========================================================================== */
 
 /*
- * Abaixo de ~1200px as nove colunas não cabem sem espremer o texto letra a
- * letra. Ali cada espaço vira um cartão (o mesmo desenho do celular), em
+ * Abaixo de ~1200px as tabelas largas (espaços, usuários) não cabem sem
+ * espremer o texto letra a letra. Ali cada linha vira um cartão (o mesmo desenho do celular), em
  * grade: dois ou três por linha no notebook/tablet, um no celular.
  */
 @media (width <= 75rem) {
-  .table--espacos,
-  .table--espacos tr,
-  .table--espacos td {
+  .table--cartoes,
+  .table--cartoes tr,
+  .table--cartoes td {
     display: block;
   }
 
-  .table--espacos colgroup,
-  .table--espacos thead {
+  .table--cartoes colgroup,
+  .table--cartoes thead {
     display: none;
   }
 
-  .table--espacos tbody {
+  .table--cartoes tbody {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr));
     gap: var(--s-3);
     padding: var(--s-3);
   }
 
-  .table--espacos tbody tr {
+  .table--cartoes tbody tr {
     min-width: 0;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
   }
 
-  .table--espacos tbody tr:hover td {
+  .table--cartoes tbody tr:hover td {
     background: none;
   }
 
-  .view .table--espacos td {
+  .view .table--cartoes td {
     display: flex;
     gap: var(--s-3);
     align-items: flex-start;
@@ -195,11 +288,11 @@
     text-align: right;
   }
 
-  .table--espacos td > * {
+  .table--cartoes td > * {
     min-width: 0;
   }
 
-  .table--espacos td::before {
+  .table--cartoes td::before {
     flex: none;
     content: attr(data-label);
     font-size: var(--text-xs);
@@ -207,8 +300,8 @@
     text-align: left;
   }
 
-  .table--espacos .table__stack,
-  .table--espacos .table__actions {
+  .table--cartoes .table__stack,
+  .table--cartoes .table__actions {
     flex: 1 1 auto;
     align-items: flex-end;
   }
@@ -222,21 +315,21 @@
     max-width: 14rem;
   }
 
-  .table--espacos .table__empty {
+  .table--cartoes .table__empty {
     grid-column: 1 / -1;
   }
 
-  .table--espacos .table__empty td {
+  .table--cartoes .table__empty td {
     justify-content: center;
   }
 
-  .table--espacos .table__empty td::before {
+  .table--cartoes .table__empty td::before {
     content: none;
   }
 }
 
 @media (width <= 48rem) {
-  .table--espacos tbody {
+  .table--cartoes tbody {
     padding: 0;
   }
 

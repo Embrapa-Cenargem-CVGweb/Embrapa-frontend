@@ -546,9 +546,15 @@ function textoDaBarra(r: ReservaDoCalendario, dias: number, continuaAntes: boole
   const qtd = dias >= 3 ? `${r.quantidade} ${nomeDaUnidade(u, r.quantidade)}` : String(r.quantidade);
   const ate = dias >= 3 ? `até ${diaMes(r.fim)}${continuaDepois ? ' ›' : ''}` : '';
 
+  // Barra de uma coluna só: cabe o título e mais nada. A quantidade continua
+  // na dica (title) e no cartão que abre ao clicar.
+  const det = dias >= 2
+    ? html`<span class="cal-barra-ev__det">· ${qtd}${pendente && dias >= 4 ? ' · aguardando' : ''}</span>`
+    : '';
+
   return html`
     <span class="cal-barra-ev__titulo">${continuaAntes ? '‹ ' : ''}${titulo}</span>
-    <span class="cal-barra-ev__det">· ${qtd}${pendente && dias >= 4 ? ' · aguardando' : ''}</span>
+    ${raw(det)}
     ${raw(ate ? html`<span class="cal-barra-ev__ate">${ate}</span>` : '')}`;
 }
 
@@ -787,10 +793,11 @@ function pintarMes(corpo: HTMLElement): void {
       if (doMes && s.cap !== null && !(fora && dia >= hoje)) {
         if (s.conflito) livre = html`<span class="cal-num" data-conflito>!</span>`;
         else if (s.livre === 0) livre = html`<span class="cal-num" data-lotada="${temPendente(s) ? 'PENDENTE' : 'ATIVA'}">Lotada</span>`;
-        else livre = html`<span class="cal-num" ${raw(s.livre < s.cap ? 'data-parcial' : '')} ${raw(s.pendente ? 'data-pendente' : '')}>${String(s.livre)} ${s.livre === 1 ? 'livre' : 'livres'}</span>`;
+        // A palavra vai num span próprio: em dia estreito some e fica o número.
+        else livre = html`<span class="cal-num" ${raw(s.livre < s.cap ? 'data-parcial' : '')} ${raw(s.pendente ? 'data-pendente' : '')}>${String(s.livre)}<span class="cal-num__rotulo"> ${s.livre === 1 ? 'livre' : 'livres'}</span></span>`;
       }
       const pendencia = doMes && s.pendente > 0
-        ? html`<span class="mesg__pendente">${s.pendente} pendente${s.pendente === 1 ? '' : 's'}</span>`
+        ? html`<span class="mesg__pendente">${s.pendente}<span class="cal-num__rotulo"> pendente${s.pendente === 1 ? '' : 's'}</span></span>`
         : '';
       const meta = livre || pendencia
         ? html`<span class="mesg__meta">${raw(livre)}${raw(pendencia)}</span>`
@@ -815,7 +822,7 @@ function pintarMes(corpo: HTMLElement): void {
   corpo.innerHTML = html`
     <div class="mesg">
       <div class="mesg__cab">
-        ${raw(juntar(NOME_DO_DIA.map((nome) => html`<span>${nome}</span>`)))}
+        ${raw(juntar(NOME_DO_DIA.map((nome, i) => html`<span><span class="mesg__nome-dia">${nome}</span><abbr class="mesg__sigla-dia" title="${nome}">${maiuscula(SIGLA_DIA[i].toLowerCase())}</abbr></span>`)))}
       </div>
       ${raw(juntar(semanas))}
     </div>`;

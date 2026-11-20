@@ -49,6 +49,7 @@ import {
   reenviarConviteDoUsuario,
   renderizarAdmin,
   type FiltroUsuario,
+  verReservasDoEspaco,
 } from './views/admin';
 import {
   alternarChat,
@@ -529,6 +530,10 @@ function registrarTodasAsAcoes(): void {
     'limpar-busca': (elemento) => {
       const alvo = elemento.dataset.target;
       limparBusca(alvo === 'reservas' || alvo === 'usuarios' ? alvo : 'espacos');
+    },
+    'ver-reservas-espaco': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) verReservasDoEspaco(id, elemento.dataset.pessoa);
     },
     'aprovar-reserva': (elemento) => {
       const id = elemento.dataset.id;

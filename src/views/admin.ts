@@ -33,7 +33,7 @@ import {
 import { dadosMudaram } from '../lib/bus';
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
-import { capacidade, dataBR, dataHoraBR, ocupacaoResumo, statusPill, temperaturaTexto, vasosTexto } from '../lib/format';
+import { capacidade, dataBR, dataHoraBR, hojeISO, ocupacaoResumo, statusPill, temperaturaTexto, vasosTexto } from '../lib/format';
 import { abrirModal, confirmar, fecharModal, fecharTodosModais } from '../lib/modal';
 import { avatar, pintarStats } from '../lib/telas';
 import { aviso } from '../lib/toast';
@@ -129,31 +129,76 @@ export function renderizarAdmin(): void {
  * período — a versão antiga mostrava só a primeira. Agora lista as maiores e
  * resume o resto.
  */
+/** Nome como aparece na tabela e no modal; sem nome, uma frase neutra. */
+function nomeDoResponsavel(reserva: Reserva): string {
+  return reserva.pesquisador?.trim() || 'Responsável não informado';
+}
+
+/**
+ * Coluna "Reservado por": só os nomes, uma vez cada. O detalhe (quantidade,
+ * período, projeto, situação) fica no modal que abre ao clicar no nome — a
+ * célula com tudo isso esticava a linha e espremia as outras colunas.
+ */
 function celulaReservadoPor(id: string): string {
   const atuais = reservasDoEspaco(id);
 
   if (!atuais.length) return html`<span class="table__muted">&mdash;</span>`;
 
-  const mostradas = atuais.slice(0, 2);
-  const restantes = atuais.length - mostradas.length;
+  const nomes = [...new Set(atuais.map(nomeDoResponsavel))];
+  const mostrados = nomes.slice(0, 3);
+  const restantes = nomes.length - mostrados.length;
 
   return html`
-    <div class="table__stack">
-      ${raw(juntar(mostradas.map((reserva) => html`
-        <span class="table__name">
-          ${reserva.pesquisador?.trim() || 'Responsável não informado'}
-          <span class="table__sub">
-            &middot; ${capacidade(reserva.quantidade, reserva.unidade)}
-            ${raw(reserva.status === 'pendente'
-              ? html` <span class="pill pill--busy">${icone('clock', 'ic ic--sm')}pendente</span>`
-              : '')}
-          </span>
-        </span>
-        <span class="table__sub">${dataBR(reserva.data)} a ${dataBR(reserva.dataFim)}</span>`)))}
+    <div class="table__stack reservado-por">
+      ${raw(juntar(mostrados.map((nome) => html`
+        <button type="button" class="reservado-por__nome" data-action="ver-reservas-espaco"
+                data-id="${id}" data-pessoa="${nome}"
+                aria-label="Ver as reservas de ${nome} neste espaço">${nome}</button>`)))}
       ${raw(restantes > 0
-        ? html`<span class="table__sub">e mais ${restantes} ${restantes === 1 ? 'reserva' : 'reservas'}</span>`
+        ? html`<button type="button" class="reservado-por__mais" data-action="ver-reservas-espaco" data-id="${id}">
+            e mais ${restantes} ${restantes === 1 ? 'pessoa' : 'pessoas'}</button>`
         : '')}
     </div>`;
+}
+
+/**
+ * Modal com as reservas de hoje de um espaço: de uma pessoa (clique no nome)
+ * ou de todas ("e mais N pessoas").
+ */
+export function verReservasDoEspaco(id: string, pessoa?: string): void {
+  const estufa = ESTUFAS[id];
+  const todas = reservasDoEspaco(id);
+  const lista = pessoa ? todas.filter((r) => nomeDoResponsavel(r) === pessoa) : todas;
+
+  setText('reservado-por-titulo', pessoa ?? 'Quem está neste espaço');
+  setText('reservado-por-desc', `${estufa ? `${estufa.codigo} — ${estufa.nome}` : id} · hoje, ${dataBR(hojeISO())}`);
+  setText('reservado-por-conta', String(lista.length));
+
+  const alvo = el('reservado-por-lista');
+  if (alvo) {
+    alvo.innerHTML = lista.length
+      ? juntar(lista.map((r) => {
+        const pendente = r.status === 'pendente';
+        const projeto = r.projetoTitulo ? `${r.projeto} — ${r.projetoTitulo}` : r.projeto;
+        return html`
+          <li class="cal-reserva">
+            <span class="cal-reserva__qtd" data-unidade="${r.unidade}">${r.quantidade}</span>
+            <span class="cal-reserva__texto">
+              <span class="cal-reserva__titulo">${projeto || 'Reserva sem projeto'}</span>
+              <span class="cal-reserva__meta">
+                ${capacidade(r.quantidade, r.unidade)} · ${dataBR(r.data)} a ${dataBR(r.dataFim)}
+                ${raw(pessoa ? '' : html` · ${nomeDoResponsavel(r)}`)}
+              </span>
+              ${raw(r.finalidade ? html`<span class="cal-reserva__meta">${r.finalidade}</span>` : '')}
+              <span class="cal-reserva__meta">Reserva ${r.id}</span>
+            </span>
+            <span class="pill pill--${pendente ? 'booked' : 'busy'}">${pendente ? 'Aguardando' : 'Aprovada'}</span>
+          </li>`;
+      }))
+      : html`<li class="table__muted">Nenhuma reserva hoje.</li>`;
+  }
+
+  abrirModal('modal-reservado-por');
 }
 
 /** Cor do anel ao lado do nome: as mesmas quatro da legenda do mapa. */
@@ -1334,7 +1379,7 @@ function linhaDeUsuario(u: Usuario, eu: Usuario | null): string {
           : u.cargo ? html`${u.cargo}` : vazio)}
       </td>
       <td data-label="Situação">${raw(pillDoAcesso(u))}</td>
-      <td data-label="Último acesso" style="white-space:nowrap">
+      <td data-label="Último acesso">
         ${raw(u.ultimoAcesso
           ? html`${dataHoraBR(u.ultimoAcesso)}`
           : html`<span class="table__muted">nunca entrou</span>`)}
@@ -1342,10 +1387,11 @@ function linhaDeUsuario(u: Usuario, eu: Usuario | null): string {
       <td data-label="Ações">
         <div class="table__actions">
           ${raw(semSenha
-            ? html`<button type="button" class="btn btn--quiet btn--sm"
+            ? html`<button type="button" class="btn btn--quiet btn--sm btn--icon"
                     data-action="reenviar-convite" data-id="${u.id}"
-                    title="${u.convite?.mensagem ?? 'Reenviar o link de criação de senha'}">
-                    ${icone('send-horizontal', 'ic ic--sm')}Reenviar convite
+                    title="${u.convite?.mensagem ?? 'Reenviar o link de criação de senha'}"
+                    aria-label="Reenviar o convite de ${u.nome}">
+                    ${icone('send-horizontal', 'ic ic--sm')}
                   </button>`
             : '')}
           <button type="button" class="btn btn--quiet btn--sm btn--icon"
