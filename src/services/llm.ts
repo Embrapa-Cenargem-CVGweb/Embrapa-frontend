@@ -31,15 +31,8 @@ const JANELA = 8;
  */
 let disponivel: boolean | null = null;
 
-/** Qual modelo respondeu por último — o widget mostra no rodapé. */
-let modeloEmUso = '';
-
 export function llmPronta(): boolean {
   return disponivel === true;
-}
-
-export function modeloAtual(): string {
-  return modeloEmUso;
 }
 
 function cabecalhos(): HeadersInit {
@@ -118,6 +111,5 @@ export async function perguntar(historico: readonly Fala[], sinal?: AbortSignal)
   const texto = dados.resposta?.trim();
   if (!texto) throw new Error('O assistente respondeu em branco.');
 
-  modeloEmUso = dados.modelo ?? '';
   return texto;
 }

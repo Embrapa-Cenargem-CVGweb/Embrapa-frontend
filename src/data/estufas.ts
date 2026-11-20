@@ -14,12 +14,31 @@
  * dizia CVG05.
  */
 import type { Estufa, Estufas, EstufaStatus, Reserva, UnidadeCapacidade } from '../types';
-import { dadosMudaram } from '../lib/bus';
-import { getCasasVegetacao, getReservas } from '../services/api';
+import { getCalendario, getCasasVegetacao, getReservas, type CalendarioOcupacao } from '../services/api';
 import { hojeISO } from '../lib/format';
 
 export const ESTUFAS: Estufas = {};
+/** Reservas que a pessoa logada pode ver e mexer: é a lista da tela de Reservas. */
 export const reservas: Reserva[] = [];
+/**
+ * Ocupação de TODAS as estufas, de hoje em diante, venha de quem vier.
+ *
+ * É com isto que o mapa pinta as estufas e a ficha conta os vasos. Antes a
+ * conta saía de `reservas`, que o back-end filtra por pessoa: o pesquisador
+ * não via a reserva de um projeto que não era dele e a estufa lotada aparecia
+ * verde para ele e laranja para o administrador. A ocupação é a mesma para
+ * todo mundo — é o que o calendário já mostrava.
+ */
+export const agenda: Reserva[] = [];
+
+/** Quantos dias à frente a agenda cobre (o back-end aceita até 100 por consulta). */
+const DIAS_DE_AGENDA = 99;
+
+function somarDias(iso: string, dias: number): string {
+  const data = new Date(`${iso}T12:00:00Z`);
+  data.setUTCDate(data.getUTCDate() + dias);
+  return data.toISOString().slice(0, 10);
+}
 
 /**
  * Código da interface (E01, R001) para o id real do banco. A API precisa do id
@@ -27,13 +46,6 @@ export const reservas: Reserva[] = [];
  */
 export const ID_REAL_ESPACO: Record<string, number> = {};
 export const ID_REAL_RESERVA: Record<string, number> = {};
-
-/** Quando os dados foram lidos pela última vez (epoch ms). 0 = nunca. */
-let lidoEm = 0;
-
-export function ultimaLeitura(): number {
-  return lidoEm;
-}
 
 /* ===========================================================================
    API
@@ -56,9 +68,10 @@ interface CasaApi {
   capacidade?: number;
   unidade_capacidade?: UnidadeCapacidade;
   capacidade_total?: number;
-  vasos_3cm?: number;
-  vasos_5cm?: number;
-  vasos_10cm?: number;
+  vasos?: { tamanho_cm: number; quantidade: number }[] | null;
+  temperatura_min?: number | null;
+  temperatura_max?: number | null;
+  motivo_situacao?: string | null;
   obs?: string;
   status?: Estufa['situacao'];
   ativa?: boolean;
@@ -69,6 +82,7 @@ interface ReservaApi {
   id: number;
   casa_vegetacao_id: number;
   quantidade?: number;
+  unidade?: UnidadeCapacidade;
   data_inicio?: string;
   data_fim?: string;
   projeto?: { codigo?: string; titulo?: string };
@@ -101,9 +115,15 @@ function iconeDoTipo(tipo: string): string {
  */
 export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): Promise<void> {
   try {
-    const [casasResposta, reservasResposta] = await Promise.all([
+    const hoje = hojeISO();
+    const [casasResposta, reservasResposta, calendario] = await Promise.all([
       getCasasVegetacao(),
       getReservas(),
+      // Sem a agenda o mapa ainda sobe, com o que a pessoa enxerga.
+      getCalendario(hoje, somarDias(hoje, DIAS_DE_AGENDA)).catch((erro): CalendarioOcupacao | null => {
+        console.warn('[CVGWeb] não consegui ler a ocupação geral; usando só as reservas visíveis:', erro);
+        return null;
+      }),
     ]);
 
     for (const chave of Object.keys(ESTUFAS)) delete ESTUFAS[chave];
@@ -136,6 +156,12 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
       // Tipo em aberto até a administração informar: vazio, não um palpite.
       const tipo = casa.tipo?.trim() ?? '';
       const capacidadeTotal = casa.ocupacao?.capacidade_total ?? casa.capacidade_total ?? 0;
+      const unidade = casa.ocupacao?.unidade ?? casa.unidade_capacidade ?? 'VASO';
+      const bancadas = casa.capacidade ?? 0;
+      // Mesma regra do back-end (CasaVegetacao::capacidadeEm): a principal usa
+      // a capacidade reservável; numa estufa de vasos, as bancadas contam à parte.
+      const capacidadePor: Partial<Record<UnidadeCapacidade, number>> = { [unidade]: capacidadeTotal };
+      if (unidade === 'VASO' && bancadas > 0) capacidadePor.BANCADA = bancadas;
 
       ESTUFAS[chave] = {
         codigo: casa.codigo ?? chave,
@@ -147,15 +173,19 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
         situacao: casa.status ?? (casa.ativa === false ? 'MANUTENCAO' : 'ATIVA'),
         area: casa.area_m2 ? `${casa.area_m2} m²` : '—',
         cap: casa.capacidade ?? 0,
-        unidade: casa.ocupacao?.unidade ?? casa.unidade_capacidade ?? 'VASO',
+        unidade,
         capacidadeTotal,
         ocupado: casa.ocupacao?.ocupado ?? 0,
         disponivel: casa.ocupacao?.disponivel ?? capacidadeTotal,
+        unidades: Object.keys(capacidadePor) as UnidadeCapacidade[],
+        capacidadePor,
+        livrePor: { ...capacidadePor },
         icon: iconeDoTipo(tipo),
         desc: casa.obs ?? '',
-        vasos: casa.vasos_10cm != null
-          ? { c3: casa.vasos_3cm ?? 0, c5: casa.vasos_5cm ?? 0, c10: casa.vasos_10cm ?? 0 }
-          : undefined,
+        vasos: (casa.vasos ?? []).map((v) => ({ tamanho_cm: Number(v.tamanho_cm), quantidade: Number(v.quantidade) })),
+        temperaturaMin: casa.temperatura_min ?? null,
+        temperaturaMax: casa.temperatura_max ?? null,
+        motivo: casa.motivo_situacao ?? '',
       };
     });
 
@@ -170,6 +200,8 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
         data: item.data_inicio?.slice(0, 10) ?? '',
         dataFim: item.data_fim?.slice(0, 10) ?? '',
         quantidade: item.quantidade ?? 1,
+        unidade: item.unidade
+          ?? (chavePorId[item.casa_vegetacao_id] ? ESTUFAS[chavePorId[item.casa_vegetacao_id]].unidade : 'VASO'),
         projeto: item.projeto?.codigo ?? String(item.projeto_id ?? ''),
         projetoTitulo: item.projeto?.titulo ?? '',
         finalidade: item.finalidade ?? '',
@@ -179,8 +211,34 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
       });
     }
 
+    // Agenda geral: todas as reservas vigentes, de qualquer projeto.
+    agenda.length = 0;
+    if (calendario) {
+      for (const casa of calendario.casas) {
+        const chave = chavePorId[casa.id];
+        if (!chave) continue;
+        for (const r of casa.reservas) {
+          agenda.push({
+            id: `R${String(r.id).padStart(3, '0')}`,
+            estufaId: chave,
+            data: r.inicio,
+            dataFim: r.fim,
+            quantidade: r.quantidade,
+            unidade: r.unidade === 'BANCADA' ? 'BANCADA' : 'VASO',
+            projeto: r.projeto_codigo ?? '',
+            projetoTitulo: r.projeto ?? '',
+            finalidade: r.finalidade ?? '',
+            obs: '',
+            pesquisador: r.responsavel ?? '',
+            status: r.status === 'PENDENTE' ? 'pendente' : 'ativa',
+          });
+        }
+      }
+    } else {
+      agenda.push(...reservas.filter((r) => r.status !== 'cancelada' && r.estufaId !== ''));
+    }
+
     recalcularOcupacao();
-    lidoEm = Date.now();
   } catch (erro) {
     if (aoFalhar === 'manter') {
       console.warn('[CVGWeb] falha ao reler da API; mantendo o estado atual:', erro);
@@ -190,42 +248,13 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
   }
 }
 
-/** Força a próxima consulta a reler da API. */
-export function invalidarEstado(): void {
-  lidoEm = 0;
-}
-
-/**
- * Garante que o estado não está velho antes de alguém consultá-lo.
- *
- * O assistente chama isto antes de cada pergunta: as reservas mudam o tempo
- * todo e quem respondeu "a E03 está livre" dois minutos atrás pode estar
- * errado agora.
- *
- * Releituras seguidas dentro da janela são ignoradas, para que uma sequência
- * de perguntas não vire uma sequência de chamadas à API.
- */
-export async function garantirEstadoFresco(janelaMs = 15_000): Promise<void> {
-  if (lidoEm && Date.now() - lidoEm < janelaMs) return;
-
-  try {
-    await carregarEstado('manter');
-  } catch {
-    // Sem rede, responde com o último estado conhecido: o campo "Atualização"
-    // do prompt mostra de quando ele é.
-    return;
-  }
-
-  // Mapa, marcadores e administração acompanham o que o assistente leu.
-  dadosMudaram();
-}
-
 /* ===========================================================================
    Ocupação
    =========================================================================== */
 
 /**
  * Recalcula quanto de cada espaço está tomado HOJE e qual situação mostrar.
+ * Um pedido pendente futuro também mantém o marcador azul para a equipe.
  *
  * Esta é a conta que estava errada: o código antigo comparava `r.data === hoje`
  * e só marcava o espaço como ocupado quando a reserva COMEÇAVA no dia. Uma
@@ -236,12 +265,25 @@ export async function garantirEstadoFresco(janelaMs = 15_000): Promise<void> {
  */
 export function recalcularOcupacao(data = hojeISO()): void {
   for (const [chave, estufa] of Object.entries(ESTUFAS)) {
-    const ocupado = reservasDoEspaco(chave, data)
+    const doDia = reservasDoEspaco(chave, data);
+    const tomado = (unidade: UnidadeCapacidade): number => doDia
+      .filter((r) => r.unidade === unidade)
       .reduce((total, r) => total + (r.quantidade || 1), 0);
 
-    estufa.ocupado = ocupado;
-    estufa.disponivel = Math.max(0, estufa.capacidadeTotal - ocupado);
-    estufa.status = situacaoVisivel(estufa);
+    for (const unidade of estufa.unidades) {
+      estufa.livrePor[unidade] = Math.max(0, (estufa.capacidadePor[unidade] ?? 0) - tomado(unidade));
+    }
+
+    estufa.ocupado = tomado(estufa.unidade);
+    estufa.disponivel = estufa.livrePor[estufa.unidade] ?? 0;
+    // Bancada reservada também tira a estufa de "livre".
+    estufa.algoReservado = doDia.length > 0;
+
+    // Qualquer pedido aguardando aprovação deixa o espaço azul, mesmo quando
+    // ainda sobra capacidade. O marcador precisa chamar a atenção da equipe.
+    const temPendente = proximasReservas(chave, data).some((r) => r.status === 'pendente');
+
+    estufa.status = situacaoVisivel(estufa, temPendente);
   }
 }
 
@@ -250,29 +292,127 @@ export function recalcularOcupacao(data = hojeISO()): void {
  *
  * A cadastral manda sempre que não é ATIVA: um espaço que a administração
  * marcou como reservado ou ocupado não aparece livre só porque não há reserva
- * registrada nele. Com ATIVA, quem decide é a ocupação do dia.
+ * registrada nele. Com ATIVA, a ocupação de hoje decide a disponibilidade; um
+ * pedido pendente próximo também deixa o marcador azul para a administração.
+ *
+ * As cores do mapa, pela ocupação de hoje e pedidos pendentes próximos:
+ * - verde (livre/parcial): sobra vaga na unidade principal e não há pedido
+ *   aguardando aprovação;
+ * - laranja (ocupada): a unidade principal lotou com reservas já aprovadas;
+ * - azul (reservada): há pelo menos um pedido aguardando aprovação, mesmo que
+ *   ainda sobre capacidade.
+ * Conta a unidade principal (os vasos, na estufa de vasos): bancadas avulsas
+ * que sobram não deixam a estufa verde. Antes ela só saía do verde quando
+ * vasos E bancadas acabavam — a Estufa 01 com os 9 vasos tomados seguia
+ * "parcial", pintada como livre.
  */
-function situacaoVisivel(estufa: Estufa): EstufaStatus {
+function situacaoVisivel(estufa: Estufa, temPendente: boolean): EstufaStatus {
   if (estufa.situacao === 'MANUTENCAO') return 'manutencao';
   if (estufa.situacao === 'INATIVA') return 'inativa';
   if (estufa.situacao === 'RESERVADA') return 'reservada';
   if (estufa.situacao === 'OCUPADA') return 'ocupada';
-  if (estufa.ocupado <= 0) return 'livre';
-  return estufa.disponivel <= 0 ? 'ocupada' : 'parcial';
+  if (temPendente) return 'reservada';
+  if (!estufa.algoReservado) return 'livre';
+  if (!principalEsgotada(estufa) && unidadesComVaga(estufa).length > 0) return 'parcial';
+  return 'ocupada';
+}
+
+/** A unidade principal tem capacidade e não sobra nada dela hoje. */
+export function principalEsgotada(estufa: Estufa): boolean {
+  return (estufa.capacidadePor[estufa.unidade] ?? 0) > 0 && (estufa.livrePor[estufa.unidade] ?? 0) <= 0;
+}
+
+/**
+ * O dia mais cheio da unidade, de hoje em diante: quanto fica tomado e desde
+ * quando. A ficha mostra isso ao lado do "em uso hoje" — uma reserva de 10
+ * vasos que começa na semana que vem não aparece no número de hoje, e sem
+ * este aviso parecia que ela não tinha sido contada.
+ */
+export function picoDeUso(
+  estufaId: string,
+  unidade?: UnidadeCapacidade,
+  desde = hojeISO(),
+): { tomado: number; dia: string } {
+  const estufa = ESTUFAS[estufaId];
+  const qual = unidade ?? estufa?.unidade ?? 'VASO';
+  const futuras = proximasReservas(estufaId, desde).filter((r) => r.unidade === qual);
+
+  // O total só muda no dia em que alguma reserva começa: basta olhar esses.
+  const candidatos = [desde, ...futuras.map((r) => r.data).filter((d) => d > desde)];
+  let melhor = { tomado: 0, dia: desde };
+  for (const dia of candidatos) {
+    const tomado = futuras
+      .filter((r) => r.data <= dia && r.dataFim >= dia)
+      .reduce((total, r) => total + (r.quantidade || 1), 0);
+    if (tomado > melhor.tomado) melhor = { tomado, dia };
+  }
+  return melhor;
+}
+
+/** AAAA-MM-DD do dia seguinte, sem passar por fuso (meio-dia em UTC). */
+function diaSeguinte(iso: string): string {
+  const data = new Date(`${iso}T12:00:00Z`);
+  data.setUTCDate(data.getUTCDate() + 1);
+  return data.toISOString().slice(0, 10);
+}
+
+/**
+ * Primeiro dia, a partir de `desde`, em que sobra alguma coisa da unidade no
+ * espaço. É por onde começa o pedido de quem quer reservar uma estufa que
+ * está cheia hoje: em vez de cair num período que a API vai recusar, o
+ * formulário já abre no dia em que vaga.
+ *
+ * Pula de fim em fim de reserva, então o laço é curto mesmo com muitas.
+ */
+export function proximaDataLivre(
+  estufaId: string,
+  unidade?: UnidadeCapacidade,
+  desde = hojeISO(),
+): string {
+  const estufa = ESTUFAS[estufaId];
+  if (!estufa) return desde;
+
+  const qual = unidade ?? estufa.unidade;
+  const capacidade = estufa.capacidadePor[qual] ?? 0;
+  let data = desde;
+
+  for (let volta = 0; volta < 500; volta += 1) {
+    const doDia = reservasDoEspaco(estufaId, data).filter((r) => r.unidade === qual);
+    const tomado = doDia.reduce((total, r) => total + (r.quantidade || 1), 0);
+    if (!doDia.length || tomado < capacidade) return data;
+
+    const primeiroFim = doDia.reduce((menor, r) => (r.dataFim < menor ? r.dataFim : menor), doDia[0].dataFim);
+    data = diaSeguinte(primeiroFim);
+  }
+
+  return data;
+}
+
+/** Unidades com alguma coisa livre hoje, a principal primeiro. */
+export function unidadesComVaga(estufa: Estufa): UnidadeCapacidade[] {
+  return estufa.unidades.filter((u) => (estufa.livrePor[u] ?? 0) > 0);
 }
 
 /** O espaço aceita nova reserva? Capacidade cheia ou fora de uso, não. */
 export function aceitaReserva(estufa: Estufa): boolean {
-  return estufa.situacao === 'ATIVA' && estufa.disponivel > 0;
+  return estufa.situacao === 'ATIVA' && unidadesComVaga(estufa).length > 0;
 }
 
 /* ===========================================================================
    Consultas
    =========================================================================== */
 
-/** Reservas que ainda valem: nem canceladas, nem de espaços inexistentes. */
+/**
+ * Reservas da pessoa que ainda valem: nem canceladas, nem de espaços
+ * inexistentes. É a lista da tela de Reservas — para ocupação, use a agenda.
+ */
 export function reservasVigentes(): Reserva[] {
   return reservas.filter((r) => r.status !== 'cancelada' && r.estufaId !== '');
+}
+
+/** A pessoa logada pode abrir esta reserva? (Só as que vieram na lista dela.) */
+export function reservaVisivel(id: string): boolean {
+  return reservas.some((r) => r.id === id);
 }
 
 /**
@@ -283,14 +423,14 @@ export function reservasVigentes(): Reserva[] {
  * as demais da coluna "Reservado por".
  */
 export function reservasDoEspaco(estufaId: string, data = hojeISO()): Reserva[] {
-  return reservasVigentes()
+  return agenda
     .filter((r) => r.estufaId === estufaId && r.data <= data && r.dataFim >= data)
     .sort((a, b) => b.quantidade - a.quantidade);
 }
 
 /** Todas as reservas vigentes de um espaço, de hoje em diante. */
 export function proximasReservas(estufaId: string, data = hojeISO()): Reserva[] {
-  return reservasVigentes()
+  return agenda
     .filter((r) => r.estufaId === estufaId && r.dataFim >= data)
     .sort((a, b) => a.data.localeCompare(b.data));
 }

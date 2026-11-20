@@ -6,7 +6,7 @@
  * `irParaSecao()`; a casca se registra uma vez com `aoNavegar()`.
  */
 
-export type Secao = 'mapa' | 'reservas' | 'projetos' | 'usuarios' | 'admin' | 'historico';
+export type Secao = 'mapa' | 'calendario' | 'reservas' | 'projetos' | 'usuarios' | 'admin' | 'historico';
 
 type Ouvinte = (secao: Secao) => void;
 

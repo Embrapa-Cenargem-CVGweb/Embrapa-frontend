@@ -19,6 +19,22 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 const CHAVE_TOKEN = 'cvgweb:token';
 
+/**
+ * Avisa o servidor que a sessão acabou, para o token deixar de valer lá
+ * também. Antes o "Sair" só apagava o token do navegador: uma cópia dele
+ * continuava funcionando. Não espera resposta nem passa pelos tratamentos de
+ * erro (o token pode já estar morto, e aí não há o que fazer).
+ */
+export function encerrarSessaoNoServidor(): void {
+  const token = tokenSalvo();
+  if (!token) return;
+
+  void fetch(`${API_URL}/logout`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    keepalive: true,
+  }).catch(() => undefined);
+}
 export function tokenSalvo(): string | null {
   try {
     return sessionStorage.getItem(CHAVE_TOKEN);
@@ -60,6 +76,11 @@ function mensagemDoErro(dados: unknown, padrao: string): string {
   // Erros de campo primeiro: são os que explicam o motivo (capacidade, período).
   const primeiro = corpo.errors && Object.values(corpo.errors)[0]?.[0];
   if (primeiro) return primeiro;
+
+  // O limite de tentativas do Laravel responde em ingles ("Too Many Attempts.").
+  if (corpo.message && /too many attempts/i.test(corpo.message)) {
+    return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
+  }
 
   return corpo.message || padrao;
 }
@@ -115,7 +136,23 @@ function erroDaResposta(status: number, dados: unknown, padrao: string): ErroApi
     return new ErroApi(SESSAO_MORTA, status, dados);
   }
 
-  return new ErroApi(mensagemDoErro(dados, padrao), status, dados);
+  // Erro do servidor: a mensagem crua do Laravel (com APP_DEBUG ligado) traz
+  // SQL, host e nome do banco — nada disso serve a quem usa, e expõe demais.
+  if (status >= 500) {
+    return new ErroApi(
+      `${padrao} O servidor teve um problema (erro ${status}). Tente de novo; se continuar, avise a administração.`,
+      status,
+      dados,
+    );
+  }
+
+  // 403 sem frase nossa: o Laravel responde "This action is unauthorized.".
+  const mensagem = mensagemDoErro(dados, padrao);
+  if (status === 403 && /this action is unauthorized|forbidden/i.test(mensagem)) {
+    return new ErroApi('Você não tem permissão para fazer isso.', status, dados);
+  }
+
+  return new ErroApi(mensagem, status, dados);
 }
 
 async function buscar<T>(caminho: string, oQue: string): Promise<T> {
@@ -166,10 +203,6 @@ export function getReservas(): Promise<any> {
   return buscar('/reservas?status=TODAS&per_page=500', 'as reservas');
 }
 
-/** Métricas do painel da administração, calculadas no back-end. */
-export function getPainel(): Promise<any> {
-  return buscar('/painel', 'as métricas do painel');
-}
 
 export interface CargoApi {
   id: number;
@@ -203,9 +236,10 @@ export function getFuncionarios(): Promise<any> {
  */
 export function getDisponibilidade(
   casaId: number,
-  opcoes: { de: string; ate: string; quantidade?: number; ignorarReserva?: number },
+  opcoes: { de: string; ate: string; quantidade?: number; ignorarReserva?: number; unidade?: string },
 ): Promise<Disponibilidade> {
   const busca = new URLSearchParams({ de: opcoes.de, ate: opcoes.ate });
+  if (opcoes.unidade) busca.set('unidade', opcoes.unidade);
   if (opcoes.quantidade) busca.set('quantidade', String(opcoes.quantidade));
   if (opcoes.ignorarReserva) busca.set('ignorar_reserva', String(opcoes.ignorarReserva));
 
@@ -213,12 +247,61 @@ export function getDisponibilidade(
 }
 
 /* ===========================================================================
+   Calendário de ocupação
+   =========================================================================== */
+
+export interface ReservaDoCalendario {
+  id: number;
+  /** Datas inteiras da reserva (AAAA-MM-DD), mesmo que passem do intervalo pedido. */
+  inicio: string;
+  fim: string;
+  quantidade: number;
+  unidade: 'VASO' | 'BANCADA';
+  status: 'ATIVA' | 'PENDENTE';
+  /** Título do projeto. */
+  projeto?: string | null;
+  /** Código do projeto (P-2026-001). */
+  projeto_codigo?: string | null;
+  responsavel?: string | null;
+  finalidade?: string | null;
+  /** A reserva é de quem está logado. */
+  minha: boolean;
+}
+
+export interface CasaDoCalendario {
+  id: number;
+  codigo: string;
+  descricao?: string | null;
+  localizacao?: string | null;
+  status: string;
+  /** Por que está fora de uso, quando a administração informou. */
+  motivo?: string | null;
+  aceita_reserva: boolean;
+  unidade: 'VASO' | 'BANCADA';
+  /** O que se reserva na estufa e quanto cabe de cada coisa. */
+  capacidades: Partial<Record<'VASO' | 'BANCADA', number>>;
+  reservas: ReservaDoCalendario[];
+}
+
+export interface CalendarioOcupacao {
+  de: string;
+  ate: string;
+  hoje: string;
+  casas: CasaDoCalendario[];
+}
+
+/** Estufas e reservas vigentes que cruzam o intervalo (até 100 dias). */
+export function getCalendario(de: string, ate: string): Promise<CalendarioOcupacao> {
+  return buscar(`/casas-vegetacao/calendario?de=${de}&ate=${ate}`, 'o calendário de ocupação');
+}
+
+/* ===========================================================================
    Reservas
    =========================================================================== */
 
-export interface NovaReserva {
+export interface NovaReservaEmLote {
   casa_vegetacao_id: number;
-  quantidade: number;
+  itens: { unidade: 'VASO' | 'BANCADA'; quantidade: number }[];
   data_inicio: string;
   data_fim: string;
   finalidade: string;
@@ -226,12 +309,9 @@ export interface NovaReserva {
   obs?: string;
 }
 
-/**
- * Cria a reserva. Quem não tem permissão de aprovar recebe a reserva como
- * PENDENTE — é o back-end que decide, não o front.
- */
-export function criarReserva(reserva: NovaReserva): Promise<any> {
-  return enviar('POST', '/reservas', reserva, 'Não foi possível registrar a reserva.');
+/** Cria as reservas de vasos e/ou bancadas no mesmo envio. */
+export function criarReservasEmLote(reserva: NovaReservaEmLote): Promise<any> {
+  return enviar('POST', '/reservas/lote', reserva, 'Não foi possível registrar a reserva.');
 }
 
 export function aprovarReserva(id: number): Promise<any> {
@@ -285,8 +365,43 @@ export interface DadosEspaco {
   unidade_capacidade: 'VASO' | 'BANCADA';
   /** Capacidade reservável: é esta que a reserva consome. */
   capacidade_total: number;
+  /** Vasos por tamanho; numa estufa de vasos, o back-end soma e grava a capacidade. */
+  vasos?: { tamanho_cm: number; quantidade: number }[] | null;
+  /** Faixa de temperatura (°C). null limpa. */
+  temperatura_min?: number | null;
+  temperatura_max?: number | null;
   obs?: string | null;
   status?: EstufaSituacao;
+  /** Por que está fora de uso. O back-end limpa quando a situação é ATIVA. */
+  motivo_situacao?: string | null;
+}
+
+/* ---------------------------------------------------------------------------
+   Histórico da estufa
+   --------------------------------------------------------------------------- */
+
+/** Um projeto que ocupou a estufa: quem foi, e de quando até quando. */
+export interface PassagemPorEstufa {
+  projeto_id: number | null;
+  codigo: string | null;
+  titulo: string;
+  responsavel: string | null;
+  /** Primeiro dia em que o projeto entrou aqui. */
+  entrou: string | null;
+  /** Último dia em que ele sai (ou saiu). */
+  saiu: string | null;
+  /** Está na estufa hoje. */
+  atual: boolean;
+}
+
+export interface HistoricoDaEstufa {
+  casa: { id: number; codigo: string; descricao: string | null };
+  resumo: { projetos: number; primeiro: string | null; ultimo: string | null };
+  projetos: PassagemPorEstufa[];
+}
+
+export function getHistoricoDaEstufa(casaId: number): Promise<HistoricoDaEstufa> {
+  return buscar(`/casas-vegetacao/${casaId}/historico`, 'o histórico da estufa');
 }
 
 /**
@@ -315,11 +430,11 @@ export function atualizarEspaco(casaId: number, dados: DadosEspaco): Promise<any
  * INATIVA. Só ATIVA aceita reserva nova; o back-end recusa as outras com o
  * motivo. Livre e parcial continuam sendo cálculo da ocupação, não escolha.
  */
-export function atualizarSituacaoEspaco(casaId: number, status: EstufaSituacao): Promise<any> {
+export function atualizarSituacaoEspaco(casaId: number, status: EstufaSituacao, motivo?: string | null): Promise<any> {
   return enviar(
     'PATCH',
     `/casas-vegetacao/${casaId}/situacao`,
-    { status },
+    { status, motivo: motivo ?? null },
     'Não foi possível alterar a situação do espaço.',
   );
 }
@@ -571,6 +686,130 @@ export function getStatusProjeto(): Promise<StatusProjetoApi[]> {
   return buscar('/status-projeto', 'os status de projeto');
 }
 
+/** Ficha do projeto (modal ao clicar no cartão). */
+export interface ProjetoDetalhe {
+  id: number;
+  codigo: string;
+  titulo: string;
+  descricao: string | null;
+  situacao: SituacaoProjeto;
+  status: { id: number; descricao: string; encerrado: boolean } | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  responsavel: { id: number; nome: string } | null;
+  participo: boolean;
+  sou_lider: boolean;
+  posso_convidar: boolean;
+  equipe: { id: number; nome: string; cargo: string | null; email: string | null; papel: PapelEquipe | null; lider: boolean }[];
+  reservas: {
+    id: number;
+    estufa: { codigo: string; descricao: string | null } | null;
+    unidade: 'vasos' | 'bancadas';
+    quantidade: number;
+    data_inicio: string;
+    data_fim: string;
+    status: 'ATIVA' | 'PENDENTE' | 'CANCELADA';
+    encerrada: boolean;
+    finalidade: string | null;
+    quem: string | null;
+  }[];
+  metricas: {
+    pessoas: number;
+    estufas_em_uso: number;
+    em_uso_hoje: { vasos: number; bancadas: number };
+    reservado: { vasos: number; bancadas: number };
+    pendentes: number;
+  };
+}
+
+export function getProjetoDetalhe(id: number): Promise<ProjetoDetalhe> {
+  return buscar(`/projetos/${id}`, 'a ficha do projeto');
+}
+/* ---------------------------------------------------------------------------
+   Documentos e anotações do projeto
+   --------------------------------------------------------------------------- */
+
+export type TipoDocumento = 'DOCUMENTO' | 'PROTOCOLO' | 'IMAGEM' | 'ANOTACAO';
+
+export interface DocumentoDoProjeto {
+  id: number;
+  tipo: TipoDocumento;
+  titulo: string;
+  texto: string | null;
+  autor: string | null;
+  meu: boolean;
+  criado_em: string | null;
+  arquivo: { nome: string; mime: string | null; tamanho: number } | null;
+  posso_excluir: boolean;
+}
+
+export function getDocumentosDoProjeto(projetoId: number): Promise<{ data: DocumentoDoProjeto[] }> {
+  return buscar(`/projetos/${projetoId}/documentos`, 'os documentos do projeto');
+}
+
+/**
+ * Envia um documento ou anotação. Vai como multipart (por causa do arquivo),
+ * então não passa pelo `enviar`, que só manda JSON: aqui o navegador é quem
+ * monta o Content-Type com o separador certo.
+ */
+export async function enviarDocumentoDoProjeto(
+  projetoId: number,
+  dados: { tipo: TipoDocumento; titulo: string; texto?: string; arquivo?: File | null },
+): Promise<DocumentoDoProjeto> {
+  const corpo = new FormData();
+  corpo.append('tipo', dados.tipo);
+  corpo.append('titulo', dados.titulo);
+  if (dados.texto) corpo.append('texto', dados.texto);
+  if (dados.arquivo) corpo.append('arquivo', dados.arquivo);
+
+  const resposta = await fetch(`${API_URL}/projetos/${projetoId}/documentos`, {
+    method: 'POST',
+    headers: cabecalhos(),
+    body: corpo,
+  });
+  const retorno = await resposta.json().catch(() => null);
+
+  if (!resposta.ok) {
+    conferirSessao(resposta.status);
+    // 413: o servidor recusou antes de chegar na API (arquivo grande demais).
+    if (resposta.status === 413) throw new ErroApi('O arquivo passa de 10 MB.', 413, retorno);
+    throw erroDaResposta(resposta.status, retorno, 'Não foi possível salvar o documento.');
+  }
+
+  return retorno as DocumentoDoProjeto;
+}
+
+export function excluirDocumentoDoProjeto(projetoId: number, documentoId: number): Promise<unknown> {
+  return enviar('DELETE', `/projetos/${projetoId}/documentos/${documentoId}`, undefined, 'Não foi possível excluir o documento.');
+}
+
+/**
+ * Baixa o arquivo de um documento. O download exige o token no cabeçalho, e um
+ * link comum não manda cabeçalho: por isso o arquivo é lido aqui e entregue ao
+ * navegador como um link temporário.
+ */
+export async function baixarDocumentoDoProjeto(projetoId: number, documentoId: number, nome: string): Promise<void> {
+  const resposta = await fetch(`${API_URL}/projetos/${projetoId}/documentos/${documentoId}/arquivo`, {
+    headers: cabecalhos(),
+  });
+
+  if (!resposta.ok) {
+    const dados = await resposta.json().catch(() => null);
+    conferirSessao(resposta.status);
+    throw erroDaResposta(resposta.status, dados, 'Não foi possível baixar o arquivo.');
+  }
+
+  const url = URL.createObjectURL(await resposta.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = nome || 'documento';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Dá tempo de o navegador começar o download antes de soltar o endereço.
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export function getProjetos(situacao?: SituacaoProjeto): Promise<any> {
   const filtro = situacao ? `&situacao=${situacao}` : '';
   return buscar(`/projetos?per_page=200${filtro}`, 'os projetos');
@@ -727,6 +966,29 @@ export function atualizarMembro(
 }
 
 /** Concede ou revoga permissões de um membro. Só o adm consegue. */
+/** Permissão que vale no sistema todo (dada pelo adm na tela de usuários). */
+export interface PermissaoDeSistema {
+  chave: PermissaoProjeto;
+  rotulo: string;
+  descricao: string;
+}
+
+export interface PermissoesDaPessoa {
+  funcionario: { id: number; nome: string; cargo: string | null };
+  /** Cargo Administrador: já pode tudo, não há o que marcar. */
+  administrador: boolean;
+  globais: PermissaoProjeto[];
+  catalogo_global: PermissaoDeSistema[];
+  projetos: { id: number; codigo: string; titulo: string; papel: PapelEquipe | null; permissoes: PermissaoProjeto[] }[];
+}
+
+export function getPermissoesDaPessoa(id: number): Promise<PermissoesDaPessoa> {
+  return buscar(`/funcionarios/${id}/permissoes`, 'as permissões da pessoa');
+}
+
+export function salvarPermissoesDeSistema(id: number, permissoes: PermissaoProjeto[]): Promise<{ message: string }> {
+  return enviar('PUT', `/funcionarios/${id}/permissoes-globais`, { permissoes }, 'Não foi possível salvar as permissões.');
+}
 export function definirPermissoes(
   projetoId: number,
   funcionarioId: number,
@@ -785,10 +1047,18 @@ export interface FiltrosAuditoria {
   entidades: string[];
   funcionarios: { id: number; nome: string; email?: string }[];
   projetos: { id: number; codigo: string; titulo: string }[];
+  /** Quantos eventos de cada tipo no período pedido: alimenta os atalhos. */
+  resumo?: { total: number; negados: number; recusados: number; mudancas: number };
 }
 
-export function getFiltrosAuditoria(): Promise<FiltrosAuditoria> {
-  return buscar('/auditorias/filtros', 'os filtros do histórico');
+/** `de`/`ate` recortam só o resumo; as listas de opções vêm sempre inteiras. */
+export function getFiltrosAuditoria(periodo: { de?: string; ate?: string } = {}): Promise<FiltrosAuditoria> {
+  const busca = new URLSearchParams();
+  if (periodo.de) busca.set('de', periodo.de);
+  if (periodo.ate) busca.set('ate', periodo.ate);
+  const query = busca.toString();
+
+  return buscar(`/auditorias/filtros${query ? `?${query}` : ''}`, 'os filtros do histórico');
 }
 
 /** Trilha de alterações: quem mexeu no que e quando. */

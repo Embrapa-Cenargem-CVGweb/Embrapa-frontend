@@ -19,10 +19,6 @@ const CAMINHO_DEFINIR = '/definir-senha';
 /** Preenchido ao salvar: a tela de entrada recebe o usuário já digitado. */
 let usuarioParaEntrada = '';
 
-export function usuarioSugeridoNaEntrada(): string {
-  return usuarioParaEntrada;
-}
-
 /* ===========================================================================
    Esqueci minha senha (dentro do cartão de entrada)
    =========================================================================== */
@@ -136,6 +132,11 @@ async function salvarSenha(): Promise<void> {
 
   if (senha.length < 8) {
     erroDefinir('A senha precisa ter pelo menos 8 caracteres.');
+    return;
+  }
+  // Só tamanho deixava passar "12345678": exige letra e número, como a API.
+  if (!/\p{L}/u.test(senha) || !/\d/.test(senha)) {
+    erroDefinir('A senha precisa ter letras e números.');
     return;
   }
   if (senha !== confirmacao) {

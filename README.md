@@ -18,7 +18,7 @@ HTML, CSS e TypeScript **sem framework**, empacotados com Vite.
 
 | Seção | O que faz |
 | :--- | :--- |
-| **Mapa** | As 50 casas de vegetação marcadas sobre a foto aérea; clique abre a ficha com situação, ocupação, responsável e período |
+| **Mapa** | As 51 casas de vegetação marcadas sobre a foto aérea; clique abre a ficha com situação, ocupação, responsável e período |
 | **Reservas** | Pedir, aprovar, cancelar e acompanhar |
 | **Projetos** | Projetos, equipe, líder e permissões |
 | **Usuários** | Cadastro, convite e situação |
@@ -70,8 +70,6 @@ npm run dev         # desenvolvimento
 npm run build       # checagem de tipos + pacote de produção em dist/
 npm run preview     # serve o dist/ para conferir o pacote
 npm run typecheck   # só a checagem de tipos
-npm run icons       # regenera o sprite de ícones dentro do index.html
-npm run test:e2e    # testes Playwright (exigem a API no ar)
 ```
 
 ---

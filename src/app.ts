@@ -15,20 +15,21 @@ import {
   irParaEntrada,
   voltarParaEntrada,
 } from './views/acesso';
-import { aoMudar } from './lib/bus';
+import { aoMudar, dadosMudaram } from './lib/bus';
 import { debounce, el, qsa, setText, show } from './lib/dom';
-import { abrirModal, aoFecharModal, fecharTodosModais, iniciarModais } from './lib/modal';
+import { abrirModal, aoFecharModal, fecharTodosModais, iniciarModais, modalAberto } from './lib/modal';
 import { aviso } from './lib/toast';
 import type { Usuario } from './types';
 
 import {
   abrirEditarEspaco,
   abrirEditarUsuario,
+  adicionarVasoNoFormulario,
+  removerVasoDoFormulario,
   buscarEstufaNoFormulario,
   escolherEstufa,
   navegarSugestoesDeEspaco,
   abrirNovoUsuario,
-  abrirPainelMetricas,
   alterarSituacaoEspaco,
   alternarAcesso,
   aprovarReserva,
@@ -42,7 +43,6 @@ import {
   confirmarPassagemDeLideranca,
   filtrarReservas,
   filtrarUsuarios,
-  irPara,
   limparBusca,
   mostrarReservas,
   mostrarUsuarios,
@@ -60,7 +60,12 @@ import {
   sugerir,
 } from './views/chat';
 import { preCarregarHistorico, renderizarHistorico } from './views/auditoria';
-import { abrirAvisos, desligarAvisos, irParaAviso, ligarAvisos } from './views/avisos';
+import { abrirAvisos, atualizarAvisos, desligarAvisos, irParaAviso, ligarAvisos } from './views/avisos';
+import {
+  abrirPermissoesDeUsuarios,
+  mostrarBotaoDePermissoes,
+  salvarPermissoes,
+} from './views/permissoes';
 import {
   abrirConvidar,
   abrirConvites,
@@ -78,16 +83,25 @@ import {
   statusDoErro,
 } from './views/falha';
 import {
+  abrirEventoAuditoria,
+  alternarMaisFiltros,
   definirFiltroAuditoria,
+  escolherAtalhoAuditoria,
+  escolherPeriodoAuditoria,
   limparFiltrosAuditoria,
   paginarAuditoria,
+  tirarFiltroAuditoria,
 } from './views/auditoria';
 import {
   abrirEditarProjeto,
   abrirEquipe,
+  abrirFichaDoProjeto,
+  abrirNovoDocumento,
   abrirNovoProjeto,
+  baixarDocumento,
+  escolherTipoDoDocumento,
+  excluirDocumento,
   decidirProjeto,
-  abrirPermissoesMembro,
   alterarPapelMembro,
   buscarProjetos,
   confirmarProjeto,
@@ -99,9 +113,6 @@ import {
   pedirExclusaoProjeto,
   recusarProjetoAberto,
   removerMembroDaEquipe,
-  salvarPermissoes,
-  sugerirPermissoesDoPapel,
-  voltarParaEquipe,
   voltarParaProjetos,
 } from './views/projetos';
 import {
@@ -120,8 +131,8 @@ import {
   escolherResultado,
   fecharPainel,
   iniciarMapa,
+  limparPrecisa,
   renderizarMarcadores,
-  sairDaTelaCheia,
   sincronizarMarcadores,
 } from './views/mapa';
 import {
@@ -136,12 +147,17 @@ import {
   consultarDisponibilidade,
   consultarDisponibilidadeDaEdicao,
   editarReservaAberta,
+  alternarUnidade,
+  esquecerProjetosDaReserva,
   excluirReservaAberta,
   guardarRascunhoDaReserva,
   verReserva,
 } from './views/reservas';
+import { acoesDoCalendario, mostrarCalendario } from './views/calendario';
+import { abrirHistoricoDaEstufa } from './views/historico-estufa';
 import { aoNavegar, type Secao } from './lib/navegacao';
-import { carregarContexto, limparContexto, pode } from './data/contexto';
+import { abrirAjuda, iniciarAjuda } from './lib/ajuda';
+import { aoMudarContexto, carregarContexto, limparContexto, pode, recarregarContexto } from './data/contexto';
 
 /**
  * Quem enxerga cada seção.
@@ -162,6 +178,10 @@ function podeVerSecao(secao: Secao): boolean {
       return pode('configurar_casa');
     case 'historico':
       return pode('ver_auditoria');
+    // A tela de Reservas é a fila de quem aprova e cancela: fica com a
+    // administração. O pesquisador acompanha as dele no calendário e no mapa.
+    case 'reservas':
+      return pode('aprovar_reserva');
     default:
       return true;
   }
@@ -169,7 +189,8 @@ function podeVerSecao(secao: Secao): boolean {
 
 /** Liga os itens do menu ao que a pessoa realmente alcança. */
 function aplicarPermissoesNoMenu(): void {
-  show(el('nav-reservas'), true);
+  show(el('nav-calendario'), true);
+  show(el('nav-reservas'), podeVerSecao('reservas'));
   show(el('nav-projetos'), true);
   show(el('nav-usuarios'), podeVerSecao('usuarios'));
   show(el('nav-admin'), podeVerSecao('admin'));
@@ -180,11 +201,20 @@ function aplicarPermissoesNoMenu(): void {
    Navegação entre views
    =========================================================================== */
 
+/** Seção à vista: a atualização automática relê só o que ela mostra. */
+let secaoAtual: Secao = 'mapa';
+
 function mostrarSecao(secao: Secao): void {
+  // Aviso ou atalho que levava a Reservas: quem não tem a tela vai ao
+  // calendário, onde as reservas dela aparecem, em vez de bater num erro.
+  if (secao === 'reservas' && !podeVerSecao('reservas')) secao = 'calendario';
+
   if (!podeVerSecao(secao)) {
     aviso('Você não tem acesso a esta área.', 'error');
     return;
   }
+
+  secaoAtual = secao;
 
   for (const view of qsa('.view')) {
     view.classList.toggle('is-active', view.id === `view-${secao}`);
@@ -201,6 +231,7 @@ function mostrarSecao(secao: Secao): void {
   chatSoNoMapa(secao === 'mapa');
 
   if (secao === 'admin') renderizarAdmin();
+  if (secao === 'calendario') mostrarCalendario();
   if (secao === 'reservas') mostrarReservas();
   if (secao === 'projetos') mostrarProjetos();
   if (secao === 'usuarios') mostrarUsuarios();
@@ -231,7 +262,7 @@ function fecharMenu(): void {
 
 /** "Bruno Lima" vira "BR": as duas primeiras letras do primeiro nome. */
 function iniciais(nome: string): string {
-  const primeiro = nome.trim().split(/\s+/)[0] ?? '';
+  const primeiro = nome.trim().split(/\s+/).find((p) => /^\p{L}/u.test(p)) ?? '';
   return primeiro ? primeiro.slice(0, 2).toUpperCase() : '—';
 }
 
@@ -249,9 +280,11 @@ function montarApp(usuario: Usuario): void {
 
   mostrarSecao('mapa');
   void carregarInventario();
+  ligarAtualizacaoAutomatica();
   void carregarContexto().then(() => {
     aplicarPermissoesNoMenu();
     pintarContadorDeConvites();
+    mostrarBotaoDePermissoes();
     ligarAvisos();
     preCarregarTelas();
 
@@ -304,11 +337,88 @@ async function carregarInventario(): Promise<void> {
   if (podeVerSecao('admin')) renderizarAdmin();
 }
 
+/* ===========================================================================
+   Atualização automática
+
+   O sistema era uma foto do momento do login: projeto criado, reserva
+   aprovada ou estufa liberada por outra pessoa só apareciam depois de
+   recarregar a página. Agora, enquanto a aba está à vista, os dados são
+   relidos a cada AUTO_MS e sempre que a pessoa volta para a aba.
+
+   A releitura não atropela quem está mexendo: com um formulário aberto ou um
+   campo de escolha em foco ela espera a próxima volta, porque redesenhar a
+   tela tiraria o foco ou o que estava sendo digitado.
+   =========================================================================== */
+
+const AUTO_MS = 30_000;
+/** Voltar para a aba relê na hora, mas não mais do que uma vez nesse intervalo. */
+const FOCO_MIN_MS = 5_000;
+
+let relogioAuto: number | undefined;
+let atualizando = false;
+let ultimaAuto = 0;
+
+function ocupadoComAlgo(): boolean {
+  if (modalAberto()) return true;
+  const foco = document.activeElement;
+  return foco instanceof HTMLSelectElement
+    || foco instanceof HTMLTextAreaElement
+    || (foco instanceof HTMLElement && foco.isContentEditable);
+}
+
+async function atualizarEmSegundoPlano(): Promise<void> {
+  if (!usuarioAtual() || document.hidden || atualizando || ocupadoComAlgo()) return;
+
+  atualizando = true;
+  ultimaAuto = Date.now();
+  try {
+    // Contexto primeiro: projeto aprovado muda o que a pessoa pode reservar,
+    // e a ficha do mapa redesenhada logo depois já sai com o botão certo.
+    await recarregarContexto();
+
+    let leuEstado = true;
+    try {
+      await carregarEstado('manter');
+    } catch {
+      leuEstado = false;
+    }
+
+    // Enquanto a rede respondia a pessoa pode ter aberto um formulário.
+    if (!usuarioAtual() || ocupadoComAlgo()) return;
+
+    if (leuEstado) dadosMudaram();
+    void atualizarAvisos();
+
+    if (secaoAtual === 'reservas') mostrarReservas();
+    else if (secaoAtual === 'projetos') void carregarProjetos();
+    else if (secaoAtual === 'usuarios') mostrarUsuarios();
+  } finally {
+    atualizando = false;
+  }
+}
+
+function ligarAtualizacaoAutomatica(): void {
+  window.clearInterval(relogioAuto);
+  relogioAuto = window.setInterval(() => void atualizarEmSegundoPlano(), AUTO_MS);
+}
+
+function desligarAtualizacaoAutomatica(): void {
+  window.clearInterval(relogioAuto);
+  relogioAuto = undefined;
+}
+
+/** Aba de volta à frente (ou janela de volta ao foco): relê sem esperar o relógio. */
+function aoVoltarParaAba(): void {
+  if (document.hidden || relogioAuto === undefined) return;
+  if (Date.now() - ultimaAuto < FOCO_MIN_MS) return;
+  void atualizarEmSegundoPlano();
+}
+
 function desmontarApp(): void {
+  desligarAtualizacaoAutomatica();
   desligarAvisos();
   limparContexto();
   esconderFalha();
-  sairDaTelaCheia();
   fecharTodosModais();
   fecharMenu();
   mostrarChat(false);
@@ -335,6 +445,7 @@ function registrarTodasAsAcoes(): void {
       if (id) abrirModal(id);
     },
     fechar: () => fecharTodosModais(),
+    ajuda: (elemento) => abrirAjuda(elemento.dataset.ajuda),
     'alternar-senha': (elemento) => alternarVisibilidadeSenha(elemento),
     // telas publicas de senha (views/acesso.ts)
     'abrir-esqueci': () => abrirEsqueci(),
@@ -355,6 +466,10 @@ function registrarTodasAsAcoes(): void {
       if (id) escolherResultado(id);
     },
     'mapa-popover': (elemento) => alternarPopover(elemento),
+    // permissoes de uma pessoa (cabecalho da tela de usuarios)
+    'abrir-permissoes-usuarios': () => void abrirPermissoesDeUsuarios(),
+    'salvar-permissoes': () => void salvarPermissoes(),
+
     // sino de avisos (no lugar da antiga tela cheia)
     'abrir-avisos': (elemento) => void abrirAvisos(elemento),
     'ir-aviso': (elemento) => irParaAviso(Number(elemento.dataset.indice)),
@@ -365,10 +480,22 @@ function registrarTodasAsAcoes(): void {
 
     // reservas
     'descartar-reserva': () => cancelarPreenchimentoDaReserva(),
+    'mapa-limpar-precisa': () => limparPrecisa(),
+    'espaco-adicionar-vaso': () => adicionarVasoNoFormulario(),
+    'espaco-remover-vaso': (elemento) => removerVasoDoFormulario(elemento),
+    'abrir-historico': (elemento) => void abrirHistoricoDaEstufa(elemento.dataset.id),
     'abrir-reservar': (elemento) => {
       const id = elemento.dataset.id;
-      if (id) abrirModalReservar(id);
+      if (!id) return;
+      // A ficha de uma estufa cheia hoje manda o primeiro dia em que ela vaga.
+      const inicio = elemento.dataset.inicio;
+      const unidade = elemento.dataset.unidade === 'BANCADA' ? 'BANCADA' : 'VASO';
+      abrirModalReservar(id, inicio ? { inicio, fim: inicio, unidade } : undefined);
     },
+    'reservar-unidade': (elemento) => {
+      alternarUnidade(elemento.dataset.unidade);
+    },
+    ...acoesDoCalendario,
     'ver-reserva': (elemento) => {
       const id = elemento.dataset.id;
       if (id) verReserva(id);
@@ -383,7 +510,6 @@ function registrarTodasAsAcoes(): void {
     'chat-sugerir': (elemento) => sugerir(elemento.dataset.texto ?? ''),
 
     // administração
-    'abrir-painel-metricas': () => abrirPainelMetricas(),
     'abrir-novo-usuario': () => abrirNovoUsuario(),
     'editar-espaco': (elemento) => {
       const id = elemento.dataset.id;
@@ -393,7 +519,6 @@ function registrarTodasAsAcoes(): void {
       const id = elemento.dataset.id;
       if (id) escolherEstufa(id);
     },
-    'ir-para': (elemento) => irPara(elemento.dataset.target ?? 'espacos'),
     'filtrar-reservas': (elemento) => {
       const status = elemento.dataset.status as 'todas' | 'pendente' | 'ativa';
       filtrarReservas(status ?? 'todas', elemento);
@@ -464,24 +589,45 @@ function registrarTodasAsAcoes(): void {
       const id = elemento.dataset.id;
       if (id) void recusarProjetoAberto(id);
     },
+    'ver-projeto': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void abrirFichaDoProjeto(id);
+    },
     'abrir-equipe': (elemento) => {
       const id = elemento.dataset.id;
       if (id) abrirEquipe(id);
     },
     'voltar-projetos': () => voltarParaProjetos(),
+
+    // documentos e anotações do projeto
+    'doc-novo': (elemento) => abrirNovoDocumento(elemento.getAttribute('aria-expanded') !== 'true'),
+    'doc-cancelar': () => abrirNovoDocumento(false),
+    'doc-tipo': (elemento) => escolherTipoDoDocumento(elemento.dataset.tipo),
+    'doc-baixar': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void baixarDocumento(id);
+    },
+    'doc-excluir': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) void excluirDocumento(id);
+    },
     'remover-membro': (elemento) => {
       const id = elemento.dataset.id;
       if (id) void removerMembroDaEquipe(id);
     },
-    'abrir-permissoes': (elemento) => {
-      const id = elemento.dataset.id;
-      if (id) abrirPermissoesMembro(id);
-    },
-    'sugerir-permissoes': () => sugerirPermissoesDoPapel(),
+
 
     // histórico de alterações
     'limpar-auditoria': () => limparFiltrosAuditoria(),
     'paginar-auditoria': (elemento) => paginarAuditoria(elemento.dataset.direcao ?? 'proxima'),
+    'auditoria-periodo': (elemento) => escolherPeriodoAuditoria(elemento.dataset.periodo),
+    'auditoria-atalho': (elemento) => escolherAtalhoAuditoria(elemento.dataset.atalho),
+    'auditoria-mais-filtros': () => alternarMaisFiltros(),
+    'auditoria-tirar': (elemento) => tirarFiltroAuditoria(elemento.dataset.campo),
+    'auditoria-abrir': (elemento) => {
+      const id = elemento.dataset.id;
+      if (id) abrirEventoAuditoria(id);
+    },
 
     // editar usuário e reserva
     'editar-usuario': (elemento) => {
@@ -493,8 +639,7 @@ function registrarTodasAsAcoes(): void {
       if (id) abrirEditarReserva(id);
     },
     'excluir-reserva-aberta': () => void excluirReservaAberta(),
-    'salvar-permissoes': () => void salvarPermissoes(),
-    'voltar-equipe': () => voltarParaEquipe(),
+
   });
 }
 
@@ -534,7 +679,10 @@ function ligarFormularios(): void {
   // Mudar a quantidade reconsulta quanto sobra no periodo, sem enxurrada de
   // requisicoes enquanto a pessoa digita.
   const reconsultar = debounce(() => void consultarDisponibilidade(), 400);
-  el<HTMLInputElement>('reservar-quantidade')?.addEventListener('input', () => reconsultar());
+  el('reservar-unidades')?.addEventListener('input', (ev) => {
+    const alvo = ev.target;
+    if (alvo instanceof HTMLInputElement && alvo.hasAttribute('data-unidade-quantidade')) reconsultar();
+  });
 
   el<HTMLFormElement>('form-novo-usuario')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
@@ -549,6 +697,15 @@ function ligarFormularios(): void {
   el<HTMLFormElement>('form-projeto')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
     void confirmarProjeto();
+  });
+
+  // Cartao de projeto: clicar em qualquer parte que nao seja botao abre a
+  // ficha (so o titulo era clicavel e ninguem percebia).
+  el('lista-projetos')?.addEventListener('click', (ev) => {
+    const alvo = ev.target as Element;
+    if (alvo.closest('button, a, input, select, label')) return;
+    const cartao = alvo.closest<HTMLElement>('.pcard[data-projeto]');
+    if (cartao?.dataset.projeto) void abrirFichaDoProjeto(cartao.dataset.projeto);
   });
 
   el<HTMLFormElement>('form-lideranca')?.addEventListener('submit', (ev) => {
@@ -699,6 +856,7 @@ export function iniciarApp(): void {
   // Views pedem troca de tela sem importar a casca (evita ciclo).
   aoNavegar(mostrarSecao);
   iniciarModais();
+  iniciarAjuda();
   iniciarMapa();
   iniciarChat();
 
@@ -713,6 +871,19 @@ export function iniciarApp(): void {
     sincronizarMarcadores();
     if (podeVerSecao('admin')) renderizarAdmin();
   });
+
+  // Permissões relidas (projeto criado, aprovado, equipe mexida): menu, ficha
+  // do mapa e lista de projetos do formulário de reserva acompanham na hora.
+  aoMudarContexto(() => {
+    if (!usuarioAtual()) return;
+    aplicarPermissoesNoMenu();
+    pintarContadorDeConvites();
+    esquecerProjetosDaReserva();
+    sincronizarMarcadores();
+  });
+
+  document.addEventListener('visibilitychange', aoVoltarParaAba);
+  window.addEventListener('focus', aoVoltarParaAba);
 
   // "Tentar de novo" refaz exatamente o que falhou: reler o inventário.
   aoRepetir(() => {

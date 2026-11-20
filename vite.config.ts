@@ -52,8 +52,7 @@ export default defineConfig(({ mode }) => {
      *
      * Daí o intervalo mais folgado e a lista do que o watcher deve ignorar:
      * nada aqui é importado pela aplicação, e cada um deles sozinho já causava
-     * recarregamento (o relatório do Playwright, por exemplo, escreve dezenas
-     * de arquivos ao rodar os testes).
+     * recarregamento.
      */
     watch: {
       // VITE_WATCH_POLLING=false desliga o polling de vez, se a maquina
@@ -68,9 +67,6 @@ export default defineConfig(({ mode }) => {
         '**/.git/**',
         '**/node_modules/**',
         '**/dist/**',
-        '**/tests/**',
-        '**/test-results/**',
-        '**/playwright-report/**',
         // Restos de sincronização do OneDrive.
         '**/*.tmp',
         '**/~$*',

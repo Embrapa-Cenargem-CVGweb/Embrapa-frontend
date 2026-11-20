@@ -8,8 +8,10 @@
  *   ATIVA, RESERVADA, OCUPADA, MANUTENCAO ou INATIVA. RESERVADA e OCUPADA são
  *   bloqueios manuais — a administração segura o espaço sem precisar criar uma
  *   reserva no sistema.
- * - `EstufaStatus` é **derivado** da ocupação do dia e ninguém define à mão:
- *   livre, parcial (parte da capacidade tomada) ou ocupada (capacidade cheia).
+ * - `EstufaStatus` é **derivado** da ocupação e ninguém define à mão: livre,
+ *   parcial (sobra vaga), ocupada (lotada com reservas aprovadas) ou reservada
+ *   (há ao menos um pedido aguardando aprovação, mesmo com capacidade livre).
+ *   Lotada ainda aceita pedido para outro período.
  *   Espaço com situação diferente de ATIVA mostra a própria situação.
  */
 
@@ -37,11 +39,10 @@ export type Tom = 'ok' | 'busy' | 'booked' | 'down' | 'neutral';
 /** Unidade em que a capacidade do espaço é contada. */
 export type UnidadeCapacidade = 'VASO' | 'BANCADA';
 
-/** Capacidade aproximada de vasos, por diâmetro. Informativo. */
-export interface VasosCapacidade {
-  c3: number;
-  c5: number;
-  c10: number;
+/** Vasos de um tamanho: "5 vasos de 3 cm". A estufa tem quantos tamanhos quiser. */
+export interface VasoDoTamanho {
+  tamanho_cm: number;
+  quantidade: number;
 }
 
 export interface Estufa {
@@ -65,10 +66,27 @@ export interface Estufa {
   ocupado: number;
   /** Quanto sobra hoje. */
   disponivel: number;
+  /**
+   * O que se reserva aqui, a unidade principal primeiro. Vasos e bancadas são
+   * contas separadas: numa estufa de vasos, as bancadas também se reservam.
+   */
+  unidades: UnidadeCapacidade[];
+  /** Capacidade de cada unidade reservável. */
+  capacidadePor: Partial<Record<UnidadeCapacidade, number>>;
+  /** Quanto sobra hoje em cada unidade reservável. */
+  livrePor: Partial<Record<UnidadeCapacidade, number>>;
+  /** Há reserva hoje, em qualquer unidade. */
+  algoReservado?: boolean;
   /** Nome do símbolo no sprite, sem o prefixo `i-`. */
   icon: string;
   desc: string;
-  vasos?: VasosCapacidade;
+  /** Vasos por tamanho. Numa estufa de vasos, a soma é a capacidade reservável. */
+  vasos: VasoDoTamanho[];
+  /** Faixa de temperatura em que a estufa é mantida (°C). null = não informada. */
+  temperaturaMin: number | null;
+  temperaturaMax: number | null;
+  /** Por que está fora de uso (manutenção, inativa, bloqueada). Vazio se em uso. */
+  motivo: string;
 }
 
 /** Espaços indexados pela posição no mapa (E01, E02, ...). */
@@ -83,6 +101,8 @@ export interface Reserva {
   dataFim: string;
   /** Quantas unidades (vasos ou bancadas) esta reserva toma. */
   quantidade: number;
+  /** O que a reserva toma: vasos ou bancadas. */
+  unidade: UnidadeCapacidade;
   /** Código do projeto vinculado. */
   projeto: string;
   /** Título do projeto, quando a API o devolve junto. */
@@ -146,6 +166,8 @@ export interface Disponibilidade {
   ocupado: number;
   disponivel: number;
   unidade: UnidadeCapacidade;
+  /** O que se pode reservar na estufa, a principal primeiro. */
+  unidades?: UnidadeCapacidade[];
   aceita_reserva: boolean;
   mensagem: string;
   cabe?: boolean;

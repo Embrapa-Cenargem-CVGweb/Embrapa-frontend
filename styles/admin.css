@@ -61,11 +61,6 @@
   width: 13rem;
 }
 
-/* Realce curto ao chegar numa seção por um atalho de métrica. */
-.section.is-flash .table-wrap {
-  animation: flash var(--dur-3) var(--ease) 2 alternate;
-}
-
 @keyframes flash {
   to {
     border-color: var(--accent);
@@ -73,10 +68,178 @@
 }
 
 /* ===========================================================================
+   Tabela de espaços
+
+   Nove colunas cabem na largura da tela, sem rolagem lateral: as larguras
+   são fixas (table-layout: fixed) e o texto longo quebra dentro da coluna
+   em vez de empurrar a tabela. Antes o motivo do bloqueio ficava numa linha
+   só e a coluna Situação chegava a 470px — o lápis de editar saía da tela.
+   =========================================================================== */
+
+.table--espacos {
+  table-layout: fixed;
+}
+
+.table--espacos .col-codigo { width: 5.5rem; }
+
+.table--espacos .col-nome { width: 14%; }
+
+.table--espacos .col-tipo { width: 11%; }
+
+.table--espacos .col-area { width: 8%; }
+
+.table--espacos .col-capacidade { width: 15%; }
+
+.table--espacos .col-status { width: 7.75rem; }
+
+.table--espacos .col-reservado { width: 16%; }
+
+.table--espacos .col-situacao { width: 18%; }
+
+.table--espacos .col-editar { width: 4.75rem; }
+
+/* Um pouco menos de respiro lateral: nove colunas dividem a mesma largura. */
+.view .table--espacos th,
+.view .table--espacos td {
+  padding-inline: var(--s-3);
+}
+
+.table--espacos th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Quebra so a palavra que nao cabe sozinha (um e-mail, um codigo longo). */
+.table--espacos td {
+  overflow-wrap: break-word;
+}
+
+/* As linhas de detalhe quebram em vez de cortar: aqui elas são a informação. */
+.table--espacos .table__sub {
+  white-space: normal;
+}
+
+.table--espacos .who,
+.table--espacos .table__type {
+  align-items: flex-start;
+}
+
+/* Etiqueta de status inteira: "Manutenção" nunca vira "Manute-nção". */
+.table--espacos .pill {
+  white-space: nowrap;
+}
+
+.table--espacos .status-select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* O motivo do bloqueio pode ser longo: duas linhas e o resto no title. */
+.table--espacos td[data-label="Situação"] .table__sub {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.table--espacos td[data-label="Situação"] .table__actions {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* ===========================================================================
    Responsivo
    =========================================================================== */
 
+/*
+ * Abaixo de ~1200px as nove colunas não cabem sem espremer o texto letra a
+ * letra. Ali cada espaço vira um cartão (o mesmo desenho do celular), em
+ * grade: dois ou três por linha no notebook/tablet, um no celular.
+ */
+@media (width <= 75rem) {
+  .table--espacos,
+  .table--espacos tr,
+  .table--espacos td {
+    display: block;
+  }
+
+  .table--espacos colgroup,
+  .table--espacos thead {
+    display: none;
+  }
+
+  .table--espacos tbody {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr));
+    gap: var(--s-3);
+    padding: var(--s-3);
+  }
+
+  .table--espacos tbody tr {
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+  }
+
+  .table--espacos tbody tr:hover td {
+    background: none;
+  }
+
+  .view .table--espacos td {
+    display: flex;
+    gap: var(--s-3);
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: var(--s-2) var(--s-3);
+    text-align: right;
+  }
+
+  .table--espacos td > * {
+    min-width: 0;
+  }
+
+  .table--espacos td::before {
+    flex: none;
+    content: attr(data-label);
+    font-size: var(--text-xs);
+    color: var(--fg-muted);
+    text-align: left;
+  }
+
+  .table--espacos .table__stack,
+  .table--espacos .table__actions {
+    flex: 1 1 auto;
+    align-items: flex-end;
+  }
+
+  .table--espacos td[data-label="Situação"] .table__actions {
+    align-items: flex-end;
+  }
+
+  .table--espacos .status-select {
+    width: auto;
+    max-width: 14rem;
+  }
+
+  .table--espacos .table__empty {
+    grid-column: 1 / -1;
+  }
+
+  .table--espacos .table__empty td {
+    justify-content: center;
+  }
+
+  .table--espacos .table__empty td::before {
+    content: none;
+  }
+}
+
 @media (width <= 48rem) {
+  .table--espacos tbody {
+    padding: 0;
+  }
+
   .admin {
     display: block;
     flex: none;
@@ -117,16 +280,6 @@
   gap: var(--s-4);
   min-height: 0;
   padding: var(--s-5) var(--s-6);
-}
-
-/*
- * Na página a barra de filtros é um bloco com borda inteira; dentro de um
- * modal ela encosta na parede do diálogo e só precisa da linha de baixo.
- */
-.pagina .barra-filtros {
-  margin-bottom: var(--s-1);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
 }
 
 .paginacao-barra {

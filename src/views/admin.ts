@@ -25,7 +25,6 @@ import {
   ID_REAL_ESPACO,
   ID_REAL_RESERVA,
   carregarEstado,
-  invalidarEstado,
   reservas,
   proximasReservas,
   reservasDoEspaco,
@@ -34,9 +33,8 @@ import {
 import { dadosMudaram } from '../lib/bus';
 import { el, qsa, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
-import { capacidade, dataBR, dataHoraBR, ocupacaoResumo, statusPill } from '../lib/format';
+import { capacidade, dataBR, dataHoraBR, ocupacaoResumo, statusPill, temperaturaTexto, vasosTexto } from '../lib/format';
 import { abrirModal, confirmar, fecharModal, fecharTodosModais } from '../lib/modal';
-import { irParaSecao } from '../lib/navegacao';
 import { avatar, pintarStats } from '../lib/telas';
 import { aviso } from '../lib/toast';
 import {
@@ -49,7 +47,6 @@ import {
   getPessoasOpcoes,
   type PessoaOpcao,
   type ProjetoLiderado,
-  getPainel,
   getSituacaoDoEmail,
   getTiposEspaco,
   type CargoApi,
@@ -76,7 +73,8 @@ import type {
 type FiltroReserva = 'todas' | 'pendente' | 'ativa';
 
 /** Recortes da lista de usuários: perfil, acesso sem senha e desativados. */
-export type FiltroUsuario = 'todos' | 'admin' | 'pesquisador' | 'sem-senha' | 'inativo';
+/** Recorte da lista: todos, um cargo (cargo:Analista), sem senha ou desativados. */
+export type FiltroUsuario = 'todos' | 'sem-senha' | 'inativo' | `cargo:${string}`;
 
 /**
  * O que o administrador pode gravar, na ordem em que a tela mostra. Mesma
@@ -112,88 +110,12 @@ function ehAdmin(): boolean {
 
 export function renderizarAdmin(): void {
   if (!ehAdmin()) return;
-  renderizarMetricas();
   renderizarEspacos();
   renderizarReservas();
   renderizarUsuarios();
 
-  // Números do painel e lista de usuários vêm do back-end.
-  void atualizarDoServidor();
-}
-
-/** Relê do banco o que a tela de administração mostra. */
-async function atualizarDoServidor(): Promise<void> {
-  await Promise.allSettled([atualizarMetricasDaApi(), atualizarUsuariosDaApi()]);
-}
-
-/* ===========================================================================
-   Métricas
-   =========================================================================== */
-
-/**
- * Calcula as métricas com o que está na memória: é o que aparece no primeiro
- * instante, antes da resposta do /painel.
- */
-function renderizarMetricas(): void {
-  const espacos = Object.values(ESTUFAS);
-  const total = espacos.length;
-  const livres = espacos.filter((e) => e.status === 'livre').length;
-  const ocupados = espacos.filter((e) => e.status === 'ocupada' || e.status === 'parcial').length;
-  const manutencao = espacos.filter((e) => e.status === 'manutencao').length;
-  const emAberto = reservas.filter((r) => r.status === 'ativa' || r.status === 'pendente').length;
-  const pendentes = reservas.filter((r) => r.status === 'pendente').length;
-
-  // Taxa pela capacidade, não pelo número de estufas: é o que de fato está
-  // tomado dentro delas. Uma estufa com 1 de 20 vasos não está "ocupada".
-  const capacidadeTotal = espacos.reduce((soma, e) => soma + e.capacidadeTotal, 0);
-  const capacidadeOcupada = espacos.reduce((soma, e) => soma + Math.min(e.ocupado, e.capacidadeTotal), 0);
-  const taxa = capacidadeTotal ? Math.round((capacidadeOcupada / capacidadeTotal) * 100) : 0;
-
-  pintarMetricas({ total, livres, ocupados, manutencao, emAberto, pendentes, taxa });
-}
-
-/** As mesmas métricas, calculadas no back-end sobre o banco inteiro. */
-async function atualizarMetricasDaApi(): Promise<void> {
-  try {
-    const painel = await getPainel();
-    const m = painel?.metricas;
-    if (!m) return;
-
-    pintarMetricas({
-      total: m.total_espacos ?? 0,
-      livres: m.livres ?? 0,
-      ocupados: m.ocupados ?? 0,
-      manutencao: m.manutencao ?? 0,
-      emAberto: m.reservas_em_aberto ?? 0,
-      pendentes: m.pendentes ?? 0,
-      taxa: m.taxa_ocupacao ?? 0,
-    });
-  } catch (erro) {
-    console.warn('[CVGWeb] não foi possível ler o painel da API:', erro);
-  }
-}
-
-interface Metricas {
-  total: number;
-  livres: number;
-  ocupados: number;
-  manutencao: number;
-  emAberto: number;
-  pendentes: number;
-  taxa: number;
-}
-
-function pintarMetricas(m: Metricas): void {
-  setText('m-total', String(m.total));
-  setText('m-livres', String(m.livres));
-  setText('m-reservas', String(m.emAberto));
-  setText('m-pendentes', String(m.pendentes));
-  setText('m-manutencao', String(m.manutencao));
-  setText('m-taxa', `${m.taxa}%`);
-
-  const barra = el('m-taxa-barra');
-  if (barra) barra.style.width = `${m.taxa}%`;
-  el('m-taxa-barra-wrap')?.setAttribute('aria-valuenow', String(m.taxa));
+  // A lista de usuários vem do back-end.
+  void atualizarUsuariosDaApi();
 }
 
 /* ===========================================================================
@@ -208,7 +130,6 @@ function pintarMetricas(m: Metricas): void {
  * resume o resto.
  */
 function celulaReservadoPor(id: string): string {
-  const estufa = ESTUFAS[id];
   const atuais = reservasDoEspaco(id);
 
   if (!atuais.length) return html`<span class="table__muted">&mdash;</span>`;
@@ -222,7 +143,7 @@ function celulaReservadoPor(id: string): string {
         <span class="table__name">
           ${reserva.pesquisador?.trim() || 'Responsável não informado'}
           <span class="table__sub">
-            &middot; ${capacidade(reserva.quantidade, estufa.unidade)}
+            &middot; ${capacidade(reserva.quantidade, reserva.unidade)}
             ${raw(reserva.status === 'pendente'
               ? html` <span class="pill pill--busy">${icone('clock', 'ic ic--sm')}pendente</span>`
               : '')}
@@ -292,13 +213,23 @@ function renderizarEspacos(): void {
             ? html`<span class="table__type">${icone(e.icon, 'ic ic--sm')}${e.tipo}</span>`
             : html`<span class="table__muted">&mdash;</span>`)}
         </td>
-        <td data-label="Área">${e.area}</td>
+        <td data-label="Área">
+          <div class="table__stack">
+            <span>${e.area}</span>
+            ${raw(e.temperaturaMin !== null || e.temperaturaMax !== null
+              ? html`<span class="table__sub">${icone('thermometer', 'ic ic--sm')}${temperaturaTexto(e.temperaturaMin, e.temperaturaMax)}</span>`
+              : '')}
+          </div>
+        </td>
         <td data-label="Capacidade">
           <div class="table__stack">
             <span class="table__name">${ocupacaoResumo(e.disponivel, e.capacidadeTotal, e.unidade)}</span>
-            ${raw(e.cap > 0
-              ? html`<span class="table__sub">${e.cap} ${e.cap === 1 ? 'bancada' : 'bancadas'}</span>`
-              : '')}
+            ${raw(e.unidade === 'VASO' && e.vasos.length ? html`<span class="table__sub">${vasosTexto(e.vasos)}</span>` : '')}
+            ${raw(e.capacidadePor.BANCADA && e.unidade === 'VASO'
+              ? html`<span class="table__sub">${ocupacaoResumo(e.livrePor.BANCADA ?? 0, e.cap, 'BANCADA')} de ${e.cap}</span>`
+              : e.cap > 0
+                ? html`<span class="table__sub">${e.cap} ${e.cap === 1 ? 'bancada' : 'bancadas'}</span>`
+                : '')}
           </div>
         </td>
         <td data-label="Status">${statusPill(e.status)}</td>
@@ -310,6 +241,7 @@ function renderizarEspacos(): void {
                     aria-label="Alterar a situação de ${e.nome}">
               ${raw(opcoesSituacao(e.situacao))}
             </select>
+            ${raw(e.situacao !== 'ATIVA' && e.motivo ? html`<span class="table__sub" title="${e.motivo}">${e.motivo}</span>` : '')}
           </div>
         </td>
         <td data-label="Editar">
@@ -392,12 +324,24 @@ export async function alterarSituacaoEspaco(id: string, situacao: string): Promi
   const anterior = estufa.situacao;
   if (nova === anterior) return;
 
+  // Tirar a estufa de uso: a administração pode dizer por quê. O motivo é
+  // opcional, mas é o que o pesquisador lê em vez de só "manutenção".
+  let motivo: string | null = null;
+  if (nova !== 'ATIVA') {
+    const resposta = await perguntarMotivo(estufa.nome, SITUACOES.find((s) => s.valor === nova)!.label, estufa.motivo);
+    if (resposta === null) {
+      // Desistiu: o seletor volta para o que estava.
+      dadosMudaram();
+      return;
+    }
+    motivo = resposta;
+  }
+
   try {
     const casaId = ID_REAL_ESPACO[id];
     if (!casaId) throw new Error('Espaço sem vínculo com o cadastro; recarregue a página.');
 
-    await atualizarSituacaoEspaco(casaId, nova);
-    invalidarEstado();
+    await atualizarSituacaoEspaco(casaId, nova, motivo);
     await carregarEstado('manter');
   } catch (erro) {
     estufa.situacao = anterior;
@@ -411,6 +355,37 @@ export async function alterarSituacaoEspaco(id: string, situacao: string): Promi
     `${estufa.nome}: ${SITUACOES.find((s) => s.valor === nova)!.label.toLowerCase()}.`,
     'success',
   );
+}
+
+/**
+ * Pergunta por que a estufa vai sair de uso. Devolve o texto (pode ser vazio:
+ * o motivo é opcional) ou null se a pessoa cancelou.
+ */
+async function perguntarMotivo(nome: string, situacao: string, atual: string): Promise<string | null> {
+  // O diálogo é montado na hora por `confirmar`, então o campo só existe
+  // depois; a delegação guarda o que foi digitado enquanto ele está aberto.
+  let motivo = atual;
+  const capturar = (ev: Event): void => {
+    const alvo = ev.target as HTMLInputElement | null;
+    if (alvo?.id === 'situacao-motivo') motivo = alvo.value;
+  };
+  document.addEventListener('input', capturar);
+
+  const ok = await confirmar({
+    titulo: `${nome}: ${situacao.toLowerCase()}?`,
+    mensagem: html`
+      Enquanto estiver assim a estufa não aceita novas reservas. Se quiser, diga o motivo:
+      ele aparece para quem abrir a estufa no mapa e no calendário.
+      <br /><br />
+      <input class="input" id="situacao-motivo" type="text" maxlength="255" value="${atual}"
+             placeholder="Motivo (opcional): troca da cobertura, irrigação parada..."
+             aria-label="Motivo de a estufa sair de uso" />`,
+    confirmar: 'Confirmar',
+    icone: 'wrench',
+  });
+
+  document.removeEventListener('input', capturar);
+  return ok ? motivo.trim() : null;
 }
 
 export function buscarEspacos(termo: string): void {
@@ -443,6 +418,117 @@ function numeroDoCampo(id: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/** Como `numeroDoCampo`, mas aceita casa decimal (temperatura, tamanho do vaso). */
+function decimalDoCampo(id: string): number | null {
+  const bruto = valorDoCampo(id).replace(',', '.');
+  if (bruto === '') return null;
+  const n = Number.parseFloat(bruto);
+  return Number.isNaN(n) ? null : n;
+}
+
+/* ---------------------------------------------------------------------------
+   Vasos por tamanho
+
+   Uma linha por tamanho: "5 vasos de 3 cm". A lista mora no próprio DOM do
+   formulário (não há cópia em variável para sair de sincronia). Numa estufa de
+   vasos com a lista preenchida, a capacidade reservável é a soma — o campo
+   fica só de leitura e acompanha o que se digita.
+   ------------------------------------------------------------------------ */
+
+function linhaDeVaso(quantidade: number | string = '', tamanho: number | string = ''): string {
+  return html`
+    <div class="vasos-ed__linha">
+      <input class="input input--numero" type="number" min="1" step="1" value="${String(quantidade)}"
+             data-vaso="quantidade" placeholder="5" aria-label="Quantidade de vasos" />
+      <span>vasos de</span>
+      <input class="input input--numero" type="number" min="0.5" step="0.5" value="${String(tamanho)}"
+             data-vaso="tamanho" placeholder="3" aria-label="Tamanho do vaso em centímetros" />
+      <span>cm</span>
+      <button type="button" class="btn btn--quiet btn--sm btn--icon" data-action="espaco-remover-vaso"
+              aria-label="Remover este tamanho">
+        ${icone('x', 'ic ic--sm')}
+      </button>
+    </div>`;
+}
+
+function pintarVasos(vasos: { tamanho_cm: number; quantidade: number }[]): void {
+  const lista = el('espaco-vasos');
+  if (lista) lista.innerHTML = juntar(vasos.map((v) => linhaDeVaso(v.quantidade, v.tamanho_cm)));
+  sincronizarVasos();
+}
+
+/** Linhas completas do formulário; `incompleta` avisa se sobrou linha pela metade. */
+function lerVasos(): { vasos: { tamanho_cm: number; quantidade: number }[]; incompleta: boolean } {
+  const vasos: { tamanho_cm: number; quantidade: number }[] = [];
+  let incompleta = false;
+
+  for (const linha of qsa('#espaco-vasos .vasos-ed__linha')) {
+    const q = (linha.querySelector<HTMLInputElement>('[data-vaso="quantidade"]')?.value ?? '').trim();
+    const t = (linha.querySelector<HTMLInputElement>('[data-vaso="tamanho"]')?.value ?? '').trim().replace(',', '.');
+    if (!q && !t) continue;
+
+    const quantidade = Number.parseInt(q, 10);
+    const tamanho = Number.parseFloat(t);
+    if (!(quantidade > 0) || !(tamanho > 0)) {
+      incompleta = true;
+      continue;
+    }
+    vasos.push({ tamanho_cm: tamanho, quantidade });
+  }
+
+  return { vasos, incompleta };
+}
+
+/**
+ * Mantém o formulário coerente: a lista de vasos só existe em estufa contada
+ * em vasos; com linhas preenchidas, a capacidade vira a soma; e o campo de
+ * motivo só aparece quando a situação tira a estufa de uso.
+ */
+function sincronizarVasos(): void {
+  const emVasos = (valorDoCampo('espaco-unidade') || 'VASO') === 'VASO';
+  show(el('espaco-vasos-campo'), emVasos);
+
+  const total = campo<HTMLInputElement>('espaco-capacidade-total');
+  const { vasos } = lerVasos();
+  const somar = emVasos && vasos.length > 0;
+  if (total) {
+    total.readOnly = somar;
+    if (somar) total.value = String(vasos.reduce((n, v) => n + v.quantidade, 0));
+  }
+  setText(
+    'espaco-capacidade-ajuda',
+    somar
+      ? 'A capacidade é a soma dos vasos por tamanho, abaixo. Reduzir para menos do que já está reservado é recusado.'
+      : 'É o que as reservas consomem. Reduzir abaixo do que já está reservado é recusado.',
+  );
+
+  show(el('espaco-motivo-campo'), (valorDoCampo('espaco-situacao') || 'ATIVA') !== 'ATIVA');
+}
+
+export function adicionarVasoNoFormulario(): void {
+  const lista = el('espaco-vasos');
+  if (!lista) return;
+  lista.insertAdjacentHTML('beforeend', linhaDeVaso());
+  lista.querySelector<HTMLInputElement>('.vasos-ed__linha:last-child [data-vaso="quantidade"]')?.focus();
+  sincronizarVasos();
+}
+
+export function removerVasoDoFormulario(botao: HTMLElement): void {
+  botao.closest('.vasos-ed__linha')?.remove();
+  sincronizarVasos();
+}
+
+let formularioDoEspacoLigado = false;
+
+function ligarFormularioDoEspaco(): void {
+  if (formularioDoEspacoLigado) return;
+  formularioDoEspacoLigado = true;
+
+  el('espaco-vasos')?.addEventListener('input', sincronizarVasos);
+  el('espaco-unidade')?.addEventListener('change', sincronizarVasos);
+  el('espaco-situacao')?.addEventListener('change', sincronizarVasos);
+}
+
 function mostrarErroEspaco(mensagem: string | null): void {
   show(el('espaco-erro'), Boolean(mensagem));
   if (mensagem) setText('espaco-erro-texto', mensagem);
@@ -470,6 +556,8 @@ export function abrirEspaco(id?: string): void {
 
   el<HTMLFormElement>('form-espaco')?.reset();
   definirValor('espaco-capacidade-total', 0);
+  ligarFormularioDoEspaco();
+  pintarVasos([]);
   mostrarErroEspaco(null);
   fecharSugestoes();
   preencherListasDeTexto();
@@ -515,12 +603,18 @@ function carregarEspacoNoFormulario(id: string): void {
   definirValor('espaco-area', estufa.area.replace(/\D/g, ''));
   definirValor('espaco-bancadas', estufa.cap || '');
   definirValor('espaco-obs', estufa.desc);
+  definirValor('espaco-temp-min', estufa.temperaturaMin);
+  definirValor('espaco-temp-max', estufa.temperaturaMax);
+  definirValor('espaco-motivo', estufa.motivo);
 
   const unidade = el<HTMLSelectElement>('espaco-unidade');
   if (unidade) unidade.value = estufa.unidade;
 
   const situacao = el<HTMLSelectElement>('espaco-situacao');
   if (situacao) situacao.value = estufa.situacao;
+
+  // Depois da unidade e da situação: é delas que depende o que aparece.
+  pintarVasos(estufa.vasos);
 
   mostrarErroEspaco(null);
   marcarAlvo(id);
@@ -833,6 +927,23 @@ export async function confirmarEspaco(): Promise<void> {
     return;
   }
 
+  const unidadeEscolhida = (valorDoCampo('espaco-unidade') || 'VASO') as UnidadeCapacidade;
+  const { vasos, incompleta } = lerVasos();
+  if (unidadeEscolhida === 'VASO' && incompleta) {
+    mostrarErroEspaco('Em "Vasos por tamanho", preencha a quantidade e o tamanho de cada linha, ou remova a linha.');
+    return;
+  }
+
+  const temperaturaMin = decimalDoCampo('espaco-temp-min');
+  const temperaturaMax = decimalDoCampo('espaco-temp-max');
+  if (temperaturaMin !== null && temperaturaMax !== null && temperaturaMin > temperaturaMax) {
+    mostrarErroEspaco('A temperatura máxima não pode ser menor do que a mínima.');
+    campo<HTMLInputElement>('espaco-temp-max')?.focus();
+    return;
+  }
+
+  const situacaoEscolhida = (valorDoCampo('espaco-situacao') || 'ATIVA') as EstufaSituacao;
+
   const dados: DadosEspaco = {
     codigo,
     descricao,
@@ -843,10 +954,15 @@ export async function confirmarEspaco(): Promise<void> {
     area_m2: numeroDoCampo('espaco-area'),
     // Bancadas em branco é "não mexe", não "zero": a coluna é NOT NULL.
     capacidade: numeroDoCampo('espaco-bancadas') ?? undefined,
-    unidade_capacidade: (valorDoCampo('espaco-unidade') || 'VASO') as UnidadeCapacidade,
+    unidade_capacidade: unidadeEscolhida,
     capacidade_total: capacidadeTotal,
+    // Estufa contada em bancadas não tem lista de vasos.
+    vasos: unidadeEscolhida === 'VASO' ? vasos : [],
+    temperatura_min: temperaturaMin,
+    temperatura_max: temperaturaMax,
     obs: valorDoCampo('espaco-obs') || null,
-    status: (valorDoCampo('espaco-situacao') || 'ATIVA') as EstufaSituacao,
+    status: situacaoEscolhida,
+    motivo_situacao: situacaoEscolhida === 'ATIVA' ? null : valorDoCampo('espaco-motivo') || null,
   };
 
   const botao = el<HTMLButtonElement>('espaco-enviar');
@@ -886,7 +1002,6 @@ async function gravarEspacoNaApi(dados: DadosEspaco): Promise<void> {
     await criarEspaco(dados);
   }
 
-  invalidarEstado();
   await carregarEstado('manter');
 }
 
@@ -956,7 +1071,7 @@ function linhaDeReserva(r: Reserva): string {
           ? html`<span class="who">${avatar(r.pesquisador)}${r.pesquisador}</span>`
           : html`<span class="table__muted">não informado</span>`)}
       </td>
-      <td data-label="Quantidade">${capacidade(r.quantidade, estufa?.unidade ?? 'VASO')}</td>
+      <td data-label="Quantidade">${capacidade(r.quantidade, r.unidade)}</td>
       <td data-label="Projeto" class="table__truncate" title="${r.projeto}">
         ${raw(r.projeto ? html`${r.projeto}` : html`<span class="table__muted">&mdash;</span>`)}
       </td>
@@ -1014,7 +1129,6 @@ export async function aprovarReserva(id: string): Promise<void> {
     if (!real) throw new Error('Reserva sem vínculo com o cadastro; recarregue a página.');
 
     await apiAprovar(real);
-    invalidarEstado();
     await carregarEstado('manter');
   } catch (erro) {
     aviso(erro instanceof Error ? erro.message : 'Não foi possível aprovar.', 'error');
@@ -1036,7 +1150,7 @@ export async function cancelarReserva(id: string): Promise<void> {
     titulo: 'Cancelar esta reserva?',
     mensagem: html`
       A reserva <strong>${reserva.id}</strong> de ${nome}
-      (${capacidade(reserva.quantidade, estufa?.unidade ?? 'VASO')}, a partir de
+      (${capacidade(reserva.quantidade, reserva.unidade)}, a partir de
       ${dataBR(reserva.data)}) sai da agenda e a capacidade volta a ficar
       disponível. Não é possível desfazer.`,
     icone: 'calendar-x',
@@ -1098,6 +1212,7 @@ function renderizarUsuarios(): void {
 
   const todos = listarUsuarios();
   const eu = usuarioAtual();
+  pintarChipsDeCargo(todos);
 
   const semSenha = todos.filter((u) => u.situacao === 'CONVITE_PENDENTE');
   pintarBadge('badge-sem-senha', semSenha.length);
@@ -1135,12 +1250,47 @@ function renderizarUsuarios(): void {
   corpo.innerHTML = juntar(linhas.map((u) => linhaDeUsuario(u, eu)));
 }
 
+/** O cargo como está no cadastro agora ("Sem cargo" quando não há). */
+function cargoDe(u: Usuario): string {
+  return u.cargoId ? u.cargo : 'Sem cargo';
+}
+
+/**
+ * Um chip por cargo que alguém tem hoje, com quantas pessoas. Antes eram dois
+ * chips fixos ("Administradores" e "Pesquisadores", que era todo mundo que não
+ * fosse adm): uma analista aparecia como pesquisadora.
+ */
+function pintarChipsDeCargo(todos: readonly Usuario[]): void {
+  const alvo = el('chips-cargos');
+  if (!alvo) return;
+
+  const contagem = new Map<string, number>();
+  for (const u of todos) contagem.set(cargoDe(u), (contagem.get(cargoDe(u)) ?? 0) + 1);
+  const cargos = [...contagem.keys()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  // O cargo filtrado sumiu (ninguém mais tem): volta para todos.
+  if (filtroUsuarios.startsWith('cargo:') && !contagem.has(filtroUsuarios.slice(6))) {
+    filtroUsuarios = 'todos';
+    for (const chip of qsa('[data-action="filtrar-usuarios"]')) {
+      chip.setAttribute('aria-checked', String(chip.dataset.filtro === 'todos'));
+    }
+  }
+
+  alvo.innerHTML = juntar(cargos.map((cargo) => {
+    const filtro = `cargo:${cargo}`;
+    return html`<button type="button" class="chip" role="radio" aria-checked="${String(filtroUsuarios === filtro)}"
+                        data-action="filtrar-usuarios" data-filtro="${filtro}">
+                  ${cargo} <span class="chip__conta">${String(contagem.get(cargo) ?? 0)}</span>
+                </button>`;
+  }));
+}
+
 function cabeNoFiltroDeUsuario(u: Usuario): boolean {
+  if (filtroUsuarios.startsWith('cargo:')) {
+    return cargoDe(u) === filtroUsuarios.slice('cargo:'.length);
+  }
+
   switch (filtroUsuarios) {
-    case 'admin':
-      return u.admin;
-    case 'pesquisador':
-      return !u.admin;
     case 'sem-senha':
       return u.situacao === 'CONVITE_PENDENTE';
     case 'inativo':
@@ -1625,35 +1775,6 @@ export async function confirmarPassagemDeLideranca(): Promise<void> {
   fecharModal(el('modal-lideranca'));
   renderizarUsuarios();
   aviso(`Liderança passada adiante e acesso de ${nome} desativado.`, 'info');
-}
-
-/* ===========================================================================
-   Navegação interna
-   =========================================================================== */
-
-export function irPara(destino: string): void {
-  fecharTodosModais();
-
-  if (destino.startsWith('reservas')) {
-    const status = destino.split('-')[1] as FiltroReserva | undefined;
-    filtrarReservas(status ?? 'todas');
-    irParaSecao('reservas');
-    return;
-  }
-
-  irParaSecao('admin');
-
-  const secao = el('sec-espacos');
-  if (!secao) return;
-  secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  secao.classList.add('is-flash');
-  window.setTimeout(() => secao.classList.remove('is-flash'), 900);
-}
-
-export function abrirPainelMetricas(): void {
-  renderizarMetricas();
-  void atualizarMetricasDaApi();
-  abrirModal('modal-metricas');
 }
 
 /** Entrada da seção de reservas: a casca chama ao mostrar a tela. */
