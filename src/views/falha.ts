@@ -127,10 +127,6 @@ export function aoRepetir(ouvinte: AoRepetir): void {
   aoRepetirOuvinte = ouvinte;
 }
 
-export function falhaVisivel(): boolean {
-  return el('tela-falha')?.hidden === false;
-}
-
 /**
  * Mostra a tela.
  *

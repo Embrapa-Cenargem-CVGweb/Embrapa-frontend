@@ -25,7 +25,6 @@ import {
   ID_REAL_ESPACO,
   ID_REAL_RESERVA,
   carregarEstado,
-  invalidarEstado,
   reservas,
   proximasReservas,
   reservasDoEspaco,
@@ -343,7 +342,6 @@ export async function alterarSituacaoEspaco(id: string, situacao: string): Promi
     if (!casaId) throw new Error('Espaço sem vínculo com o cadastro; recarregue a página.');
 
     await atualizarSituacaoEspaco(casaId, nova, motivo);
-    invalidarEstado();
     await carregarEstado('manter');
   } catch (erro) {
     estufa.situacao = anterior;
@@ -1004,7 +1002,6 @@ async function gravarEspacoNaApi(dados: DadosEspaco): Promise<void> {
     await criarEspaco(dados);
   }
 
-  invalidarEstado();
   await carregarEstado('manter');
 }
 
@@ -1132,7 +1129,6 @@ export async function aprovarReserva(id: string): Promise<void> {
     if (!real) throw new Error('Reserva sem vínculo com o cadastro; recarregue a página.');
 
     await apiAprovar(real);
-    invalidarEstado();
     await carregarEstado('manter');
   } catch (erro) {
     aviso(erro instanceof Error ? erro.message : 'Não foi possível aprovar.', 'error');

@@ -50,8 +50,9 @@
 
 <body>
 
-<!-- Sprite de icones (Lucide, ISC). Gerado de assets/icons.svg por
-     `npm run icons` — não editar à mão. -->
+<!-- Sprite de icones (Lucide, ISC), inline de proposito: <use href> externo
+     nao funciona no Safari. Para um icone novo, copie o SVG de lucide.dev e
+     acrescente um <symbol id="i-nome" viewBox="0 0 24 24"> aqui dentro. -->
 <!-- icons:start -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
 <!-- Icones: Lucide (lucide-static v1.50.0), licenca ISC. Apenas o subconjunto usado. -->
@@ -621,22 +622,39 @@
                 </div>
               </dl>
 
-              <div class="gauge">
-                <h3 class="gauge__title" id="painel-capacidade-titulo">Capacidade</h3>
-                <div class="gauge__body">
-                  <div class="gauge__ring">
-                    <svg viewBox="0 0 36 36" aria-hidden="true">
-                      <circle class="gauge__track" cx="18" cy="18" r="15.9155" />
-                      <circle class="gauge__arc" id="painel-arco" cx="18" cy="18" r="15.9155" stroke-dasharray="0 100" />
-                    </svg>
-                    <span class="gauge__num" id="painel-capacidade">&mdash;</span>
+              <div class="gauge-pair">
+                <div class="gauge">
+                  <h3 class="gauge__title" id="painel-capacidade-titulo">Capacidade</h3>
+                  <div class="gauge__body">
+                    <div class="gauge__ring">
+                      <svg viewBox="0 0 36 36" aria-hidden="true">
+                        <circle class="gauge__track" cx="18" cy="18" r="15.9155" />
+                        <circle class="gauge__arc" id="painel-arco" cx="18" cy="18" r="15.9155" stroke-dasharray="0 100" />
+                      </svg>
+                      <span class="gauge__num" id="painel-capacidade">&mdash;</span>
+                    </div>
+                    <ul class="gauge__legend">
+                      <li><span class="gauge__dot gauge__dot--uso" aria-hidden="true"></span><span id="painel-em-uso">&mdash;</span></li>
+                      <li><span class="gauge__dot" aria-hidden="true"></span><span id="painel-disponiveis">&mdash;</span></li>
+                      <li id="painel-pico-linha" class="gauge__pico" hidden><span class="gauge__dot gauge__dot--pico" aria-hidden="true"></span><span id="painel-pico">&mdash;</span></li>
+                    </ul>
                   </div>
-                  <ul class="gauge__legend">
-                    <li><span class="gauge__dot gauge__dot--uso" aria-hidden="true"></span><span id="painel-em-uso">&mdash;</span></li>
-                    <li><span class="gauge__dot" aria-hidden="true"></span><span id="painel-disponiveis">&mdash;</span></li>
-                    <li id="painel-bancadas-linha" hidden><span class="gauge__dot" aria-hidden="true"></span><span id="painel-bancadas">&mdash;</span></li>
-                    <li id="painel-pico-linha" class="gauge__pico" hidden><span class="gauge__dot gauge__dot--pico" aria-hidden="true"></span><span id="painel-pico">&mdash;</span></li>
-                  </ul>
+                </div>
+                <div class="gauge gauge--secondary" id="painel-gauge-secundario" hidden>
+                  <h3 class="gauge__title" id="painel-secundario-titulo">Capacidade hoje</h3>
+                  <div class="gauge__body">
+                    <div class="gauge__ring">
+                      <svg viewBox="0 0 36 36" aria-hidden="true">
+                        <circle class="gauge__track" cx="18" cy="18" r="15.9155" />
+                        <circle class="gauge__arc" id="painel-secundario-arco" cx="18" cy="18" r="15.9155" stroke-dasharray="0 100" />
+                      </svg>
+                      <span class="gauge__num" id="painel-secundario-capacidade">&mdash;</span>
+                    </div>
+                    <ul class="gauge__legend">
+                      <li><span class="gauge__dot gauge__dot--uso" aria-hidden="true"></span><span id="painel-secundario-em-uso">&mdash;</span></li>
+                      <li><span class="gauge__dot" aria-hidden="true"></span><span id="painel-secundario-disponiveis">&mdash;</span></li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
@@ -732,8 +750,22 @@
           </div>
 
           <div class="table-wrap">
-            <table class="table">
+            <table class="table table--espacos">
               <caption class="sr-only">Espaços experimentais, com área, capacidade disponível, quem reservou e a situação editável</caption>
+              <!-- Larguras fixas: sem elas o texto mais comprido de cada coluna
+                   (o motivo do bloqueio, a lista de vasos) esticava a tabela
+                   para fora da tela e aparecia a rolagem lateral. -->
+              <colgroup>
+                <col class="col-codigo" />
+                <col class="col-nome" />
+                <col class="col-tipo" />
+                <col class="col-area" />
+                <col class="col-capacidade" />
+                <col class="col-status" />
+                <col class="col-reservado" />
+                <col class="col-situacao" />
+                <col class="col-editar" />
+              </colgroup>
               <thead>
                 <tr>
                   <th scope="col">Código</th>
@@ -775,49 +807,51 @@
           <span id="cal-conflitos-texto"></span>
         </p>
 
-        <!-- Cabeçalho no padrão das outras telas (page-head + chips): à esquerda
-             a navegação e o período, à direita o que contar, o modo e a ajuda. -->
-        <div class="page-head cal-cab">
-          <div class="cal-cab__nav">
-            <button type="button" class="btn btn--quiet btn--sm" data-action="cal-hoje">Hoje</button>
-            <div class="cal-cab__setas">
-              <button type="button" class="cal-cab__seta" data-action="cal-andar" data-passo="-1" aria-label="Anterior">
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-left" /></svg>
-              </button>
-              <button type="button" class="cal-cab__seta" data-action="cal-andar" data-passo="1" aria-label="Próximo">
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-right" /></svg>
-              </button>
-            </div>
-            <h2 class="page-head__title cal-cab__titulo" id="cal-titulo" aria-live="polite">&mdash;</h2>
-            <!-- No mês de uma estufa: o selo dela, com o X que desmarca, e o voltar. -->
-            <div class="cal-cab__estufa" id="cal-estufa-btn" hidden>
-              <button type="button" class="btn btn--quiet btn--sm" data-action="cal-voltar">
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-chevron-left" /></svg>
-                Todas as estufas
-              </button>
-              <span class="cal-barra__estufa">
-                <svg class="ic ic--sm" aria-hidden="true"><use href="#i-warehouse" /></svg>
-                <span id="cal-estufa-nome">&mdash;</span>
-                <button type="button" class="cal-barra__estufa-x" data-action="cal-voltar" aria-label="Desmarcar a estufa e voltar para todas">
-                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
-                </button>
-              </span>
+        <!-- Cabeçalho em três partes: o modo à esquerda, o período no centro
+             (setas dos dois lados e "Hoje"), o que contar e a ajuda à direita.
+             Embaixo do período, a estufa aberta no mês. -->
+        <div class="cal-cab">
+          <div class="cal-cab__lado">
+            <div class="cal-seg" role="radiogroup" aria-label="Modo de exibição">
+              <button type="button" class="cal-seg__opcao" role="radio" aria-checked="false" data-action="cal-modo" data-modo="semana">Semana</button>
+              <button type="button" class="cal-seg__opcao" role="radio" aria-checked="true" data-action="cal-modo" data-modo="mes">Mês</button>
             </div>
           </div>
 
-          <div class="page-head__actions">
-            <div class="chips" role="radiogroup" aria-label="O que contar">
-              <button type="button" class="chip" role="radio" aria-checked="true" data-action="cal-unidade" data-unidade="VASO">Vasos</button>
-              <button type="button" class="chip" role="radio" aria-checked="false" data-action="cal-unidade" data-unidade="BANCADA">Bancadas</button>
+          <div class="cal-cab__centro">
+            <div class="cal-cab__periodo">
+              <button type="button" class="cal-cab__seta" data-action="cal-andar" data-passo="-1" aria-label="Anterior">
+                <svg class="ic" aria-hidden="true"><use href="#i-chevron-left" /></svg>
+              </button>
+              <h2 class="cal-cab__titulo" id="cal-titulo" aria-live="polite">&mdash;</h2>
+              <button type="button" class="cal-cab__seta" data-action="cal-andar" data-passo="1" aria-label="Próximo">
+                <svg class="ic" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+              </button>
+              <button type="button" class="btn btn--quiet btn--sm cal-cab__hoje" data-action="cal-hoje">Hoje</button>
             </div>
-            <div class="chips" role="radiogroup" aria-label="Modo de exibição">
-              <button type="button" class="chip" role="radio" aria-checked="false" data-action="cal-modo" data-modo="semana">Semana</button>
-              <button type="button" class="chip" role="radio" aria-checked="true" data-action="cal-modo" data-modo="duas">2 semanas</button>
-              <button type="button" class="chip" role="radio" aria-checked="false" data-action="cal-modo" data-modo="mes">Mês</button>
+            <div class="cal-cab__contexto" aria-live="polite">
+              <span class="cal-cab__todas" id="cal-estufa-todas" hidden>Todas as estufas</span>
+              <!-- No mês de uma estufa: o selo dela; o X volta para todas. -->
+              <div class="cal-cab__estufa" id="cal-estufa-btn" hidden>
+                <span class="cal-barra__estufa">
+                  <svg class="ic ic--sm" aria-hidden="true"><use href="#i-warehouse" /></svg>
+                  <span id="cal-estufa-nome">&mdash;</span>
+                  <button type="button" class="cal-barra__estufa-x" data-action="cal-voltar" aria-label="Desmarcar a estufa e voltar para todas">
+                    <svg class="ic ic--sm" aria-hidden="true"><use href="#i-x" /></svg>
+                  </button>
+                </span>
+              </div>
             </div>
-            <button type="button" class="btn btn--quiet btn--sm" data-action="abrir" data-modal="modal-cal-legenda">
-              <svg class="ic ic--sm" aria-hidden="true"><use href="#i-circle-question-mark" /></svg>
-              Como ler
+          </div>
+
+          <div class="cal-cab__lado cal-cab__lado--fim">
+            <div class="cal-seg" role="radiogroup" aria-label="O que contar">
+              <button type="button" class="cal-seg__opcao" role="radio" aria-checked="true" data-action="cal-unidade" data-unidade="VASO">Vasos</button>
+              <button type="button" class="cal-seg__opcao" role="radio" aria-checked="false" data-action="cal-unidade" data-unidade="BANCADA">Bancadas</button>
+            </div>
+            <button type="button" class="cal-cab__ajuda" data-action="abrir" data-modal="modal-cal-legenda"
+                    aria-label="Como ler o calendário" title="Como ler o calendário">
+              <svg class="ic" aria-hidden="true"><use href="#i-circle-question-mark" /></svg>
             </button>
           </div>
         </div>
@@ -850,7 +884,7 @@
             </section>
 
             <section class="cal-caixa" aria-labelledby="cal-estufas-titulo" id="cal-caixa-estufas" hidden>
-              <h3 class="cal-caixa__titulo" id="cal-estufas-titulo">Estufas · livres hoje</h3>
+              <h3 class="cal-caixa__titulo" id="cal-estufas-titulo">Capacidade hoje</h3>
               <div class="cal-estufas" id="cal-estufas"></div>
             </section>
 
@@ -1107,13 +1141,6 @@
                      placeholder="Buscar por pessoa, registro ou tipo" />
             </div>
 
-            <div class="log-periodo" role="group" aria-label="Período">
-              <button type="button" class="chip" aria-pressed="false" data-action="auditoria-periodo" data-periodo="hoje">Hoje</button>
-              <button type="button" class="chip" aria-pressed="false" data-action="auditoria-periodo" data-periodo="7">7 dias</button>
-              <button type="button" class="chip" aria-pressed="false" data-action="auditoria-periodo" data-periodo="30">30 dias</button>
-              <button type="button" class="chip" aria-pressed="true" data-action="auditoria-periodo" data-periodo="tudo">Tudo</button>
-            </div>
-
             <button type="button" class="btn btn--quiet btn--sm log-barra__mais" id="auditoria-mais"
                     data-action="auditoria-mais-filtros" aria-expanded="false" aria-controls="auditoria-avancado">
               <svg class="ic ic--sm" aria-hidden="true"><use href="#i-funnel" /></svg>
@@ -1122,6 +1149,15 @@
           </div>
 
           <div class="log-avancado" id="auditoria-avancado" hidden>
+            <div class="field log-avancado__periodo">
+              <span class="field__label">Período</span>
+              <div class="log-periodo" role="group" aria-label="Período">
+                <button type="button" class="chip" aria-pressed="false" data-action="auditoria-periodo" data-periodo="hoje">Hoje</button>
+                <button type="button" class="chip" aria-pressed="false" data-action="auditoria-periodo" data-periodo="7">7 dias</button>
+                <button type="button" class="chip" aria-pressed="false" data-action="auditoria-periodo" data-periodo="30">30 dias</button>
+                <button type="button" class="chip" aria-pressed="true" data-action="auditoria-periodo" data-periodo="tudo">Tudo</button>
+              </div>
+            </div>
             <div class="field">
               <label class="field__label" for="auditoria-acao">Ação</label>
               <select class="select" id="auditoria-acao" data-change="filtro-auditoria" data-campo="acao"></select>
@@ -1146,14 +1182,15 @@
               <label class="field__label" for="auditoria-ate">Até</label>
               <input class="input" type="date" id="auditoria-ate" data-change="filtro-auditoria" data-campo="ate" />
             </div>
+            <div class="log-avancado__atalhos">
+              <span class="field__label">Atalhos rápidos</span>
+              <div class="log-atalhos" id="auditoria-atalhos" role="group" aria-label="Atalhos de filtro"></div>
+            </div>
           </div>
 
           <!-- O que está filtrando agora, cada um com o seu X. -->
           <div class="log-marcas" id="auditoria-marcas" hidden></div>
         </div>
-
-        <!-- Atalhos: cada um é um filtro pronto, com o número do período. -->
-        <div class="log-atalhos" id="auditoria-atalhos" role="group" aria-label="Atalhos de filtro"></div>
 
         <div class="section audit-section" id="sec-auditoria">
           <div class="log-lista__topo">
@@ -2157,27 +2194,11 @@
         </div>
       </div>
 
-      <!-- Só aparece quando a estufa tem vasos E bancadas para reservar. -->
       <div class="field" id="reservar-unidades-campo" hidden>
         <span class="field__label" id="reservar-unidades-rotulo">O que você quer reservar</span>
-        <div class="segmented" id="reservar-unidades" role="radiogroup" aria-labelledby="reservar-unidades-rotulo"></div>
-      </div>
-
-      <div class="field">
-        <label class="field__label" for="reservar-quantidade">
-          Quantas unidades você precisa
-        </label>
-        <div class="field__inline">
-          <input class="input input--numero" type="number" id="reservar-quantidade"
-                 name="quantidade" min="1" step="1" value="1" required
-                 aria-describedby="reservar-quantidade-ajuda" />
-          <span class="field__sufixo" id="reservar-unidade">vasos</span>
-        </div>
-        <!-- VASO ou BANCADA; os botões de #reservar-unidades mudam este valor. -->
-        <input type="hidden" id="reservar-unidade-valor" name="unidade" value="VASO" />
+        <div class="reserva-unidades" id="reservar-unidades" aria-labelledby="reservar-unidades-rotulo"></div>
         <p class="field__hint" id="reservar-quantidade-ajuda">
-          Você reserva só o que vai usar; o resto da estufa continua disponível
-          para outro pesquisador no mesmo período.
+          Marque vasos, bancadas ou os dois. Cada quantidade é conferida para o mesmo período.
         </p>
       </div>
 
@@ -2314,8 +2335,9 @@
         <ul class="cal-ajuda__lista cal-ajuda__lista--numeros">
           <li><span class="cal-ajuda__exemplo"><span class="cal-num">12</span></span><span>Estufa toda livre.</span></li>
           <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-parcial>8</span></span><span>Parte reservada: sobram 8.</span></li>
+          <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-pendente>8</span></span><span>Ainda sobram 8, mas há pedido aguardando aprovação.</span></li>
           <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-lotada="ATIVA">0</span></span><span>Lotada com reservas aprovadas.</span></li>
-          <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-lotada="PENDENTE">0</span></span><span>Lotada contando pedidos ainda não aprovados.</span></li>
+          <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-lotada="PENDENTE">0</span></span><span>Sem vagas, com pedido ainda aguardando aprovação.</span></li>
           <li><span class="cal-ajuda__exemplo"><span class="cal-num" data-conflito>!</span></span><span>Mais reservado do que cabe: clique no dia para ver quais reservas se cruzam.</span></li>
         </ul>
       </section>
@@ -2327,7 +2349,7 @@
           <li><strong>Num dia:</strong> mostra a estufa naquele dia — quem está lá, quanto sobra — e deixa reservar a partir dele.</li>
           <li><strong>No nome da estufa:</strong> abre o mês inteiro dela.</li>
           <li><strong>No mini calendário:</strong> leva até o dia escolhido.</li>
-          <li><strong>Semana, 2 semanas e Mês:</strong> trocam o tanto de dias na tela. No Mês aparece uma estufa por vez; troque pela lista ao lado.</li>
+          <li><strong>Semana e Mês:</strong> trocam o período na tela. No Mês aparece uma estufa por vez; troque pela lista ao lado.</li>
         </ul>
       </section>
     </div>

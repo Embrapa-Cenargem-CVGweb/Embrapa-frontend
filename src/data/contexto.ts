@@ -72,19 +72,10 @@ export async function recarregarContexto(): Promise<Contexto | null> {
   return contexto;
 }
 
-export function ehAdm(): boolean {
-  return contexto?.adm === true;
-}
-
 /** Uma das capacidades que o back-end resume em `pode`. */
 export function pode(chave: keyof Contexto['pode']): boolean {
   if (!contexto) return false;
   return contexto.adm || contexto.pode[chave] === true;
-}
-
-/** Projetos da pessoa, incluindo os que ainda aguardam aprovação. */
-export function meusProjetos(): ProjetoDoContexto[] {
-  return contexto?.projetos ?? [];
 }
 
 /**

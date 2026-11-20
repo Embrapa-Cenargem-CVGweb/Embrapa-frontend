@@ -8,10 +8,10 @@
  *   ATIVA, RESERVADA, OCUPADA, MANUTENCAO ou INATIVA. RESERVADA e OCUPADA são
  *   bloqueios manuais — a administração segura o espaço sem precisar criar uma
  *   reserva no sistema.
- * - `EstufaStatus` é **derivado** da ocupação do dia e ninguém define à mão:
- *   livre, parcial (sobra vaga), ocupada (lotada com reservas aprovadas) ou
- *   reservada (lotada contando pedidos que aguardam aprovação). Lotada ainda
- *   aceita pedido para outro período.
+ * - `EstufaStatus` é **derivado** da ocupação e ninguém define à mão: livre,
+ *   parcial (sobra vaga), ocupada (lotada com reservas aprovadas) ou reservada
+ *   (há ao menos um pedido aguardando aprovação, mesmo com capacidade livre).
+ *   Lotada ainda aceita pedido para outro período.
  *   Espaço com situação diferente de ATIVA mostra a própria situação.
  */
 

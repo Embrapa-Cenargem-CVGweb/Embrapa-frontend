@@ -13,7 +13,7 @@ const STATUS: Record<StatusKey, StatusInfo> = {
   // Parte da capacidade tomada: ainda dá para reservar o que sobrou.
   parcial: { label: 'Parcial', tom: 'booked', icon: 'calendar-check' },
   ocupada: { label: 'Ocupada', tom: 'busy', icon: 'user' },
-  // Lotada com pedido ainda esperando aprovação (ou bloqueio da administração).
+  // Há pedido esperando aprovação (ou bloqueio da administração), mesmo parcial.
   reservada: { label: 'Reservada', tom: 'booked', icon: 'calendar-check' },
   manutencao: { label: 'Manutenção', tom: 'down', icon: 'wrench' },
   inativa: { label: 'Inativa', tom: 'neutral', icon: 'ban' },

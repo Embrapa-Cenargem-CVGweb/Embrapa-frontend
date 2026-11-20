@@ -57,7 +57,8 @@ function grupoDe(status: EstufaStatus | 'indefinido'): Grupo {
 function nomeAcessivel(id: string): string {
   const estufa = ESTUFAS[id];
   if (!estufa) return `${id}, sem dados`;
-  return `${estufa.nome}, ${statusInfo(estufa.status).label.toLowerCase()}`;
+  const pendente = proximasReservas(id).some((r) => r.status === 'pendente');
+  return `${estufa.nome}, ${statusInfo(estufa.status).label.toLowerCase()}${pendente ? ', há pedido aguardando aprovação' : ''}`;
 }
 
 /** "06/11 a 13/11/2026": o ano só se repete quando muda. */
@@ -690,13 +691,23 @@ function preencherCapacidade(estufa: Estufa, id: string): void {
     );
   }
 
-  // As bancadas de uma estufa de vasos se reservam à parte: a linha extra
-  // diz quantas sobram hoje.
-  const bancadas = estufa.unidade === 'VASO' ? estufa.capacidadePor.BANCADA ?? 0 : 0;
-  show(el('painel-bancadas-linha'), bancadas > 0);
-  if (bancadas > 0) {
-    const livres = estufa.livrePor.BANCADA ?? 0;
-    setText('painel-bancadas', `${livres} de ${bancadas} ${bancadas === 1 ? 'bancada livre' : 'bancadas livres'}`);
+  // A capacidade da segunda unidade fica num medidor próprio. Assim uma
+  // estufa com 20 vasos e 14 bancadas mostra as duas escalas sem misturá-las.
+  const secundario = estufa.unidades.find((u) => u !== estufa.unidade);
+  const totalSecundario = secundario ? estufa.capacidadePor[secundario] ?? 0 : 0;
+  const painelSecundario = el('painel-gauge-secundario');
+  show(painelSecundario, Boolean(secundario && totalSecundario > 0));
+  if (secundario && totalSecundario > 0) {
+    const nomeSecundario = secundario === 'VASO' ? 'vasos' : 'bancadas';
+    const ocupadoSecundario = Math.min(totalSecundario, totalSecundario - (estufa.livrePor[secundario] ?? totalSecundario));
+    const livreSecundario = estufa.livrePor[secundario] ?? totalSecundario;
+    const arcoSecundario = document.getElementById('painel-secundario-arco');
+    setText('painel-secundario-titulo', `Capacidade hoje (${nomeSecundario})`);
+    setText('painel-secundario-capacidade', `${ocupadoSecundario}/${totalSecundario}`);
+    setText('painel-secundario-em-uso', `${ocupadoSecundario} em uso`);
+    setText('painel-secundario-disponiveis', `${livreSecundario} ${livreSecundario === 1 ? 'disponível' : 'disponíveis'}`);
+    arcoSecundario?.setAttribute('stroke-dasharray', `${(ocupadoSecundario / totalSecundario) * 100} 100`);
+    arcoSecundario?.toggleAttribute('hidden', ocupadoSecundario === 0);
   }
 
   const arco = document.getElementById('painel-arco');

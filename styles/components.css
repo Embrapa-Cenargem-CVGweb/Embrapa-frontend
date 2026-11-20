@@ -34,6 +34,7 @@
 }
 
 .btn--primary:hover:not(:disabled) { background: var(--accent-hover); }
+
 .btn--primary:active:not(:disabled) { background: var(--accent-active); }
 
 .btn--quiet {
@@ -615,52 +616,77 @@
   background: var(--down-soft);
 }
 
-/* --- Grupo de opções exclusivas (radiogroup) ---------------------------- */
-
-.segmented {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+/* Reserva conjunta de vasos e bancadas, com uma quantidade por unidade. */
+.reserva-unidades {
+  display: flex;
+  flex-direction: column;
   gap: var(--s-2);
 }
 
-.segmented__option {
+.reserva-unidade {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-3);
+  align-items: center;
+  padding: var(--s-2) var(--s-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+
+.reserva-unidade[data-selecionada="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.reserva-unidade__opcao {
   display: flex;
   gap: var(--s-2);
   align-items: center;
-  justify-content: center;
-  min-height: 2.5rem;
-  padding: 0 var(--s-3);
+  min-width: 0;
+  cursor: pointer;
+}
+
+.reserva-unidade__opcao input {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.reserva-unidade__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
   font-size: var(--text-sm);
-  font-weight: var(--fw-medium);
-  color: var(--fg-2);
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-md);
-  transition: background var(--dur-1) var(--ease),
-    border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
-}
-
-.segmented__option:hover {
-  background: var(--surface-3);
-}
-
-.segmented__option:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.segmented__sub {
-  font-size: var(--text-xs);
-  font-weight: var(--fw-regular);
   color: var(--fg-muted);
 }
 
-.segmented__option[aria-checked="true"] {
+.reserva-unidade__texto strong {
   font-weight: var(--fw-semibold);
-  color: var(--accent-soft-fg);
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  color: var(--fg-2);
+}
+
+.reserva-unidade__quantidade .input.input--numero {
+  width: 5.5rem;
+}
+
+.reserva-unidade__quantidade .input:disabled {
+  color: var(--fg-muted);
+  background: var(--surface-2);
+}
+
+@media (width <= 34rem) {
+  .reserva-unidade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reserva-unidade__quantidade {
+    padding-left: 1.5rem;
+  }
 }
 
 /* ===========================================================================
@@ -696,9 +722,13 @@
 }
 
 .pill--ok { color: var(--ok-soft-fg); background: var(--ok-soft); }
+
 .pill--busy { color: var(--busy-soft-fg); background: var(--busy-soft); }
+
 .pill--booked { color: var(--booked-soft-fg); background: var(--booked-soft); }
+
 .pill--down { color: var(--down-soft-fg); background: var(--down-soft); }
+
 .pill--neutral { color: var(--fg-muted); background: var(--surface-3); }
 
 /* Contador discreto ao lado de um título de seção. */
@@ -900,9 +930,13 @@
  * casava — a faixa ficava sempre cinza.
  */
 .status-select[data-status="ativa"] { border-left-color: var(--ok); }
+
 .status-select[data-status="reservada"] { border-left-color: var(--booked); }
+
 .status-select[data-status="ocupada"] { border-left-color: var(--busy); }
+
 .status-select[data-status="manutencao"] { border-left-color: var(--down); }
+
 .status-select[data-status="inativa"] { border-left-color: var(--line-strong); }
 
 /* ===========================================================================
@@ -1436,7 +1470,9 @@
 }
 
 .toast[data-kind="success"] { --toast-accent: var(--ok); }
+
 .toast[data-kind="error"] { --toast-accent: var(--down); }
+
 .toast[data-kind="info"] { --toast-accent: var(--booked); }
 
 .toast .ic {
@@ -1496,10 +1532,23 @@
 
   .table td {
     display: flex;
-    gap: var(--s-4);
-    align-items: center;
+    gap: var(--s-3);
+    align-items: flex-start;
     justify-content: space-between;
     text-align: right;
+  }
+
+  .table td > * {
+    min-width: 0;
+  }
+
+  .table__stack,
+  .table__actions {
+    flex: 1 1 auto;
+  }
+
+  .table__actions {
+    flex-wrap: wrap;
   }
 
   .table td::before {
@@ -1591,34 +1640,6 @@
   background: var(--surface);
 }
 
-.perm__check {
-  flex: none;
-  width: 1.05rem;
-  height: 1.05rem;
-  margin-top: 0.1rem;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.perm__texto {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.perm__rotulo {
-  font-size: var(--text-sm);
-  font-weight: var(--fw-medium);
-  color: var(--fg);
-}
-
-.perm__desc {
-  font-size: var(--text-xs);
-  line-height: var(--lh-snug);
-  color: var(--fg-muted);
-}
-
 @media (width <= 48rem) {
   .barra-inclusao {
     grid-template-columns: 1fr;
@@ -1633,12 +1654,10 @@
    Histórico de alterações
 
    A barra de filtros é a mesma ideia da barra de inclusão da equipe: o recorte
-   fica acima da tabela, não escondido atrás de um botão. A célula de diff
+   fica acima da tabela,
+não escondido atrás de um botão. A célula de diff
    mostra de→para em duas linhas; o valor antigo fica apagado e o novo em
-   destaque, e a seta carrega o sentido — nunca a cor sozinha.
-   --------------------------------------------------------------------------- */
-
-.barra-filtros {
+   destaque {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) 9rem 9rem;
   gap: var(--s-3);
@@ -1646,58 +1665,6 @@
   padding: var(--s-3) var(--s-4);
   background: var(--surface-2);
   border-bottom: 1px solid var(--line);
-}
-
-.barra-filtros .field {
-  margin-bottom: 0;
-}
-
-.diff {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-1);
-}
-
-.diff__item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.diff__campo {
-  font-size: var(--text-xs);
-  color: var(--fg-muted);
-}
-
-.diff__valores {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2);
-  align-items: center;
-}
-
-.diff__de,
-.diff__para {
-  padding: 0.1rem 0.35rem;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  border-radius: var(--r-xs);
-}
-
-.diff__de {
-  color: var(--fg-muted);
-  background: var(--surface-3);
-}
-
-.diff__para {
-  font-weight: var(--fw-medium);
-  color: var(--fg);
-  background: var(--accent-soft);
-}
-
-.diff__seta {
-  flex: none;
-  color: var(--fg-muted);
 }
 
 /* Rodapé com algo à esquerda e as ações à direita (paginação, excluir). */
@@ -1734,16 +1701,7 @@
   background: var(--busy-soft);
 }
 
-@media (width <= 60rem) {
-  .barra-filtros {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (width <= 40rem) {
-  .barra-filtros {
-    grid-template-columns: 1fr;
-  }
 
   .dialog__foot--espalhado {
     flex-direction: column-reverse;
@@ -1851,6 +1809,20 @@
 .log-avancado .field {
   margin-bottom: 0;
   min-width: 0;
+}
+
+.log-avancado__periodo {
+  grid-column: 1 / -1;
+}
+
+.log-avancado__atalhos {
+  grid-column: 1 / -1;
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+
+.log-avancado__atalhos .field__label {
+  margin-bottom: var(--s-2);
 }
 
 /* Marcas do que está filtrando agora */
@@ -1962,7 +1934,9 @@
 }
 
 .log-atalho[data-tom="ruim"] .log-atalho__icone { color: var(--log-ruim-texto); background: var(--log-ruim-fundo); }
+
 .log-atalho[data-tom="atencao"] .log-atalho__icone { color: var(--log-atencao-texto); background: var(--log-atencao-fundo); }
+
 .log-atalho[data-tom="muda"] .log-atalho__icone { color: var(--log-muda-texto); background: var(--log-muda-fundo); }
 
 .log-atalho__texto {
@@ -1981,7 +1955,9 @@
 }
 
 .log-atalho[data-tom="ruim"] .log-atalho__numero { color: var(--log-ruim-texto); }
+
 .log-atalho[data-tom="atencao"] .log-atalho__numero { color: var(--log-atencao-texto); }
+
 .log-atalho[data-tom="muda"] .log-atalho__numero { color: var(--log-muda-texto); }
 
 .log-atalho__rotulo {
@@ -2102,8 +2078,11 @@
 }
 
 .log-evento[data-tom="ok"] .log-evento__ponto { background: var(--log-ok); }
+
 .log-evento[data-tom="muda"] .log-evento__ponto { background: var(--log-muda); }
+
 .log-evento[data-tom="ruim"] .log-evento__ponto { background: var(--log-ruim); }
+
 .log-evento[data-tom="atencao"] .log-evento__ponto { background: var(--log-atencao); }
 
 .log-evento__corpo {
@@ -2138,8 +2117,11 @@
 }
 
 .log-evento[data-tom="ok"] .log-evento__pill { color: var(--log-ok-texto); background: var(--log-ok-fundo); }
+
 .log-evento[data-tom="muda"] .log-evento__pill { color: var(--log-muda-texto); background: var(--log-muda-fundo); }
+
 .log-evento[data-tom="ruim"] .log-evento__pill { color: var(--log-ruim-texto); background: var(--log-ruim-fundo); }
+
 .log-evento[data-tom="atencao"] .log-evento__pill { color: var(--log-atencao-texto); background: var(--log-atencao-fundo); }
 
 .log-evento__abrir {
@@ -2415,6 +2397,7 @@
 input[list]::-webkit-calendar-picker-indicator {
   display: none !important;
 }
+
 /* --- Modal "Permissões" (tela de usuários) -------------------------------
    Faixa da pessoa no topo, blocos com chaves liga/desliga no meio e um único
    "Salvar alterações" no rodapé, que conta o que foi mexido. */

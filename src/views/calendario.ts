@@ -2,7 +2,7 @@
  * Calendário de ocupação, no jeito do calendário do Teams.
  *
  * Três modos:
- * - Semana e 2 semanas: linha do tempo com uma faixa por estufa. Cada reserva
+ * - Semana: linha do tempo com uma faixa por estufa. Cada reserva
  *   é uma barra do dia em que começa até o dia em que termina; reservas que se
  *   cruzam vão uma embaixo da outra; embaixo de cada dia, quantos vasos (ou
  *   bancadas) sobram.
@@ -112,7 +112,7 @@ function diaCurto(dia: string): string {
    Estado
    =========================================================================== */
 
-type Modo = 'semana' | 'duas' | 'mes';
+type Modo = 'semana' | 'mes';
 type Filtro = 'todas' | 'vaga' | 'lotadas' | 'fora';
 
 interface Linha {
@@ -125,18 +125,20 @@ interface Linha {
   minha: Record<UnidadeCapacidade, boolean[]>;
 }
 
-let modo: Modo = 'duas';
+let modo: Modo = 'mes';
 /** Dia que o calendário mostra; o intervalo sai dele e do modo. */
 let ancora = hojeISO();
-/** Mês do mini calendário, que anda sozinho sem mexer na grade. */
+/** Mês do mini calendário. Anda junto com a grade: trocar o mês nele leva a grade junto. */
 let mesDoMini = inicioDoMes(ancora);
+/** Dia clicado no mini calendário: fica destacado até a próxima navegação. */
+let diaEscolhido: string | null = null;
 let unidade: UnidadeCapacidade = 'VASO';
 let filtro: Filtro = 'todas';
 let busca = '';
 /** Estufa da visão de mês (id do cadastro). */
 let estufaDoMes: number | null = null;
 /** De onde se entrou no mês, para o "voltar" devolver ao mesmo modo. */
-let modoAntesDoMes: Exclude<Modo, 'mes'> = 'duas';
+let modoAntesDoMes: Exclude<Modo, 'mes'> = 'semana';
 /** Ao voltar do mês, a grade rola até a estufa que estava aberta. */
 let rolarParaEstufa: number | null = null;
 
@@ -158,7 +160,7 @@ function intervalo(): { de: string; ate: string } {
     return { de: domingoDe(inicioDoMes(ancora)), ate: somarDias(domingoDe(fimDoMes(ancora)), 6) };
   }
   const de = domingoDe(ancora);
-  return { de, ate: somarDias(de, modo === 'semana' ? 6 : 13) };
+  return { de, ate: somarDias(de, 6) };
 }
 
 function diasDe(de: string, ate: string): string[] {
@@ -228,9 +230,9 @@ function noDia(linha: Linha, dia: string, u: UnidadeCapacidade): Situacao {
   };
 }
 
-/** Lotada só com as aprovadas (laranja) ou com pedido pendente no meio (azul)? */
-function lotadaPorAprovadas(s: Situacao): boolean {
-  return s.cap !== null && s.tomado - s.pendente >= s.cap;
+/** Qualquer pedido pendente colore a disponibilidade de azul. */
+function temPendente(s: Situacao): boolean {
+  return s.pendente > 0;
 }
 
 /** O dia de referência dos resumos: hoje, se está na tela; senão, o primeiro dia mostrado. */
@@ -355,6 +357,7 @@ function pintarControles(): void {
   }
 
   // No mês o assunto é uma estufa: a lista dela toma o lugar dos filtros.
+  show(el('cal-estufa-todas'), modo !== 'mes');
   show(el('cal-estufa-btn'), modo === 'mes');
   show(el('cal-caixa-filtros'), modo !== 'mes');
   show(el('cal-caixa-estufas'), modo === 'mes');
@@ -380,6 +383,7 @@ function pintarMini(): void {
       dia === hoje ? 'data-hoje' : '',
       dia >= de && dia <= ate ? 'data-mostrado' : '',
       dia.slice(0, 7) !== mes ? 'data-fora' : '',
+      dia === diaEscolhido ? 'data-escolhido aria-current="date"' : '',
     ].filter(Boolean).join(' ');
     return html`
       <button type="button" class="cal-mini__dia" ${raw(atributos)} data-action="cal-ir" data-dia="${dia}"
@@ -418,7 +422,7 @@ function pintarFiltros(): void {
     </button>`));
 }
 
-/** Na visão de mês: a lista de estufas para trocar, com o que sobra hoje. */
+/** Na visão de mês: a lista compacta de estufas e a disponibilidade de hoje. */
 function pintarListaDeEstufas(): void {
   const alvo = el('cal-estufas');
   if (!alvo) return;
@@ -427,8 +431,8 @@ function pintarListaDeEstufas(): void {
   alvo.innerHTML = juntar(linhasVisiveis().map((linha) => {
     const s = noDia(linha, hoje, unidade);
     const fora = !linha.casa.aceita_reserva;
-    const texto = fora ? '—' : s.cap === null ? '—' : `${s.livre}/${s.cap}`;
-    const tom = fora ? 'fora' : s.cap !== null && s.livre === 0 ? (lotadaPorAprovadas(s) ? 'ATIVA' : 'PENDENTE') : 'livre';
+    const tom = fora ? 'fora' : s.pendente ? 'PENDENTE' : s.cap !== null && s.livre === 0 ? 'ATIVA' : 'livre';
+    const texto = fora || s.cap === null ? '—' : `${s.livre}/${s.cap}`;
     return html`
       <button type="button" class="cal-estufa" data-action="cal-escolher-estufa" data-casa="${linha.casa.id}"
               aria-current="${String(linha.casa.id === estufaDoMes)}">
@@ -515,9 +519,10 @@ function rotuloDoDia(linha: Linha, dia: string, s: Situacao): string {
     return `${nome}: ${(ROTULO_DA_SITUACAO[linha.casa.status] ?? 'fora de uso').toLowerCase()}`;
   }
   if (s.cap === null) return `${nome}: sem ${nomeDaUnidade(unidade)} para reservar`;
-  if (s.conflito) return `${nome}: ${s.tomado} reservados para ${capacidade(s.cap, unidade)} — conflito`;
+  const pendencia = s.pendente ? `; ${s.pendente} ${nomeDaUnidade(unidade)} aguardando aprovação` : '';
+  if (s.conflito) return `${nome}: ${s.tomado} reservados para ${capacidade(s.cap, unidade)} — conflito${pendencia}`;
   if (s.livre === 0) return `${nome}: lotada${s.pendente ? ', com pedido aguardando aprovação' : ''}`;
-  return `${nome}: ${s.livre} de ${capacidade(s.cap, unidade)} ${s.livre === 1 ? 'livre' : 'livres'}`;
+  return `${nome}: ${s.livre} de ${capacidade(s.cap, unidade)} ${s.livre === 1 ? 'livre' : 'livres'}${pendencia}`;
 }
 
 /** Número que vai embaixo de cada dia: o que sobra. Vazio quando não se aplica. */
@@ -528,9 +533,9 @@ function selo(linha: Linha, dia: string, s: Situacao): string {
 
   if (s.conflito) return html`<span class="cal-num" data-conflito ${raw(sua)}>!</span>`;
   if (s.livre === 0) {
-    return html`<span class="cal-num" data-lotada="${lotadaPorAprovadas(s) ? 'ATIVA' : 'PENDENTE'}" ${raw(sua)}>0</span>`;
+    return html`<span class="cal-num" data-lotada="${temPendente(s) ? 'PENDENTE' : 'ATIVA'}" ${raw(sua)}>0</span>`;
   }
-  return html`<span class="cal-num" ${raw(s.livre < s.cap ? 'data-parcial' : '')} ${raw(sua)}>${String(s.livre)}</span>`;
+  return html`<span class="cal-num" ${raw(s.livre < s.cap ? 'data-parcial' : '')} ${raw(s.pendente ? 'data-pendente' : '')} ${raw(sua)}>${String(s.livre)}</span>`;
 }
 
 /** Texto da barra conforme a largura: barras curtas mostram menos. */
@@ -665,6 +670,7 @@ function faixaDaEstufa(linha: Linha, dias: string[], l: number, hoje: string): s
       <button type="button" class="tl__dia" data-action="cal-dia" data-casa="${linha.casa.id}" data-dia="${dia}"
               data-l="${String(l)}" data-c="${String(c)}" tabindex="${l === 0 && c === 0 ? '0' : '-1'}"
               ${raw(dia === hoje ? 'data-hoje' : '')} ${raw(semana === 0 || semana === 6 ? 'data-fds' : '')}
+              ${raw(sd.pendente ? 'data-pendente' : '')}
               ${raw(dia < hoje ? 'data-passado' : '')}
               style="grid-column: ${String(c + 2)}" aria-label="${rotulo}" title="${rotulo}">
         ${raw(selo(linha, dia, sd))}
@@ -681,10 +687,11 @@ function faixaDaEstufa(linha: Linha, dias: string[], l: number, hoje: string): s
     resumo = `Sem ${nomeDaUnidade(unidade)}`;
     tom = 'sem';
   } else if (s.livre === 0) {
-    tom = lotadaPorAprovadas(s) ? 'ATIVA' : 'PENDENTE';
+    tom = temPendente(s) ? 'PENDENTE' : 'ATIVA';
     resumo = `${tom === 'ATIVA' ? 'Lotada' : 'Reservada'} · 0 de ${s.cap}`;
   } else {
-    resumo = `${s.livre} de ${capacidade(s.cap, unidade)} ${s.livre === 1 ? 'livre' : 'livres'}`;
+    tom = temPendente(s) ? 'PENDENTE' : 'livre';
+    resumo = `${s.livre} de ${capacidade(s.cap, unidade)} ${s.livre === 1 ? 'livre' : 'livres'}${s.pendente ? ` · ${s.pendente} pendente${s.pendente === 1 ? '' : 's'}` : ''}`;
   }
   const pct = s.cap ? Math.round((s.livre / s.cap) * 100) : 0;
 
@@ -779,16 +786,22 @@ function pintarMes(corpo: HTMLElement): void {
       let livre = '';
       if (doMes && s.cap !== null && !(fora && dia >= hoje)) {
         if (s.conflito) livre = html`<span class="cal-num" data-conflito>!</span>`;
-        else if (s.livre === 0) livre = html`<span class="cal-num" data-lotada="${lotadaPorAprovadas(s) ? 'ATIVA' : 'PENDENTE'}">Lotada</span>`;
-        else livre = html`<span class="cal-num" ${raw(s.livre < s.cap ? 'data-parcial' : '')}>${String(s.livre)} ${s.livre === 1 ? 'livre' : 'livres'}</span>`;
+        else if (s.livre === 0) livre = html`<span class="cal-num" data-lotada="${temPendente(s) ? 'PENDENTE' : 'ATIVA'}">Lotada</span>`;
+        else livre = html`<span class="cal-num" ${raw(s.livre < s.cap ? 'data-parcial' : '')} ${raw(s.pendente ? 'data-pendente' : '')}>${String(s.livre)} ${s.livre === 1 ? 'livre' : 'livres'}</span>`;
       }
+      const pendencia = doMes && s.pendente > 0
+        ? html`<span class="mesg__pendente">${s.pendente} pendente${s.pendente === 1 ? '' : 's'}</span>`
+        : '';
+      const meta = livre || pendencia
+        ? html`<span class="mesg__meta">${raw(livre)}${raw(pendencia)}</span>`
+        : '';
       return html`
         <button type="button" class="mesg__dia" data-action="cal-dia" data-casa="${linha.casa.id}" data-dia="${dia}"
                 data-l="${String(w)}" data-c="${String(c)}" tabindex="${w === 0 && c === 0 ? '0' : '-1'}"
-                ${raw(dia === hoje ? 'data-hoje' : '')} ${raw(doMes ? '' : 'data-fora-mes')} ${raw(dia < hoje ? 'data-passado' : '')}
+                ${raw(dia === hoje ? 'data-hoje' : '')} ${raw(doMes ? '' : 'data-fora-mes')} ${raw(s.pendente ? 'data-pendente' : '')} ${raw(dia < hoje ? 'data-passado' : '')}
                 style="grid-column: ${String(c + 1)}" aria-label="${rotulo}" title="${rotulo}">
           <span class="mesg__num">${dia.slice(0, 7) === mes ? String(Number(dia.slice(8))) : `${Number(dia.slice(8))}/${Number(dia.slice(5, 7))}`}</span>
-          ${raw(livre)}
+          ${raw(meta)}
         </button>`;
     });
 
@@ -942,7 +955,7 @@ function medidor(linha: Linha, dia: string, u: UnidadeCapacidade): string {
   if (s.cap === null) return '';
 
   const pct = s.cap ? Math.min(100, Math.round((s.tomado / s.cap) * 100)) : 0;
-  const tom = s.conflito ? 'conflito' : s.livre === 0 ? 'cheia' : s.tomado === 0 ? 'livre' : 'parcial';
+  const tom = s.conflito ? 'conflito' : temPendente(s) ? 'pendente' : s.livre === 0 ? 'cheia' : s.tomado === 0 ? 'livre' : 'parcial';
 
   return html`
     <div class="cal-medidor" data-tom="${tom}">
@@ -1092,15 +1105,29 @@ function reservar(casaId: number, inicio: string, fim: string): void {
    Navegação
    =========================================================================== */
 
-function irPara(dia: string): void {
+/**
+ * Leva a grade até o dia: na semana, mostra a semana dele; no mês, o mês dele.
+ * O mini calendário acompanha. `escolhido` marca o dia no mini (clique num dia);
+ * as outras navegações (setas, Hoje) limpam a marca.
+ */
+function irPara(dia: string, escolhido: string | null = null): void {
   ancora = dia;
   mesDoMini = inicioDoMes(dia);
+  diaEscolhido = escolhido;
   garantirCobertura();
 }
 
 function andar(passo: number): void {
   if (modo === 'mes') irPara(mesVizinho(ancora, passo));
-  else irPara(somarDias(ancora, passo * (modo === 'semana' ? 7 : 14)));
+  else irPara(somarDias(ancora, passo * 7));
+}
+
+/**
+ * Setas do mini calendário: o mês muda nele e na grade. No mês, a grade
+ * mostra o mês novo; na semana, a primeira semana dele (a que tem o dia 1).
+ */
+function andarPeloMini(passo: number): void {
+  irPara(mesVizinho(mesDoMini, passo));
 }
 
 /* ===========================================================================
@@ -1112,19 +1139,17 @@ export const acoesDoCalendario: Record<string, (elemento: HTMLElement) => void> 
   'cal-hoje': () => irPara(hojeISO()),
   'cal-andar': (elemento) => andar(Number(elemento.dataset.passo ?? 0)),
   'cal-ir': (elemento) => {
-    if (elemento.dataset.dia) irPara(elemento.dataset.dia);
+    const dia = elemento.dataset.dia;
+    if (dia) irPara(dia, dia);
   },
-  'cal-mini-mes': (elemento) => {
-    mesDoMini = mesVizinho(mesDoMini, Number(elemento.dataset.passo ?? 0));
-    pintarMini();
-  },
+  'cal-mini-mes': (elemento) => andarPeloMini(Number(elemento.dataset.passo ?? 0)),
   'cal-modo': (elemento) => {
     const novo = elemento.dataset.modo;
     if (novo === 'mes') {
       entrarNoMes(null);
       return;
     }
-    modo = novo === 'semana' ? 'semana' : 'duas';
+    modo = 'semana';
     garantirCobertura();
   },
   'cal-unidade': (elemento) => {

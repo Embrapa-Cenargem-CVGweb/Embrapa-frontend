@@ -147,7 +147,7 @@ import {
   consultarDisponibilidade,
   consultarDisponibilidadeDaEdicao,
   editarReservaAberta,
-  escolherUnidade,
+  alternarUnidade,
   esquecerProjetosDaReserva,
   excluirReservaAberta,
   guardarRascunhoDaReserva,
@@ -493,8 +493,7 @@ function registrarTodasAsAcoes(): void {
       abrirModalReservar(id, inicio ? { inicio, fim: inicio, unidade } : undefined);
     },
     'reservar-unidade': (elemento) => {
-      escolherUnidade(elemento.dataset.unidade);
-      guardarRascunhoDaReserva();
+      alternarUnidade(elemento.dataset.unidade);
     },
     ...acoesDoCalendario,
     'ver-reserva': (elemento) => {
@@ -680,7 +679,10 @@ function ligarFormularios(): void {
   // Mudar a quantidade reconsulta quanto sobra no periodo, sem enxurrada de
   // requisicoes enquanto a pessoa digita.
   const reconsultar = debounce(() => void consultarDisponibilidade(), 400);
-  el<HTMLInputElement>('reservar-quantidade')?.addEventListener('input', () => reconsultar());
+  el('reservar-unidades')?.addEventListener('input', (ev) => {
+    const alvo = ev.target;
+    if (alvo instanceof HTMLInputElement && alvo.hasAttribute('data-unidade-quantidade')) reconsultar();
+  });
 
   el<HTMLFormElement>('form-novo-usuario')?.addEventListener('submit', (ev) => {
     ev.preventDefault();

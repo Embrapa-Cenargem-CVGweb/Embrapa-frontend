@@ -14,7 +14,6 @@
  * dizia CVG05.
  */
 import type { Estufa, Estufas, EstufaStatus, Reserva, UnidadeCapacidade } from '../types';
-import { dadosMudaram } from '../lib/bus';
 import { getCalendario, getCasasVegetacao, getReservas, type CalendarioOcupacao } from '../services/api';
 import { hojeISO } from '../lib/format';
 
@@ -47,13 +46,6 @@ function somarDias(iso: string, dias: number): string {
  */
 export const ID_REAL_ESPACO: Record<string, number> = {};
 export const ID_REAL_RESERVA: Record<string, number> = {};
-
-/** Quando os dados foram lidos pela última vez (epoch ms). 0 = nunca. */
-let lidoEm = 0;
-
-export function ultimaLeitura(): number {
-  return lidoEm;
-}
 
 /* ===========================================================================
    API
@@ -247,7 +239,6 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
     }
 
     recalcularOcupacao();
-    lidoEm = Date.now();
   } catch (erro) {
     if (aoFalhar === 'manter') {
       console.warn('[CVGWeb] falha ao reler da API; mantendo o estado atual:', erro);
@@ -257,42 +248,13 @@ export async function carregarEstado(aoFalhar: 'avisar' | 'manter' = 'avisar'): 
   }
 }
 
-/** Força a próxima consulta a reler da API. */
-export function invalidarEstado(): void {
-  lidoEm = 0;
-}
-
-/**
- * Garante que o estado não está velho antes de alguém consultá-lo.
- *
- * O assistente chama isto antes de cada pergunta: as reservas mudam o tempo
- * todo e quem respondeu "a E03 está livre" dois minutos atrás pode estar
- * errado agora.
- *
- * Releituras seguidas dentro da janela são ignoradas, para que uma sequência
- * de perguntas não vire uma sequência de chamadas à API.
- */
-export async function garantirEstadoFresco(janelaMs = 15_000): Promise<void> {
-  if (lidoEm && Date.now() - lidoEm < janelaMs) return;
-
-  try {
-    await carregarEstado('manter');
-  } catch {
-    // Sem rede, responde com o último estado conhecido: o campo "Atualização"
-    // do prompt mostra de quando ele é.
-    return;
-  }
-
-  // Mapa, marcadores e administração acompanham o que o assistente leu.
-  dadosMudaram();
-}
-
 /* ===========================================================================
    Ocupação
    =========================================================================== */
 
 /**
  * Recalcula quanto de cada espaço está tomado HOJE e qual situação mostrar.
+ * Um pedido pendente futuro também mantém o marcador azul para a equipe.
  *
  * Esta é a conta que estava errada: o código antigo comparava `r.data === hoje`
  * e só marcava o espaço como ocupado quando a reserva COMEÇAVA no dia. Uma
@@ -317,15 +279,11 @@ export function recalcularOcupacao(data = hojeISO()): void {
     // Bancada reservada também tira a estufa de "livre".
     estufa.algoReservado = doDia.length > 0;
 
-    // Lotaria só com as aprovadas? Então está ocupada; se o que completa a
-    // conta são pedidos esperando a administração, está reservada.
-    const aprovado = doDia
-      .filter((r) => r.status === 'ativa' && r.unidade === estufa.unidade)
-      .reduce((total, r) => total + (r.quantidade || 1), 0);
-    const capacidadePrincipal = estufa.capacidadePor[estufa.unidade] ?? 0;
-    const lotadaPorAprovadas = capacidadePrincipal > 0 && aprovado >= capacidadePrincipal;
+    // Qualquer pedido aguardando aprovação deixa o espaço azul, mesmo quando
+    // ainda sobra capacidade. O marcador precisa chamar a atenção da equipe.
+    const temPendente = proximasReservas(chave, data).some((r) => r.status === 'pendente');
 
-    estufa.status = situacaoVisivel(estufa, lotadaPorAprovadas);
+    estufa.status = situacaoVisivel(estufa, temPendente);
   }
 }
 
@@ -334,26 +292,29 @@ export function recalcularOcupacao(data = hojeISO()): void {
  *
  * A cadastral manda sempre que não é ATIVA: um espaço que a administração
  * marcou como reservado ou ocupado não aparece livre só porque não há reserva
- * registrada nele. Com ATIVA, quem decide é a ocupação do dia.
+ * registrada nele. Com ATIVA, a ocupação de hoje decide a disponibilidade; um
+ * pedido pendente próximo também deixa o marcador azul para a administração.
  *
- * As cores do mapa, pela ocupação do dia:
- * - verde (livre/parcial): sobra vaga na unidade principal;
+ * As cores do mapa, pela ocupação de hoje e pedidos pendentes próximos:
+ * - verde (livre/parcial): sobra vaga na unidade principal e não há pedido
+ *   aguardando aprovação;
  * - laranja (ocupada): a unidade principal lotou com reservas já aprovadas;
- * - azul (reservada): lotou, mas parte disso é pedido que a administração
- *   ainda não aprovou.
+ * - azul (reservada): há pelo menos um pedido aguardando aprovação, mesmo que
+ *   ainda sobre capacidade.
  * Conta a unidade principal (os vasos, na estufa de vasos): bancadas avulsas
  * que sobram não deixam a estufa verde. Antes ela só saía do verde quando
  * vasos E bancadas acabavam — a Estufa 01 com os 9 vasos tomados seguia
  * "parcial", pintada como livre.
  */
-function situacaoVisivel(estufa: Estufa, lotadaPorAprovadas: boolean): EstufaStatus {
+function situacaoVisivel(estufa: Estufa, temPendente: boolean): EstufaStatus {
   if (estufa.situacao === 'MANUTENCAO') return 'manutencao';
   if (estufa.situacao === 'INATIVA') return 'inativa';
   if (estufa.situacao === 'RESERVADA') return 'reservada';
   if (estufa.situacao === 'OCUPADA') return 'ocupada';
+  if (temPendente) return 'reservada';
   if (!estufa.algoReservado) return 'livre';
   if (!principalEsgotada(estufa) && unidadesComVaga(estufa).length > 0) return 'parcial';
-  return lotadaPorAprovadas ? 'ocupada' : 'reservada';
+  return 'ocupada';
 }
 
 /** A unidade principal tem capacidade e não sobra nada dela hoje. */

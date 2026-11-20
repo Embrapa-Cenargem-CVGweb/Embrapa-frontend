@@ -19,10 +19,6 @@ const CAMINHO_DEFINIR = '/definir-senha';
 /** Preenchido ao salvar: a tela de entrada recebe o usuário já digitado. */
 let usuarioParaEntrada = '';
 
-export function usuarioSugeridoNaEntrada(): string {
-  return usuarioParaEntrada;
-}
-
 /* ===========================================================================
    Esqueci minha senha (dentro do cartão de entrada)
    =========================================================================== */

@@ -15,13 +15,12 @@ import {
   ID_REAL_RESERVA,
   aceitaReserva,
   carregarEstado,
-  invalidarEstado,
   reservas,
   unidadesComVaga,
 } from '../data/estufas';
 import type { Estufa, UnidadeCapacidade } from '../types';
 import { dadosMudaram } from '../lib/bus';
-import { el, qsa, setText, show } from '../lib/dom';
+import { el, qs, setText, show } from '../lib/dom';
 import { html, icone, juntar, raw } from '../lib/html';
 import { capacidade, dataBR, hojeISO, ocupacaoResumo, plural, statusPill, temperaturaTexto } from '../lib/format';
 import { abrirModal, confirmar, fecharModal, fecharTodosModais, trocarModal } from '../lib/modal';
@@ -35,7 +34,7 @@ import {
 import {
   cancelarReserva as apiCancelar,
   atualizarReserva,
-  criarReserva,
+  criarReservasEmLote,
   excluirReserva,
   getDisponibilidade,
 } from '../services/api';
@@ -356,7 +355,9 @@ const CAMPOS_RASCUNHO = [
   'reservar-data-inicio',
   'reservar-data-fim',
   'reservar-quantidade',
-  'reservar-unidade-valor',
+  'reservar-quantidade-extra',
+  'reservar-selecionar-vaso',
+  'reservar-selecionar-bancada',
   'reservar-projeto',
   'reservar-finalidade',
 ] as const;
@@ -395,9 +396,12 @@ export function guardarRascunhoDaReserva(): void {
   // Formulário vazio não vira rascunho: senão abrir e fechar já deixava lixo.
   const temAlgo = CAMPOS_RASCUNHO.some((id) => {
     const v = campos[id] ?? '';
-    // A unidade sempre tem valor: sozinha ela não faz um rascunho.
-    if (id === 'reservar-unidade-valor') return false;
-    return id === 'reservar-quantidade' ? v !== '' && v !== '1' : v !== '';
+    if (id.startsWith('reservar-selecionar-')) {
+      const check = el<HTMLInputElement>(id);
+      return v === 'true' && check?.dataset.padrao !== 'true';
+    }
+    if (id.startsWith('reservar-quantidade')) return v !== '' && v !== '1';
+    return v !== '';
   });
 
   const mapa = lerRascunhos();
@@ -431,9 +435,27 @@ function restaurarRascunho(estufaId: string): boolean {
 
     const campo = el<HTMLInputElement | HTMLSelectElement>(id);
     if (!campo) continue;
-    campo.value = guardado;
+    if (campo instanceof HTMLInputElement && campo.type === 'checkbox') campo.checked = guardado === 'true';
+    else campo.value = guardado;
     // Select cujas opções ainda não chegaram: guarda para pintarProjetos.
     if (campo instanceof HTMLSelectElement) campo.dataset.desejado = guardado;
+    restaurou = true;
+  }
+
+  // Rascunhos gravados antes do seletor múltiplo usavam uma unidade e uma
+  // quantidade. Redistribui esses dois valores para a linha correspondente.
+  const unidadeAntiga = rascunho.campos['reservar-unidade-valor'];
+  const quantidadeAntiga = rascunho.campos['reservar-quantidade'];
+  if (unidadeAntiga === 'VASO' || unidadeAntiga === 'BANCADA') {
+    const estufa = ESTUFAS[estufaId];
+    if (estufa?.unidades.length > 1) {
+      for (const unidade of estufa.unidades) {
+        const check = el<HTMLInputElement>(`reservar-selecionar-${chaveDaUnidade(unidade)}`);
+        if (check) check.checked = unidade === unidadeAntiga;
+      }
+    }
+    const quantidade = campoDaQuantidade(unidadeAntiga);
+    if (quantidade && quantidadeAntiga) quantidade.value = quantidadeAntiga;
     restaurou = true;
   }
 
@@ -457,7 +479,9 @@ export function cancelarPreenchimentoDaReserva(): void {
 }
 
 function valor(id: string): string {
-  return (el<HTMLInputElement>(id)?.value ?? '').trim();
+  const campo = el<HTMLInputElement>(id);
+  if (campo?.type === 'checkbox') return String(campo.checked);
+  return (campo?.value ?? '').trim();
 }
 
 function numero(id: string): number {
@@ -466,20 +490,39 @@ function numero(id: string): number {
 }
 
 /* ---------------------------------------------------------------------------
-   Vasos ou bancadas
+   Vasos e bancadas
 
-   Numa estufa de vasos as bancadas também se reservam, numa conta separada
-   (o back-end faz a mesma divisão). Quando a estufa tem as duas coisas, o
-   formulário mostra a escolha; com uma só, fica só o sufixo.
+   Cada unidade tem sua quantidade própria. Nas estufas com as duas, a pessoa
+   marca uma ou ambas e envia tudo junto; com uma só, aparece apenas o campo
+   daquela unidade.
    ------------------------------------------------------------------------ */
 
 function nomeDaUnidade(unidade: UnidadeCapacidade): string {
   return unidade === 'BANCADA' ? 'bancadas' : 'vasos';
 }
 
-/** O que o modal aberto está reservando. */
-function unidadeEscolhida(): UnidadeCapacidade {
-  return valor('reservar-unidade-valor') === 'BANCADA' ? 'BANCADA' : 'VASO';
+function chaveDaUnidade(unidade: UnidadeCapacidade): 'vaso' | 'bancada' {
+  return unidade === 'BANCADA' ? 'bancada' : 'vaso';
+}
+
+function idDaQuantidade(indice: number): string {
+  return indice === 0 ? 'reservar-quantidade' : 'reservar-quantidade-extra';
+}
+
+function campoDaQuantidade(unidade: UnidadeCapacidade): HTMLInputElement | null {
+  return qs<HTMLInputElement>(`[data-unidade-quantidade="${unidade}"]`, el('reservar-unidades') ?? document);
+}
+
+function unidadeMarcada(unidade: UnidadeCapacidade): boolean {
+  const estufa = espacoDaReserva ? ESTUFAS[espacoDaReserva] : null;
+  if (!estufa) return false;
+  if (estufa.unidades.length === 1) return estufa.unidades[0] === unidade;
+  return el<HTMLInputElement>(`reservar-selecionar-${chaveDaUnidade(unidade)}`)?.checked ?? false;
+}
+
+function unidadesMarcadas(): UnidadeCapacidade[] {
+  const estufa = espacoDaReserva ? ESTUFAS[espacoDaReserva] : null;
+  return estufa?.unidades.filter(unidadeMarcada) ?? [];
 }
 
 /** "5 vasos livres · 7 bancadas livres" — tudo o que sobra hoje. */
@@ -489,46 +532,78 @@ function livresDaEstufa(estufa: Estufa): string {
     .join(' · ');
 }
 
-/** `semTravar`: reserva para o futuro — estar cheia hoje não desativa a opção. */
-function pintarUnidades(estufa: Estufa, semTravar = false): void {
-  show(el('reservar-unidades-campo'), estufa.unidades.length > 1);
-
+function pintarUnidades(estufa: Estufa, unidadeInicial: UnidadeCapacidade): void {
+  const multipla = estufa.unidades.length > 1;
+  show(el('reservar-unidades-campo'), true);
+  setText('reservar-unidades-rotulo', multipla ? 'O que você quer reservar' : 'Quantas unidades você precisa');
   const grupo = el('reservar-unidades');
   if (!grupo) return;
 
-  grupo.innerHTML = juntar(estufa.unidades.map((u) => {
+  grupo.innerHTML = juntar(estufa.unidades.map((u, indice) => {
     const livre = estufa.livrePor[u] ?? 0;
+    const selecionada = multipla ? u === unidadeInicial : true;
+    const capacidade = estufa.capacidadePor[u] ?? 0;
+    const nome = u === 'BANCADA' ? 'bancadas' : 'vasos';
+    const nomeNoSingular = u === 'BANCADA' ? 'bancada' : 'vaso';
+    const titulo = u === 'BANCADA' ? 'Bancadas' : 'Vasos';
+    const checkId = `reservar-selecionar-${chaveDaUnidade(u)}`;
+    const quantidadeId = idDaQuantidade(indice);
+    const sufixoId = indice === 0 ? 'reservar-unidade' : 'reservar-unidade-extra';
     return html`
-      <button type="button" class="segmented__option" role="radio" aria-checked="false"
-              data-action="reservar-unidade" data-unidade="${u}" ${raw(livre <= 0 && !semTravar ? 'disabled' : '')}>
-        <span>${u === 'BANCADA' ? 'Bancadas' : 'Vasos'}</span>
-        <span class="segmented__sub">${livre} ${livre === 1 ? 'livre' : 'livres'} hoje</span>
-      </button>`;
+      <div class="reserva-unidade" data-unidade-linha="${u}" data-selecionada="${String(selecionada)}">
+        ${raw(multipla
+          ? html`<label class="reserva-unidade__opcao" for="${checkId}">
+              <input type="checkbox" id="${checkId}" data-action="reservar-unidade" data-unidade="${u}"
+                     data-padrao="${String(selecionada)}" ${raw(selecionada ? 'checked' : '')} />
+              <span class="reserva-unidade__texto">
+                <strong>${titulo}</strong>
+                <span>${livre} ${livre === 1 ? nomeNoSingular : nome} ${livre === 1 ? 'livre' : 'livres'} hoje · capacidade total: ${capacidade}</span>
+              </span>
+            </label>`
+          : html`<div class="reserva-unidade__opcao">
+              <span class="reserva-unidade__texto"><strong>${titulo}</strong><span>${livre} ${livre === 1 ? nomeNoSingular : nome} ${livre === 1 ? 'livre' : 'livres'} hoje</span></span>
+            </div>`)}
+        <div class="field__inline reserva-unidade__quantidade">
+          <label class="sr-only" for="${quantidadeId}">Quantidade de ${nome}</label>
+          <input class="input input--numero" type="number" id="${quantidadeId}" data-unidade-quantidade="${u}"
+                 min="1" max="${String(Math.max(1, livre))}" step="1" value="1" required
+                 aria-describedby="reservar-quantidade-ajuda"
+                 ${raw(multipla && !selecionada ? 'disabled' : '')} />
+          <span class="field__sufixo" id="${sufixoId}">${nome}</span>
+        </div>
+      </div>`;
   }));
 }
 
-/** Marca a unidade e ajusta o que depende dela: sufixo, máximo e a consulta. */
-export function escolherUnidade(unidade: string | undefined, reconsultar = true): void {
+function sincronizarLinhasDeUnidade(estufa: Estufa): void {
+  for (const unidade of estufa.unidades) {
+    const check = el<HTMLInputElement>(`reservar-selecionar-${chaveDaUnidade(unidade)}`);
+    const selecionada = estufa.unidades.length === 1 || Boolean(check?.checked);
+    const linha = qs<HTMLElement>(`[data-unidade-linha="${unidade}"]`, el('reservar-unidades') ?? document);
+    const quantidade = campoDaQuantidade(unidade);
+    if (quantidade) quantidade.disabled = estufa.unidades.length > 1 && !selecionada;
+    linha?.setAttribute('data-selecionada', String(selecionada));
+  }
+}
+
+function selecionarApenasUnidade(estufa: Estufa, escolhida: UnidadeCapacidade): void {
+  for (const unidade of estufa.unidades) {
+    const check = el<HTMLInputElement>(`reservar-selecionar-${chaveDaUnidade(unidade)}`);
+    if (check) check.checked = unidade === escolhida;
+  }
+  sincronizarLinhasDeUnidade(estufa);
+}
+
+/** Atualiza a linha e reconsulta quando a pessoa marca ou desmarca uma unidade. */
+export function alternarUnidade(unidade: string | undefined): void {
+  if (unidade !== 'VASO' && unidade !== 'BANCADA') return;
+
   const estufa = espacoDaReserva ? ESTUFAS[espacoDaReserva] : null;
   if (!estufa) return;
+  sincronizarLinhasDeUnidade(estufa);
 
-  const escolhida: UnidadeCapacidade = estufa.unidades.includes(unidade as UnidadeCapacidade)
-    ? (unidade as UnidadeCapacidade)
-    : estufa.unidade;
-
-  const campo = el<HTMLInputElement>('reservar-unidade-valor');
-  if (campo) campo.value = escolhida;
-
-  for (const botao of qsa<HTMLButtonElement>('#reservar-unidades [data-unidade]')) {
-    botao.setAttribute('aria-checked', String(botao.dataset.unidade === escolhida));
-  }
-
-  setText('reservar-unidade', nomeDaUnidade(escolhida));
-
-  const quantidade = el<HTMLInputElement>('reservar-quantidade');
-  if (quantidade) quantidade.max = String(Math.max(1, estufa.livrePor[escolhida] ?? 0));
-
-  if (reconsultar) void consultarDisponibilidade();
+  void consultarDisponibilidade();
+  guardarRascunhoDaReserva();
 }
 
 /* ===========================================================================
@@ -584,20 +659,12 @@ export function abrirModalReservar(
   campoBusca()?.removeAttribute('aria-invalid');
   prepararCamposDaReserva();
 
-  // A quantidade nasce em 1 e não passa do que está livre hoje.
-  const quantidade = el<HTMLInputElement>('reservar-quantidade');
-  if (quantidade) {
-    quantidade.min = '1';
-    quantidade.value = '1';
-    quantidade.removeAttribute('aria-invalid');
-  }
-
-  // Começa pela unidade principal; se ela estiver cheia, pela que tem vaga.
-  // Vindo do calendário, pela que estava sendo olhada lá.
-  pintarUnidades(estufa, paraOFuturo);
-  const pedida = datas?.unidade;
-  const servePedida = pedida && (paraOFuturo || (estufa.livrePor[pedida] ?? 0) > 0);
-  escolherUnidade(servePedida ? pedida : unidadesComVaga(estufa)[0], false);
+  // Começa pela unidade em foco no calendário; senão, pela primeira com vaga.
+  // A outra unidade continua disponível para ser marcada no mesmo envio.
+  const unidadeInicial = datas?.unidade && estufa.unidades.includes(datas.unidade)
+    ? datas.unidade
+    : unidadesComVaga(estufa)[0] ?? estufa.unidades[0] ?? estufa.unidade;
+  pintarUnidades(estufa, unidadeInicial);
 
   // O período não pode começar no passado.
   const hoje = hojeISO();
@@ -613,11 +680,14 @@ export function abrirModalReservar(
 
   // O que a pessoa já tinha preenchido antes de fechar sem querer.
   if (restaurarRascunho(estufaId)) {
-    escolherUnidade(datas?.unidade ?? unidadeEscolhida(), false);
+    if (datas?.unidade && estufa.unidades.includes(datas.unidade)) selecionarApenasUnidade(estufa, datas.unidade);
+    else sincronizarLinhasDeUnidade(estufa);
     // O rascunho guarda o id; o nome no campo de busca vem da lista.
     if (projetosDoCampo) pintarProjetos(projetosDoCampo);
     if (!datas) aviso('Recuperei o que você já tinha preenchido nesta reserva.', 'info');
     ajustarFimDoPeriodo();
+  } else {
+    sincronizarLinhasDeUnidade(estufa);
   }
 
   // As datas escolhidas no calendário valem mais do que as do rascunho.
@@ -665,20 +735,29 @@ export async function consultarDisponibilidade(): Promise<void> {
 
   if (!estufa || !casaId || !inicio || !fim || fim < inicio) return;
 
-  const pedido = numero('reservar-quantidade');
-
   try {
-    const resposta = await getDisponibilidade(casaId, {
-      de: inicio,
-      ate: fim,
-      quantidade: pedido || undefined,
-      unidade: unidadeEscolhida(),
-    });
+    const escolhidas = unidadesMarcadas();
+    if (!escolhidas.length) {
+      mostrarAviso('Marque vasos, bancadas ou os dois para continuar.', 'erro');
+      return;
+    }
 
-    const campo = el<HTMLInputElement>('reservar-quantidade');
-    if (campo) campo.max = String(Math.max(1, resposta.disponivel));
+    const respostas = await Promise.all(escolhidas.map(async (unidade) => {
+      const quantidade = campoDaQuantidade(unidade);
+      const resposta = await getDisponibilidade(casaId, {
+        de: inicio,
+        ate: fim,
+        quantidade: Number.parseInt(quantidade?.value ?? '', 10) || undefined,
+        unidade,
+      });
+      if (quantidade) quantidade.max = String(Math.max(1, resposta.disponivel));
+      return { unidade, resposta };
+    }));
 
-    mostrarAviso(resposta.mensagem, resposta.cabe === false ? 'erro' : 'ok');
+    mostrarAviso(
+      respostas.map(({ unidade, resposta }) => `${nomeDaUnidade(unidade)}: ${resposta.mensagem}`).join(' '),
+      respostas.some(({ resposta }) => resposta.cabe === false) ? 'erro' : 'ok',
+    );
   } catch (erro) {
     // Falha de rede aqui não impede reservar: o back-end confere de novo.
     console.warn('[CVGWeb] não foi possível consultar a disponibilidade:', erro);
@@ -695,7 +774,10 @@ export async function confirmarReserva(): Promise<void> {
   const fim = valor('reservar-data-fim');
   const projeto = valor('reservar-projeto');
   const finalidade = valor('reservar-finalidade');
-  const quantidade = numero('reservar-quantidade');
+  const itens = unidadesMarcadas().map((unidade) => ({
+    unidade,
+    quantidade: Number.parseInt(campoDaQuantidade(unidade)?.value ?? '', 10) || 0,
+  }));
 
   if (!inicio || !fim || !finalidade) {
     aviso('Preencha o período e a finalidade.', 'error');
@@ -717,14 +799,20 @@ export async function confirmarReserva(): Promise<void> {
   }
   campoProjeto?.removeAttribute('aria-invalid');
 
-  const campoQuantidade = el<HTMLInputElement>('reservar-quantidade');
-  if (quantidade < 1) {
-    campoQuantidade?.setAttribute('aria-invalid', 'true');
-    campoQuantidade?.focus();
-    aviso(unidadeEscolhida() === 'BANCADA' ? 'Informe quantas bancadas você precisa.' : 'Informe quantos vasos você precisa.', 'error');
+  if (!itens.length) {
+    aviso('Marque vasos, bancadas ou os dois para continuar.', 'error');
     return;
   }
-  campoQuantidade?.removeAttribute('aria-invalid');
+
+  const itemInvalido = itens.find((item) => item.quantidade < 1);
+  if (itemInvalido) {
+    const campoQuantidade = campoDaQuantidade(itemInvalido.unidade);
+    campoQuantidade?.setAttribute('aria-invalid', 'true');
+    campoQuantidade?.focus();
+    aviso(`Informe a quantidade de ${nomeDaUnidade(itemInvalido.unidade)}.`, 'error');
+    return;
+  }
+  for (const item of itens) campoDaQuantidade(item.unidade)?.removeAttribute('aria-invalid');
 
   const campoFim = el<HTMLInputElement>('reservar-data-fim');
   if (fim < inicio) {
@@ -741,8 +829,7 @@ export async function confirmarReserva(): Promise<void> {
 
   try {
     const mensagem = await reservarNaApi(espacoDaReserva, {
-      inicio, fim, projeto: String(projetoEscolhido.id), finalidade, quantidade,
-      unidade: unidadeEscolhida(),
+      inicio, fim, projeto: String(projetoEscolhido.id), finalidade, itens,
     });
     aviso(mensagem, 'success');
   } catch (erro) {
@@ -771,8 +858,7 @@ interface DadosReserva {
   fim: string;
   projeto: string;
   finalidade: string;
-  quantidade: number;
-  unidade: UnidadeCapacidade;
+  itens: { unidade: UnidadeCapacidade; quantidade: number }[];
 }
 
 /** Grava a reserva no banco e recarrega o estado do que a API respondeu. */
@@ -780,18 +866,16 @@ async function reservarNaApi(estufaId: string, dados: DadosReserva): Promise<str
   const casaId = ID_REAL_ESPACO[estufaId];
   if (!casaId) throw new Error('Espaço sem vínculo com o cadastro; recarregue a página.');
 
-  const resposta = await criarReserva({
+  const resposta = await criarReservasEmLote({
     casa_vegetacao_id: casaId,
-    quantidade: dados.quantidade,
-    unidade: dados.unidade,
+    itens: dados.itens,
     data_inicio: dados.inicio,
     data_fim: dados.fim,
     finalidade: dados.finalidade,
-    // O select guarda o id do projeto; a reserva precisa dele para a permissão.
+    // O projeto precisa constar para a API conferir a permissão.
     projeto_id: Number(dados.projeto),
   });
 
-  invalidarEstado();
   await carregarEstado('manter');
 
   return resposta?.message ?? 'Reserva registrada.';
@@ -863,7 +947,6 @@ export async function cancelarNoDestino(codigo: string, motivo?: string): Promis
   if (!id) throw new Error('Reserva sem vínculo com o cadastro; recarregue a página.');
 
   await apiCancelar(id, motivo);
-  invalidarEstado();
   await carregarEstado('manter');
 }
 
@@ -1049,7 +1132,6 @@ export async function confirmarEdicaoReserva(): Promise<void> {
     // O back-end diz se a alteração devolveu a reserva para a fila.
     mensagem = resposta?.message ?? mensagem;
 
-    invalidarEstado();
     await carregarEstado('manter');
   } catch (erro) {
     mostrarErroDaEdicao(erro instanceof Error ? erro.message : 'Não foi possível salvar a reserva.');
@@ -1106,7 +1188,6 @@ export async function excluirReservaAberta(): Promise<void> {
 
   try {
     await excluirReserva(real);
-    invalidarEstado();
     await carregarEstado('manter');
   } catch (erro) {
     mostrarErroDaEdicao(erro instanceof Error ? erro.message : 'Não foi possível excluir a reserva.');

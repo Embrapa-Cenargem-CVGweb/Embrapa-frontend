@@ -299,11 +299,9 @@ export function getCalendario(de: string, ate: string): Promise<CalendarioOcupac
    Reservas
    =========================================================================== */
 
-export interface NovaReserva {
+export interface NovaReservaEmLote {
   casa_vegetacao_id: number;
-  quantidade: number;
-  /** VASO ou BANCADA; sem informar, a unidade principal da estufa. */
-  unidade?: 'VASO' | 'BANCADA';
+  itens: { unidade: 'VASO' | 'BANCADA'; quantidade: number }[];
   data_inicio: string;
   data_fim: string;
   finalidade: string;
@@ -311,12 +309,9 @@ export interface NovaReserva {
   obs?: string;
 }
 
-/**
- * Cria a reserva. Quem não tem permissão de aprovar recebe a reserva como
- * PENDENTE — é o back-end que decide, não o front.
- */
-export function criarReserva(reserva: NovaReserva): Promise<any> {
-  return enviar('POST', '/reservas', reserva, 'Não foi possível registrar a reserva.');
+/** Cria as reservas de vasos e/ou bancadas no mesmo envio. */
+export function criarReservasEmLote(reserva: NovaReservaEmLote): Promise<any> {
+  return enviar('POST', '/reservas/lote', reserva, 'Não foi possível registrar a reserva.');
 }
 
 export function aprovarReserva(id: number): Promise<any> {

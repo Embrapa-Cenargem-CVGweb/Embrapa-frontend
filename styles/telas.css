@@ -75,8 +75,11 @@
 }
 
 .stat[data-tone="ok"] .stat__tile { color: var(--ok-soft-fg); background: var(--ok-soft); }
+
 .stat[data-tone="busy"] .stat__tile { color: var(--busy-soft-fg); background: var(--busy-soft); }
+
 .stat[data-tone="booked"] .stat__tile { color: var(--booked-soft-fg); background: var(--booked-soft); }
+
 .stat[data-tone="down"] .stat__tile { color: var(--down-soft-fg); background: var(--down-soft); }
 
 .stat__num {
@@ -491,48 +494,14 @@
   gap: 0;
 }
 
-/* Dentro do cartão da seção os filtros não precisam de moldura própria. */
-.view .audit-filters,
-.view .audit-filters__extra {
-  padding: var(--s-4) var(--s-5);
-  background: none;
-  border: 0;
-  border-radius: 0;
-}
-
-.view .audit-filters__advanced {
-  padding: 0 var(--s-5) var(--s-3);
-}
-
-.view .audit-filters__extra {
-  padding-inline: 0;
-}
-
-.view .audit-log__head {
-  padding: var(--s-3) var(--s-5);
-  border-top: 1px solid var(--line);
-}
-
-.view .audit-log__wrap {
-  border-radius: 0 0 var(--r-xl) var(--r-xl);
-}
-
-.view .audit-search .search {
-  width: 100%;
-}
-
-.view .audit-search .search .input {
-  width: 100%;
-}
-
-.audit-search {
-  grid-column: 1 / -1;
-}
-
 @media (width <= 48rem) {
   .view .pagina,
   .view .admin {
     padding: var(--s-4);
+  }
+
+  .view .table__actions {
+    flex-wrap: wrap;
   }
 }
 
@@ -768,7 +737,9 @@
 }
 
 .ficha-numeros__item[data-tom="ok"] dd { color: var(--ok); }
+
 .ficha-numeros__item[data-tom="booked"] dd { color: var(--booked); }
+
 .ficha-numeros__item[data-tom="busy"] dd { color: var(--busy); }
 
 .ficha__secao {

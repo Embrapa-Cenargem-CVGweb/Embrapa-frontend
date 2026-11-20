@@ -1,7 +1,7 @@
 /* ===========================================================================
    Calendário de ocupação, no jeito do Teams
 
-   Linha do tempo (semana, 2 semanas): uma faixa por estufa, cada reserva uma
+   Linha do tempo (semana): uma faixa por estufa, cada reserva uma
    barra do início ao fim. Mês: o mês inteiro de uma estufa. Cores iguais às
    do mapa: laranja = aprovada, azul = aguardando aprovação, listrado
    vermelho = fora de uso. Pendente também tem contorno tracejado, para não
@@ -39,21 +39,130 @@
   overflow: hidden;
 }
 
-/* --- Cabeçalho (page-head do sistema) ------------------------------------ */
+/* --- Cabeçalho: modo | período no centro | o que contar ------------------
+   Três colunas: as laterais dividem o que sobra por igual, então o período
+   fica sempre no meio da tela, e as setas não pulam quando o texto muda. */
 
 .cal-cab {
-  padding-bottom: var(--s-4);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: var(--s-3) var(--s-4);
+  align-items: start;
+  padding-bottom: var(--s-3);
+  border-bottom: 1px solid var(--line);
 }
 
-.cal-cab__nav {
+.cal-cab__lado {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2) var(--s-3);
+  gap: var(--s-2);
+  align-items: center;
+  min-height: 2.5rem;
+}
+
+.cal-cab__lado--fim {
+  justify-content: flex-end;
+}
+
+.cal-cab__centro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
   align-items: center;
   min-width: 0;
 }
 
-.cal-cab__setas,
+.cal-cab__periodo {
+  display: flex;
+  gap: var(--s-1);
+  align-items: center;
+  min-height: 2.5rem;
+}
+
+.cal-cab__titulo {
+  /* Largura de um período de semana longo: as setas ficam paradas. */
+  min-width: 19rem;
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--fw-semibold);
+  line-height: 1.2;
+  color: var(--fg);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.cal-cab__hoje {
+  margin-left: var(--s-2);
+}
+
+/* Botão de alternância em duas partes (Semana | Mês, Vasos | Bancadas). */
+.cal-seg {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--surface-3);
+  border-radius: var(--r-md);
+}
+
+.cal-seg__opcao {
+  min-height: 2rem;
+  padding: 0 var(--s-3);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  border-radius: calc(var(--r-md) - 2px);
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.cal-seg__opcao:hover {
+  color: var(--fg);
+}
+
+.cal-seg__opcao[aria-checked="true"] {
+  color: var(--fg);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.cal-cab__ajuda {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--fg-muted);
+  border-radius: 50%;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.cal-cab__ajuda:hover {
+  color: var(--fg);
+  background: var(--surface-3);
+}
+
+/* Linha de contexto, embaixo do período. */
+.cal-cab__contexto {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cal-cab__todas {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.cal-cab__todas[hidden],
+.cal-cab__estufa[hidden] {
+  display: none;
+}
+
+.cal-cab__estufa {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .cal-mini__setas {
   display: flex;
   gap: 2px;
@@ -76,46 +185,38 @@
   background: var(--surface-3);
 }
 
-.cal-cab__titulo {
-  margin: 0;
-  white-space: nowrap;
-}
-
+/* Selo da estufa aberta no mês: pílula verde, o X volta para todas. */
 .cal-barra__estufa {
   display: inline-flex;
   gap: var(--s-2);
   align-items: center;
-  min-height: 2.25rem;
-  padding: 0 var(--s-3);
+  min-width: 0;
+  max-width: 100%;
+  min-height: 1.875rem;
+  padding: 0 2px 0 var(--s-3);
+  overflow: hidden;
   font-size: var(--text-sm);
   color: var(--accent-soft-fg);
+  white-space: nowrap;
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
-  border-radius: var(--r-md);
+  border-radius: 999px;
 }
 
-.cal-cab__estufa {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2);
-  align-items: center;
-}
-
-.cal-cab__estufa[hidden] {
-  display: none;
-}
-
-.cal-barra__estufa {
-  padding-right: 2px;
+#cal-estufa-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cal-barra__estufa-x {
   display: grid;
+  flex: none;
   place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 1.625rem;
+  height: 1.625rem;
   color: var(--accent-soft-fg);
-  border-radius: var(--r-sm);
+  border-radius: 50%;
 }
 
 .cal-barra__estufa-x:hover {
@@ -232,6 +333,13 @@
   border-radius: 50%;
 }
 
+/* Dia clicado: anel na cor de destaque (o preenchimento fica para o hoje). */
+.cal-mini__dia[data-escolhido] {
+  font-weight: var(--fw-semibold);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  border-radius: 50%;
+}
+
 /* Filtros */
 .cal-busca .input {
   width: 100%;
@@ -254,13 +362,20 @@
 .cal-estufa {
   display: flex;
   gap: var(--s-2);
-  align-items: center;
   min-height: 2.25rem;
-  padding: 0 var(--s-2);
   font-size: var(--text-sm);
   color: var(--fg);
   text-align: left;
   border-radius: var(--r-md);
+}
+
+.cal-filtro { align-items: center; padding: 0 var(--s-2); }
+
+.cal-estufa {
+  flex: none;
+  width: 100%;
+  align-items: center;
+  padding: 0 var(--s-2);
 }
 
 .cal-filtro:hover,
@@ -284,10 +399,17 @@
   font-weight: var(--fw-medium);
 }
 
-.cal-filtro__nome,
+.cal-filtro__nome {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .cal-estufa__nome {
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cal-estufa[aria-current="true"] {
@@ -304,12 +426,20 @@
   border-radius: 50%;
 }
 
+.cal-estufa__ponto { margin-top: 0; }
+
 .cal-estufa__livre {
+  flex: none;
   font-size: var(--text-xs);
-  font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--ok-soft-fg);
 }
+
+.cal-estufa__livre[data-tom="ATIVA"] { color: var(--cal-aprovada-texto); }
+
+.cal-estufa__livre[data-tom="PENDENTE"] { color: var(--cal-pendente-texto); }
+
+.cal-estufa__livre[data-tom="fora"] { color: var(--cal-fora-texto); }
 
 /* --- Barras (reservas) — mesmas na linha do tempo, no mês e no "Como ler" ----- */
 
@@ -428,6 +558,12 @@ button.cal-barra-ev:focus-visible {
 }
 
 .cal-num[data-lotada="PENDENTE"] {
+  color: var(--cal-pendente-texto);
+  background: var(--cal-pendente-zero);
+}
+
+.cal-num[data-pendente] {
+  font-weight: var(--fw-semibold);
   color: var(--cal-pendente-texto);
   background: var(--cal-pendente-zero);
 }
@@ -619,27 +755,29 @@ button.cal-barra-ev:focus-visible {
   color: var(--fg-muted);
 }
 
-.tl__resumo,
-.cal-estufa__livre {
+.tl__resumo {
   font-size: var(--text-xs);
   font-weight: var(--fw-medium);
   color: var(--ok-soft-fg);
 }
 
-.tl__resumo[data-tom="ATIVA"],
-.cal-estufa__livre[data-tom="ATIVA"] { color: var(--cal-aprovada-texto); }
-.tl__resumo[data-tom="PENDENTE"],
-.cal-estufa__livre[data-tom="PENDENTE"] { color: var(--cal-pendente-texto); }
-.tl__resumo[data-tom="fora"],
-.cal-estufa__livre[data-tom="fora"] { color: var(--cal-fora-texto); }
+.tl__resumo[data-tom="ATIVA"] { color: var(--cal-aprovada-texto); }
+
+.tl__resumo[data-tom="PENDENTE"] { color: var(--cal-pendente-texto); }
+
+.tl__resumo[data-tom="fora"] { color: var(--cal-fora-texto); }
+
 .tl__resumo[data-tom="sem"] { color: var(--fg-muted); }
 
 .tl__ponto[data-tom="ATIVA"],
 .cal-estufa__ponto[data-tom="ATIVA"] { background: var(--marker-ocupada); }
+
 .tl__ponto[data-tom="PENDENTE"],
 .cal-estufa__ponto[data-tom="PENDENTE"] { background: var(--marker-reservada); }
+
 .tl__ponto[data-tom="fora"],
 .cal-estufa__ponto[data-tom="fora"] { background: var(--marker-manutencao); }
+
 .tl__ponto[data-tom="sem"] { background: var(--marker-indefinido); }
 
 .tl__medidor {
@@ -670,12 +808,18 @@ button.cal-barra-ev:focus-visible {
 }
 
 .tl__dia[data-fds] { background: var(--cal-fds); }
+
 .tl__dia[data-hoje] { background: var(--cal-hoje); }
+
+.tl__dia[data-pendente] { background: var(--cal-pendente-fundo); }
+
 .tl__dia[data-passado] .cal-num { opacity: 0.55; }
 
 .tl__dia:hover {
   background: var(--surface-3);
 }
+
+.tl__dia[data-pendente]:hover { background: var(--cal-pendente-zero); }
 
 .tl__dia:focus-visible,
 .mesg__dia:focus-visible {
@@ -743,6 +887,8 @@ button.cal-barra-ev:focus-visible {
   background: var(--cal-hoje);
 }
 
+.mesg__dia[data-pendente] { background: var(--cal-pendente-fundo); }
+
 .mesg__dia[data-fora-mes] {
   background: var(--cal-fds);
 }
@@ -776,6 +922,31 @@ button.cal-barra-ev:focus-visible {
 
 .mesg__dia .cal-num[data-parcial] {
   background: var(--accent-soft);
+}
+
+.mesg__dia .cal-num[data-pendente] {
+  color: var(--cal-pendente-texto);
+  background: var(--cal-pendente-zero);
+}
+
+.mesg__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.mesg__dia .cal-num { margin-top: 0; }
+
+.mesg__pendente {
+  padding: 1px 5px;
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  color: var(--cal-pendente-texto);
+  white-space: nowrap;
+  background: var(--cal-pendente-zero);
+  border-radius: var(--r-pill);
 }
 
 /* --- Cartão da reserva --------------------------------------------------- */
@@ -899,6 +1070,7 @@ button.cal-barra-ev:focus-visible {
 }
 
 .cal-card__contexto [data-tom="lotada"] { color: var(--cal-aprovada-texto); }
+
 .cal-card__contexto [data-tom="livre"] { color: var(--ok-soft-fg); }
 
 .cal-card__acoes {
@@ -935,14 +1107,60 @@ button.cal-barra-ev:focus-visible {
   }
 }
 
+/* Sem largura para as três partes numa linha: o período sobe sozinho para
+   a primeira linha e os dois botões de alternância ficam embaixo, um em cada
+   ponta. */
+@media (width <= 70rem) {
+  .cal-cab {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .cal-cab__centro {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+}
+
 @media (width <= 48rem) {
   #view-calendario {
     --cal-col-estufa: 8.5rem;
   }
 
-  .cal-barra__titulo {
-    flex-basis: 100%;
-    order: 3;
+  .cal-cab {
+    gap: var(--s-2);
+  }
+
+  .cal-cab__titulo {
+    min-width: 0;
+    font-size: var(--text-lg);
+    white-space: normal;
+  }
+
+  .cal-cab__periodo {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Celular: os dois botões de alternância e a ajuda dividem uma linha só. */
+@media (width <= 40rem) {
+  .cal-cab {
+    column-gap: var(--s-2);
+  }
+
+  .cal-cab__lado {
+    gap: var(--s-1);
+  }
+
+  .cal-seg__opcao {
+    min-height: 1.875rem;
+    padding: 0 var(--s-2);
+    font-size: var(--text-xs);
+  }
+
+  .cal-cab__ajuda {
+    width: 1.875rem;
+    height: 1.875rem;
   }
 }
 
@@ -994,7 +1212,10 @@ button.cal-barra-ev:focus-visible {
 }
 
 .cal-medidor[data-tom="cheia"] .cal-medidor__livre strong { color: var(--busy-soft-fg); }
+
 .cal-medidor[data-tom="conflito"] .cal-medidor__livre strong { color: var(--down-soft-fg); }
+
+.cal-medidor[data-tom="pendente"] .cal-medidor__livre strong { color: var(--cal-pendente-texto); }
 
 .cal-medidor__trilho {
   height: 0.5rem;
@@ -1013,6 +1234,10 @@ button.cal-barra-ev:focus-visible {
 
 .cal-medidor[data-tom="conflito"] .cal-medidor__trilho span {
   background: var(--down);
+}
+
+.cal-medidor[data-tom="pendente"] .cal-medidor__trilho span {
+  background: var(--cal-pendente);
 }
 
 .cal-medidor__texto {
