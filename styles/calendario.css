@@ -140,11 +140,14 @@
 }
 
 /* Linha de contexto, embaixo do período. */
+/* width 0 + min-width 100%: a linha de contexto não alarga a coluna do meio.
+   Ela usa a largura do período, e um nome de estufa comprido termina em "…"
+   em vez de espremer os botões das laterais. */
 .cal-cab__contexto {
   display: flex;
   justify-content: center;
-  min-width: 0;
-  max-width: 100%;
+  width: 0;
+  min-width: 100%;
 }
 
 .cal-cab__todas {
@@ -516,10 +519,13 @@ button.cal-barra-ev:focus-visible {
   text-overflow: ellipsis;
 }
 
+/* O detalhe encolhe bem antes do título; o título fica com o espaço. */
 .cal-barra-ev__det {
-  flex: 0 1 auto;
+  flex: 0 1000 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cal-barra-ev__ate {
@@ -621,9 +627,11 @@ button.cal-barra-ev:focus-visible {
   min-width: calc(var(--cal-col-estufa) + var(--dias) * 3rem);
 }
 
+/* 4,5rem por dia no mínimo: a semana cabe sem rolagem lateral do tablet
+   para cima, mesmo com a barra de rolagem vertical da lista. */
 .tl[data-modo="semana"] {
-  --cols: var(--cal-col-estufa) repeat(var(--dias), minmax(6.5rem, 1fr));
-  min-width: calc(var(--cal-col-estufa) + var(--dias) * 6.5rem);
+  --cols: var(--cal-col-estufa) repeat(var(--dias), minmax(4.5rem, 1fr));
+  min-width: calc(var(--cal-col-estufa) + var(--dias) * 4.5rem);
 }
 
 .tl__cab {
@@ -836,7 +844,7 @@ button.cal-barra-ev:focus-visible {
 /* --- Mês ----------------------------------------------------------------- */
 
 .mesg {
-  min-width: 46rem;
+  min-width: 31.5rem;
 }
 
 .mesg__cab {
@@ -849,7 +857,12 @@ button.cal-barra-ev:focus-visible {
   border-bottom: 1px solid var(--line);
 }
 
-.mesg__cab span {
+.mesg__sigla-dia {
+  display: none;
+  text-decoration: none;
+}
+
+.mesg__cab > span {
   padding: var(--s-2) var(--s-3);
   font-size: var(--text-xs);
   font-weight: var(--fw-semibold);
@@ -863,7 +876,15 @@ button.cal-barra-ev:focus-visible {
   border-bottom: 1px solid var(--surface-3);
 }
 
+/* Dia com pedido pendente mostra duas linhas ("37 livres" e "3 pendentes"):
+   a faixa de cima cresce para a segunda não ficar por baixo das reservas. */
+.mesg__semana:has(.mesg__pendente) {
+  grid-template-rows: 3.25rem repeat(var(--trilhas), 1.875rem) 0.75rem;
+}
+
 .mesg__dia {
+  /* Cada dia decide pela própria largura se cabe "37 livres" ou só "37". */
+  container-type: inline-size;
   display: flex;
   grid-row: 1 / -1;
   gap: var(--s-1);
@@ -938,6 +959,12 @@ button.cal-barra-ev:focus-visible {
 }
 
 .mesg__dia .cal-num { margin-top: 0; }
+
+@container (width < 7.5rem) {
+  .cal-num__rotulo {
+    display: none;
+  }
+}
 
 .mesg__pendente {
   padding: 1px 5px;
@@ -1089,7 +1116,9 @@ button.cal-barra-ev:focus-visible {
 
 /* --- Telas estreitas ----------------------------------------------------- */
 
-@media (width <= 60rem) {
+/* Até ~1200px o painel (mini calendário e filtros) sobe para cima da grade,
+   que fica com a largura toda. */
+@media (width <= 75rem) {
   .cal-layout {
     flex-direction: column;
   }
@@ -1139,6 +1168,58 @@ button.cal-barra-ev:focus-visible {
   .cal-cab__periodo {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* Celular: o mês cabe na tela. Cada dia empilha o número e as vagas; o
+   pedido pendente fica só na cor de fundo do dia. A semana (7 colunas) rola
+   de lado dentro da grade, com a coluna das estufas fixa. */
+@media (width <= 40rem) {
+  #view-calendario {
+    --cal-col-estufa: 6.5rem;
+  }
+
+  .mesg {
+    min-width: 0;
+  }
+
+  .mesg__cab > span {
+    padding: var(--s-2) 2px;
+    text-align: center;
+  }
+
+  .mesg__nome-dia {
+    display: none;
+  }
+
+  .mesg__sigla-dia {
+    display: inline;
+  }
+
+  .mesg__semana,
+  .mesg__semana:has(.mesg__pendente) {
+    grid-template-rows: 3.25rem repeat(var(--trilhas), 1.875rem) 0.75rem;
+  }
+
+  .mesg__dia {
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 4px 2px 0;
+  }
+
+  .mesg__meta {
+    align-items: center;
+    margin-top: 0;
+  }
+
+  .mesg__pendente {
+    display: none;
+  }
+
+  .cal-barra-ev {
+    padding: 0 3px;
   }
 }
 

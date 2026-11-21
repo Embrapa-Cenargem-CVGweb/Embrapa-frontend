@@ -750,7 +750,7 @@
           </div>
 
           <div class="table-wrap">
-            <table class="table table--espacos">
+            <table class="table table--espacos table--cartoes">
               <caption class="sr-only">Espaços experimentais, com área, capacidade disponível, quem reservou e a situação editável</caption>
               <!-- Larguras fixas: sem elas o texto mais comprido de cada coluna
                    (o motivo do bloqueio, a lista de vasos) esticava a tabela
@@ -1100,8 +1100,17 @@
           </div>
 
           <div class="table-wrap">
-            <table class="table">
+            <table class="table table--usuarios table--cartoes">
               <caption class="sr-only">Usuários com acesso ao sistema, com e-mail, cargo e situação do acesso</caption>
+              <colgroup>
+                <col class="col-nome" />
+                <col class="col-email" />
+                <col class="col-matricula" />
+                <col class="col-cargo" />
+                <col class="col-situacao" />
+                <col class="col-acesso" />
+                <col class="col-acoes" />
+              </colgroup>
               <thead>
                 <tr>
                   <th scope="col">Nome completo</th>
@@ -2284,6 +2293,32 @@
         <svg class="ic ic--sm" aria-hidden="true"><use href="#i-calendar-plus" /></svg>
         Reservar a partir deste dia
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Reservas de hoje de um espaço: abre pelo nome na coluna "Reservado por". -->
+<div class="scrim" id="modal-reservado-por" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="reservado-por-titulo">
+    <div class="dialog__head">
+      <span class="dialog__mark"><svg class="ic" aria-hidden="true"><use href="#i-calendar-days" /></svg></span>
+      <div class="dialog__heading">
+        <h2 class="dialog__title" id="reservado-por-titulo">&mdash;</h2>
+        <p class="dialog__desc" id="reservado-por-desc">&mdash;</p>
+      </div>
+      <button type="button" class="close-btn" data-action="fechar" aria-label="Fechar">
+        <svg class="ic" aria-hidden="true"><use href="#i-x" /></svg>
+      </button>
+    </div>
+    <div class="dialog__body">
+      <h3 class="cal-dia__subtitulo">
+        Reservas de hoje
+        <span class="count" id="reservado-por-conta">0</span>
+      </h3>
+      <ul class="cal-reservas" id="reservado-por-lista"></ul>
+    </div>
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--quiet" data-action="fechar">Fechar</button>
     </div>
   </div>
 </div>
